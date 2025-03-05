@@ -12,14 +12,31 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
-export default function SignUpScreen({ navigation }) {
+export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [gender, setGender] = useState('');
+  const [isValidInput, setIsValidInput] = useState(false);
+  const navigation = useNavigation();
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
+  };
+
+  const handleSignIn = () => {
+    navigation.navigate('SignIn');
+  };
+
+  const validateInput = (text) => {
+    // Email regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Phone regex (supports international format)
+    const phoneRegex = /^\+?[0-9]{10,}$/;
+    
+    const isValid = emailRegex.test(text) || phoneRegex.test(text);
+    setIsValidInput(isValid);
   };
 
   return (
@@ -34,8 +51,8 @@ export default function SignUpScreen({ navigation }) {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.header}>
-              <Text style={styles.title}>Create Your</Text>
-              <Text style={styles.title}>Account</Text>
+              <Text style={styles.title}>Tạo tài khoản</Text>
+              <Text style={styles.title}>của bạn</Text>
               <TouchableOpacity style={styles.menuButton}>
                 <Ionicons name="ellipsis-horizontal" size={24} color="white" />
               </TouchableOpacity>
@@ -43,32 +60,37 @@ export default function SignUpScreen({ navigation }) {
 
             <View style={styles.formContainer}>
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Full Name</Text>
+                <Text style={styles.label}>Họ và tên</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.input}
-                    placeholder="John Smith"
+                    placeholder="Nguyễn Văn A"
                     placeholderTextColor="#999"
                   />
-                  <Ionicons name="checkmark" size={24} color="#8B0000" style={styles.checkIcon} />
                 </View>
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Phone or Gmail</Text>
+                <Text style={styles.label}>Số điện thoại hoặc Gmail</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.input}
                     placeholder="JohnSmith@gmail.com"
                     placeholderTextColor="#999"
                     keyboardType="email-address"
+                    onChangeText={validateInput}
                   />
-                  <Ionicons name="checkmark" size={24} color="#8B0000" style={styles.checkIcon} />
+                  <Ionicons 
+                    name="checkmark" 
+                    size={24} 
+                    color={isValidInput ? "#4CAF50" : "#8B0000"} 
+                    style={styles.checkIcon} 
+                  />
                 </View>
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Password</Text>
+                <Text style={styles.label}>Mật khẩu</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.input}
@@ -87,7 +109,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Confirm Password</Text>
+                <Text style={styles.label}>Xác nhận mật khẩu</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.input}
@@ -106,7 +128,7 @@ export default function SignUpScreen({ navigation }) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Gender</Text>
+                <Text style={styles.label}>Giới tính</Text>
                 <View style={styles.genderContainer}>
                   <TouchableOpacity 
                     style={[styles.genderButton, gender === 'male' && styles.genderButtonSelected]}
@@ -115,7 +137,7 @@ export default function SignUpScreen({ navigation }) {
                     <View style={styles.radioButton}>
                       {gender === 'male' && <View style={styles.radioButtonSelected} />}
                     </View>
-                    <Text style={styles.genderText}>Male</Text>
+                    <Text style={styles.genderText}>Nam</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
@@ -125,23 +147,25 @@ export default function SignUpScreen({ navigation }) {
                     <View style={styles.radioButton}>
                       {gender === 'female' && <View style={styles.radioButtonSelected} />}
                     </View>
-                    <Text style={styles.genderText}>Female</Text>
+                    <Text style={styles.genderText}>Nữ</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
               <TouchableOpacity style={styles.signUpButton}>
-                <Text style={styles.signUpButtonText}>SIGN UP</Text>
+                <Text style={styles.signUpButtonText}>ĐĂNG KÝ</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.signInContainer}
-                onPress={() => navigation.navigate('SignIn')}
-              >
-                <Text style={styles.signInText}>
-                  Already have account? <Text style={styles.signInLink}>Sign in</Text>
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.signInContainer}>
+                <TouchableOpacity onPress={handleSignIn}>
+                  <Text style={styles.signInText}>
+                    Đã có tài khoản?{' '}
+                    <Text style={styles.signInLink}>
+                      Đăng nhập
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
         </TouchableWithoutFeedback>
@@ -255,7 +279,6 @@ const styles = StyleSheet.create({
   },
   signInText: {
     color: '#666',
-    fontSize: 14,
   },
   signInLink: {
     color: '#8B0000',
