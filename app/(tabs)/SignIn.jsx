@@ -13,18 +13,19 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
-export default function SignInScreen({ navigation }) {
+export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
+  const navigation = useNavigation();
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
   };
 
-  const handleSignUpPress = () => {
+  const handleSignUp = () => {
     navigation.navigate('SignUp');
   };
-
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
@@ -104,12 +105,14 @@ export default function SignInScreen({ navigation }) {
               </View>
 
               <View style={styles.signUpContainer}>
-                <Text style={styles.signUpText}>
-                  Chưa có tài khoản? {' '}
-                  <Text style={styles.signUpLink} onPress={handleSignUpPress}>
-                    Đăng ký
+                <TouchableOpacity onPress={handleSignUp}>
+                  <Text style={styles.signUpText}>
+                    Chưa có tài khoản?{' '}
+                    <Text style={styles.signUpLink}>
+                      Đăng ký
+                    </Text>
                   </Text>
-                </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </ScrollView>
@@ -232,9 +235,9 @@ const styles = StyleSheet.create({
   signUpContainer: {
     marginTop: 'auto',
     marginBottom: 20,
+    alignItems: 'center',
   },
   signUpText: {
-    textAlign: 'center',
     color: '#666',
   },
   signUpLink: {
