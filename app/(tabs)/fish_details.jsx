@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, Image, TouchableOpacity, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import BackButton from '../../components/BackButton';
+import LikeButton from '../../components/LikeButton';
 
 // Create an image mapping object
 const fishImages = {
@@ -13,18 +14,7 @@ const fishImages = {
 };
 
 export default function FishDetails() {
-  const router = useRouter();
   const params = useLocalSearchParams();
-  const [isLiked, setIsLiked] = useState(params.liked === 'true');
-  const [likeCount, setLikeCount] = useState(parseInt(params.likes) || 0);
-
-  const handleBack = () => {
-    router.push("/(tabs)/menu"); // Explicitly navigate to menu
-  };
-
-  const handleLike = () => {
-    setIsLiked(prev => !prev);
-  };
 
   return (
     <View style={styles.container}>
@@ -35,12 +25,7 @@ export default function FishDetails() {
       >
         {/* Navigation Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={handleBack}
-            style={styles.backButton}
-          >
-            <Ionicons name="chevron-back-circle" size={32} color="white" />
-          </TouchableOpacity>
+          <BackButton />
           <TouchableOpacity style={styles.menuButton}>
             <Ionicons name="ellipsis-horizontal" size={24} color="white" />
           </TouchableOpacity>
@@ -50,25 +35,7 @@ export default function FishDetails() {
         <View style={styles.contentContainer}>
           {/* Fish Details Card */}
           <View style={styles.detailsCard}>
-            {/* Like Button with Count */}
-            <TouchableOpacity 
-              style={styles.likeButton}
-              onPress={handleLike}
-            >
-              <View style={[
-                styles.likeButtonInner,
-                isLiked && styles.likeButtonInnerActive
-              ]}>
-                <Ionicons 
-                  name={isLiked ? "heart" : "heart-outline"} 
-                  size={30} 
-                  color="#FF1493"  // Always pink
-                />
-              </View>
-              <View style={styles.likeCountContainer}>
-                <Text style={styles.likeCount}>{likeCount}</Text>
-              </View>
-            </TouchableOpacity>
+            <LikeButton initialLiked={params.liked === 'true'} />
 
             {/* Title Section */}
             <View style={styles.titleSection}>
@@ -82,7 +49,7 @@ export default function FishDetails() {
                 <Ionicons name="fish-outline" size={24} color="#666" />
               </View>
               <View style={styles.sizeTextContainer}>
-                <Text style={styles.sizeLabel}>Size</Text>
+                <Text style={styles.sizeLabel}>Kích thước</Text>
                 <Text style={styles.sizeValue}>2</Text>
               </View>
             </View>
@@ -114,41 +81,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
   },
-  backButton: {
-    padding: 8,
-  },
   menuButton: {
     padding: 8,
   },
   contentContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-  },
-  likeButton: {
-    position: 'absolute',
-    top: -28,
-    left: 40,
-    zIndex: 1,
-    alignItems: 'center',
-  },
-  likeButtonInner: {
-    backgroundColor: 'white',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  likeButtonInnerActive: {
-    backgroundColor: 'white', // Stays white when active
   },
   detailsCard: {
     backgroundColor: 'white',
