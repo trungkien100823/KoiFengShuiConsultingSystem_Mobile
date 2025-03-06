@@ -21,7 +21,7 @@ export default function BackButton() {
 
 const styles = StyleSheet.create({
   backButton: {
-    left: 20,
+    left: 10,
     padding: 8,
   },
 }); 
