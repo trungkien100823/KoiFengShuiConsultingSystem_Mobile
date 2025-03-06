@@ -29,7 +29,7 @@ const koiData = [
     id: 1,
     name: 'Asagi',
     variant: 'Jin',
-    description: 'The Asagi Koi is one of the most ancient and iconic varieties of Koi fish, highly valued for its elegant and harmonious coloration.',
+    description: 'Cá Koi Asagi là một trong những giống cá Koi cổ xưa và mang tính biểu tượng nhất, được đánh giá cao về màu sắc hài hòa và thanh lịch.',
     imageName: 'asagi.jpg',
     likes: 21,
     liked: false,
@@ -38,7 +38,7 @@ const koiData = [
     id: 2,
     name: 'Kohaku',
     variant: 'Tancho',
-    description: 'The Kohaku is considered the king of Koi, featuring a white body with red patterns. The Tancho variant displays a single red patch on the head.',
+    description: 'Kohaku được coi là vua của các loài Koi, với thân hình trắng và các hoa văn đỏ. Biến thể Tancho có một đốm đỏ duy nhất trên đầu.',
     imageName: 'kohaku.jpg',
     likes: 18,
     liked: false,
@@ -47,7 +47,7 @@ const koiData = [
     id: 3,
     name: 'Showa',
     variant: 'Sanshoku',
-    description: 'The Showa Sanshoku is a tri-colored Koi with a black base, accented with red and white patterns, creating a bold and striking appearance.',
+    description: 'Showa Sanshoku là cá Koi ba màu với nền đen, điểm xuyết các hoa văn đỏ và trắng, tạo nên vẻ ngoài đậm nét và ấn tượng.',
     imageName: 'showa.jpg',
     likes: 15,
     liked: false,
@@ -56,7 +56,7 @@ const koiData = [
     id: 4,
     name: 'Shiro Utsuri',
     variant: 'Platinum',
-    description: 'The Shiro Utsuri is a two-colored Koi with a white base and black markings. Known for its striking contrast and elegant swimming pattern.',
+    description: 'Shiro Utsuri là cá Koi hai màu với nền trắng và các đốm đen. Nổi tiếng với sự tương phản ấn tượng và kiểu bơi thanh lịch.',
     imageName: 'shiro.jpg',
     likes: 25,
     liked: false,
@@ -65,7 +65,7 @@ const koiData = [
     id: 5,
     name: 'Kujaku',
     variant: 'Metallic',
-    description: 'The Kujaku is a metallic Koi variety featuring a white base with flowing patterns of orange, red, and black, resembling a peacock plumage.',
+    description: 'Kujaku là giống Koi ánh kim với nền trắng cùng các hoa văn cam, đỏ và đen chảy dọc thân, giống như bộ lông của chim công.',
     imageName: 'kujaku.jpg',
     likes: 19,
     liked: false,
@@ -103,7 +103,7 @@ export default function MenuScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>What Suit You?</Text>
+        <Text style={styles.title}>Bạn Thích Gì?</Text>
         <TouchableOpacity style={styles.menuButton}>
           <Ionicons name="ellipsis-horizontal" size={24} color="black" />
         </TouchableOpacity>
