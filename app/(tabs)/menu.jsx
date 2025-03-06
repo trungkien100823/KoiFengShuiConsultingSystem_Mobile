@@ -12,90 +12,62 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import SortPopup from '../../components/SortPopup';
+import MoreButton from '../../components/MoreButton';
+import { koiData } from '../../constants/koiData';
+import { pondData } from '../../constants/koiPond';
+import { images } from '../../constants/images';
 
 const { width } = Dimensions.get('window');
 
-// Create an image mapping object
-const fishImages = {
-  'asagi.jpg': require('../../assets/images/asagi.jpg'),
-  'kohaku.jpg': require('../../assets/images/kohaku.jpg'),
-  'showa.jpg': require('../../assets/images/showa.jpg'),
-  'shiro.jpg': require('../../assets/images/shiro.jpg'),
-  'kujaku.jpg': require('../../assets/images/kujaku.jpg'),
-};
-
-const koiData = [
-  {
-    id: 1,
-    name: 'Asagi',
-    variant: 'Jin',
-    description: 'Cá Koi Asagi là một trong những giống cá Koi cổ xưa và mang tính biểu tượng nhất, được đánh giá cao về màu sắc hài hòa và thanh lịch.',
-    imageName: 'asagi.jpg',
-    likes: 21,
-    liked: false,
-  },
-  {
-    id: 2,
-    name: 'Kohaku',
-    variant: 'Tancho',
-    description: 'Kohaku được coi là vua của các loài Koi, với thân hình trắng và các hoa văn đỏ. Biến thể Tancho có một đốm đỏ duy nhất trên đầu.',
-    imageName: 'kohaku.jpg',
-    likes: 18,
-    liked: false,
-  },
-  {
-    id: 3,
-    name: 'Showa',
-    variant: 'Sanshoku',
-    description: 'Showa Sanshoku là cá Koi ba màu với nền đen, điểm xuyết các hoa văn đỏ và trắng, tạo nên vẻ ngoài đậm nét và ấn tượng.',
-    imageName: 'showa.jpg',
-    likes: 15,
-    liked: false,
-  },
-  {
-    id: 4,
-    name: 'Shiro Utsuri',
-    variant: 'Platinum',
-    description: 'Shiro Utsuri là cá Koi hai màu với nền trắng và các đốm đen. Nổi tiếng với sự tương phản ấn tượng và kiểu bơi thanh lịch.',
-    imageName: 'shiro.jpg',
-    likes: 25,
-    liked: false,
-  },
-  {
-    id: 5,
-    name: 'Kujaku',
-    variant: 'Metallic',
-    description: 'Kujaku là giống Koi ánh kim với nền trắng cùng các hoa văn cam, đỏ và đen chảy dọc thân, giống như bộ lông của chim công.',
-    imageName: 'kujaku.jpg',
-    likes: 19,
-    liked: false,
-  },
-];
-
 export default function MenuScreen() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedTab, setSelectedTab] = useState('Koi');
-  const [koiList, setKoiList] = useState(koiData);
-  const navigation = useNavigation();
   const router = useRouter();
+  const [selectedTab, setSelectedTab] = useState('Koi');
+  const [sortVisible, setSortVisible] = useState(false);
+  const [currentSort, setCurrentSort] = useState('all');
+  const [displayData, setDisplayData] = useState(koiData);
 
-  const handleScroll = (event) => {
-    const contentOffset = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffset / width);
-    setCurrentIndex(index);
+  const handleTabChange = (tab) => {
+    setSelectedTab(tab);
+    if (tab === 'Koi') {
+      setDisplayData(koiData);
+    } else if (tab === 'Pond') {
+      setDisplayData(pondData);
+    }
+    setCurrentSort('all');
+  };
+
+  const handleSort = (sortType) => {
+    setCurrentSort(sortType);
+    let sortedList = [...displayData];
+    switch (sortType) {
+      case 'destiny':
+        sortedList.sort((a, b) => a.variant.localeCompare(b.variant));
+        break;
+      case 'size':
+        sortedList.sort((a, b) => a.size - b.size);
+        break;
+      case 'comp':
+        sortedList.sort((a, b) => b.likes - a.likes);
+        break;
+      default:
+        // 'all' case - restore original order
+        sortedList = [...koiData];
+    }
+    setDisplayData(sortedList);
   };
 
   const handleLike = (id) => {
-    setKoiList(prevData => 
-      prevData.map(koi => {
-        if (koi.id === id) {
+    setDisplayData(prevData => 
+      prevData.map(item => {
+        if (item.id === id) {
           return {
-            ...koi,
-            likes: koi.liked ? koi.likes - 1 : koi.likes + 1,
-            liked: !koi.liked,
+            ...item,
+            likes: item.liked ? item.likes - 1 : item.likes + 1,
+            liked: !item.liked,
           };
         }
-        return koi;
+        return item;
       })
     );
   };
@@ -112,34 +84,37 @@ export default function MenuScreen() {
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <TextInput
-            placeholder="Search content..."
+            placeholder="Tìm kiếm ở đây"
             style={styles.searchInput}
           />
           <Ionicons name="search" size={20} color="#666" />
         </View>
-        <TouchableOpacity style={styles.filterButton}>
-          <Ionicons name="filter" size={20} color="#8B0000" />
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setSortVisible(true)}
+        >
+          <Ionicons name="filter" size={32} color="#8B0000" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.tabContainer}>
         <TouchableOpacity 
           style={[styles.tab, selectedTab === 'Koi' && styles.selectedTab]}
-          onPress={() => setSelectedTab('Koi')}
+          onPress={() => handleTabChange('Koi')}
         >
-          <Text style={[styles.tabText, selectedTab === 'Koi' && styles.selectedTabText]}>Koi</Text>
+          <Text style={[styles.tabText, selectedTab === 'Koi' && styles.selectedTabText]}>Cá Koi</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tab, selectedTab === 'Pond' && styles.selectedTab]}
-          onPress={() => setSelectedTab('Pond')}
+          onPress={() => handleTabChange('Pond')}
         >
-          <Text style={styles.tabText}>Pond</Text>
+          <Text style={styles.tabText}>Hồ cá</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tab, selectedTab === 'Other' && styles.selectedTab]}
-          onPress={() => setSelectedTab('Other')}
+          onPress={() => handleTabChange('Other')}
         >
-          <Text style={styles.tabText}>Other</Text>
+          <Text style={styles.tabText}>Khác</Text>
         </TouchableOpacity>
       </View>
 
@@ -151,49 +126,48 @@ export default function MenuScreen() {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
         >
-          {koiList.map((koi) => (
-            <View key={koi.id} style={styles.card}>
-              <Image source={fishImages[koi.imageName]} style={styles.image} />
+          {displayData.map((item) => (
+            <View key={item.id} style={styles.card}>
+              <Image 
+                source={images[item.imageName]} 
+                style={styles.image} 
+              />
               <View style={styles.infoContainer}>
                 <View style={styles.nameContainer}>
-                  <Text style={styles.name}>{koi.name} - <Text style={styles.variant}>{koi.variant}</Text></Text>
+                  <Text style={styles.name}>
+                    {item.name} 
+                    {selectedTab === 'Koi' ? 
+                      <Text style={styles.variant}> - {item.variant}</Text> :
+                      <Text style={styles.variant}> - {item.shape}</Text>
+                    }
+                  </Text>
                   <TouchableOpacity 
                     style={styles.likesContainer}
-                    onPress={() => handleLike(koi.id)}
+                    onPress={() => handleLike(item.id)}
                   >
-                    <Text style={styles.likes}>{koi.likes}</Text>
                     <Ionicons 
-                      name={koi.liked ? "heart" : "heart-outline"} 
-                      size={20} 
-                      color={koi.liked ? "#FF0000" : "#666"} 
+                      name={item.liked ? "heart" : "heart-outline"} 
+                      size={28} 
+                      color={item.liked ? "#FF0000" : "#666"} 
                     />
+                    <Text style={styles.likesCount}>{item.likes}</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.description}>{koi.description}</Text>
-                <TouchableOpacity 
-                  style={styles.moreButton}
-                  onPress={() => router.push({
-                    pathname: '/fish_details',
-                    params: {
-                      name: koi.name,
-                      variant: koi.variant,
-                      description: koi.description,
-                      imageName: koi.imageName,
-                      likes: koi.likes,
-                      liked: koi.liked,
-                    }
-                  })}
-                >
-                  <Text style={styles.moreButtonText}>More</Text>
-                </TouchableOpacity>
+                <Text style={styles.description}>{item.description}</Text>
+                <MoreButton koi={item} />
               </View>
             </View>
           ))}
         </ScrollView>
       </ScrollView>
+
+      <SortPopup 
+        visible={sortVisible}
+        onClose={() => setSortVisible(false)}
+        onSort={handleSort}
+        currentSort={currentSort}
+      />
     </View>
   );
 }
@@ -239,13 +213,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 8,
+    marginRight: -8,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -295,29 +264,16 @@ const styles = StyleSheet.create({
     color: '#8B0000',
   },
   likesContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+    padding: 8,
+    marginRight: -8,
   },
-  likes: {
-    fontSize: 14,
-    color: '#666',
+  likesCount: {
+    marginLeft: 5,
   },
   description: {
     color: '#666',
     lineHeight: 20,
     marginBottom: 15,
-  },
-  moreButton: {
-    backgroundColor: '#8B0000',
-    padding: 12,
-    borderRadius: 25,
-    alignItems: 'center',
-    width: 100,
-  },
-  moreButtonText: {
-    color: 'white',
-    fontWeight: '500',
   },
 });
 
