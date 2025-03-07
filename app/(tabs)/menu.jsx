@@ -8,6 +8,7 @@ import {
   Dimensions,
   TouchableOpacity,
   TextInput,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -17,6 +18,7 @@ import MoreButton from '../../components/MoreButton';
 import { koiData } from '../../constants/koiData';
 import { pondData } from '../../constants/koiPond';
 import { images } from '../../constants/images';
+import CustomTabBar from '../../components/ui/CustomTabBar';
 
 const { width } = Dimensions.get('window');
 
@@ -168,6 +170,7 @@ export default function MenuScreen() {
         onSort={handleSort}
         currentSort={currentSort}
       />
+      <CustomTabBar />
     </View>
   );
 }
@@ -176,6 +179,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    paddingBottom: Platform.OS === 'ios' ? 70 : 50,
   },
   header: {
     flexDirection: 'row',
