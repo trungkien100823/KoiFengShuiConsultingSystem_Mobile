@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import BackButton from '../../components/BackButton';
@@ -23,7 +23,11 @@ export default function PondDetails() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.contentContainer}>
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.spacer} />
           <View style={styles.detailsCard}>
             <View style={styles.likeButtonContainer}>
               <View style={styles.likeButtonBackground}>
@@ -69,7 +73,7 @@ export default function PondDetails() {
               ))}
             </ScrollView>
           </View>
-        </View>
+        </ScrollView>
       </ImageBackground>
     </View>
   );
@@ -90,13 +94,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
   },
-  menuButton: {
-    padding: 8,
-  },
-  contentContainer: {
+  scrollView: {
     flex: 1,
-    justifyContent: 'flex-end',
+  },
+  spacer: {
+    height: 450, // Adjust this value to control when the white card appears
   },
   detailsCard: {
     backgroundColor: 'white',
@@ -104,14 +112,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     padding: 30,
     paddingTop: 40,
-    maxHeight: '60%',
-    position: 'relative',
+    minHeight: '100%', // This ensures the white background extends to the bottom
   },
   likeButtonContainer: {
     position: 'absolute',
+    top: -0,
+    left: 0,
+    zIndex: 1,
   },
   likeButtonBackground: {
-    backgroundColor: '#FF1493',
     borderRadius: 30,
     padding: 8,
   },

@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { router } from 'expo-router';
 
 export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
@@ -82,7 +83,7 @@ export default function SignInScreen() {
                 <Text style={styles.forgotPassword}>Quên mật khẩu?</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.signInButton}>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/menu')} style={styles.signInButton}>
                 <Text style={styles.signInButtonText}>Đăng nhập</Text>
               </TouchableOpacity>
 
