@@ -10,6 +10,7 @@ enableScreens();
 import AuthScreen from '../app/(tabs)';
 import SignInScreen from '../app/(tabs)/SignIn';
 import SignUpScreen from '../app/(tabs)/SignUp';
+import UserInfoScreen from '../screens/UserInfoScreen';
 
 const Stack = createStackNavigator();
 
@@ -38,6 +39,14 @@ export default function Navigation() {
           name="SignUp" 
           component={SignUpScreen}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="UserInfo" 
+          component={UserInfoScreen}
+          options={{ 
+            headerShown: false,
+            presentation: 'modal'
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

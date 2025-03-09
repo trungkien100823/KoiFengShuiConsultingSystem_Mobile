@@ -29,6 +29,18 @@ export default function SignUpScreen() {
     navigation.navigate('SignIn');
   };
 
+  const handleSubmit = () => {
+    const userData = {
+      element: 'Hỏa',
+      fullName: 'John Smith',
+      birthDate: '1/1/2000',
+      gender: 'Nam',
+      destiny: 'Khám'
+    };
+    
+    navigation.navigate('UserInfo', { userData });
+  };
+
   const validateInput = (text) => {
     // Email regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -152,7 +164,10 @@ export default function SignUpScreen() {
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.signUpButton}>
+              <TouchableOpacity 
+                style={styles.signUpButton} 
+                onPress={handleSubmit}
+              >
                 <Text style={styles.signUpButtonText}>ĐĂNG KÝ</Text>
               </TouchableOpacity>
 
