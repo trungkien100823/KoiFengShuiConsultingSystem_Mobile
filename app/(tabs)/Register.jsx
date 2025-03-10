@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-export default function SignUpScreen() {
+export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [gender, setGender] = useState('');
@@ -25,8 +25,8 @@ export default function SignUpScreen() {
     Keyboard.dismiss();
   };
 
-  const handleSignIn = () => {
-    navigation.navigate('SignIn');
+  const handleLogin = () => {
+    navigation.navigate('Login');
   };
 
   const handleSubmit = () => {
@@ -172,7 +172,7 @@ export default function SignUpScreen() {
               </TouchableOpacity>
 
               <View style={styles.signInContainer}>
-                <TouchableOpacity onPress={handleSignIn}>
+                <TouchableOpacity onPress={handleLogin}>
                   <Text style={styles.signInText}>
                     Đã có tài khoản?{' '}
                     <Text style={styles.signInLink}>
