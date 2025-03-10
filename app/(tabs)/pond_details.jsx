@@ -1,20 +1,67 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import BackButton from '../../components/BackButton';
 import LikeButton from '../../components/LikeButton';
-import { images } from '../../constants/images';
+import { pondAPI, pondImages } from '../../constants/koiPond';
+import { useState, useEffect } from 'react';
 
 export default function PondDetails() {
   const params = useLocalSearchParams();
-  const features = params.features ? params.features.split(',') : [];
+  const [pondDetails, setPondDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPondDetails = async () => {
+      try {
+        setLoading(true);
+        const details = await pondAPI.getPondDetails(params.id);
+        setPondDetails(details);
+      } catch (error) {
+        console.error('Error fetching pond details:', error);
+        Alert.alert('Error', 'Failed to load pond details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPondDetails();
+  }, [params.id]);
+
+  const getPondImageSource = (imageName) => {
+    try {
+      return pondImages[imageName] || pondImages['default_pond.jpg'];
+    } catch (error) {
+      console.error('Error loading pond image:', imageName);
+      return pondImages['default_pond.jpg'];
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8B0000" />
+      </View>
+    );
+  }
+
+  if (!pondDetails) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>Failed to load pond details</Text>
+      </View>
+    );
+  }
+
+  const features = pondDetails.features || [];
 
   return (
     <View style={styles.container}>
       <ImageBackground 
-        source={images[params.imageName]} 
+        source={getPondImageSource(pondDetails.imageName)}
         style={styles.backgroundImage}
         resizeMode="cover"
+        defaultSource={pondImages['default_pond.jpg']}
       >
         <View style={styles.header}>
           <BackButton />
@@ -31,35 +78,35 @@ export default function PondDetails() {
           <View style={styles.detailsCard}>
             <View style={styles.likeButtonContainer}>
               <View style={styles.likeButtonBackground}>
-                <LikeButton initialLiked={params.liked === 'true'} />
+                <LikeButton initialLiked={pondDetails.liked === 'true'} />
               </View>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.titleSection}>
-                <Text style={styles.pondName}>{params.name}</Text>
-                <Text style={styles.pondShape}>{params.shape}</Text>
+                <Text style={styles.pondName}>{pondDetails.name}</Text>
+                <Text style={styles.pondShape}>{pondDetails.shape}</Text>
               </View>
 
               <View style={styles.specificationGrid}>
                 <View style={styles.specBox}>
                   <Ionicons name="resize" size={24} color="#666" />
                   <Text style={styles.specLabel}>Kích thước</Text>
-                  <Text style={styles.specValue}>{params.size}</Text>
+                  <Text style={styles.specValue}>{pondDetails.size}</Text>
                 </View>
                 <View style={styles.specBox}>
                   <Ionicons name="water" size={24} color="#666" />
                   <Text style={styles.specLabel}>Độ sâu</Text>
-                  <Text style={styles.specValue}>{params.depth}</Text>
+                  <Text style={styles.specValue}>{pondDetails.depth}</Text>
                 </View>
                 <View style={styles.specBox}>
                   <Ionicons name="fish" size={24} color="#666" />
                   <Text style={styles.specLabel}>Số cá phù hợp</Text>
-                  <Text style={styles.specValue}>{params.idealFishCount}</Text>
+                  <Text style={styles.specValue}>{pondDetails.idealFishCount}</Text>
                 </View>
               </View>
 
               <View style={styles.shortDescriptionContainer}>
-                <Text style={styles.shortDescription}>{params.description}</Text>
+                <Text style={styles.shortDescription}>{pondDetails.description}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -191,5 +238,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

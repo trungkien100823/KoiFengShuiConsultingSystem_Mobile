@@ -5,8 +5,6 @@ export default function SortPopup({ visible, onClose, onSort, currentSort }) {
   const sortOptions = [
     { id: 'all', label: 'Tất cả' },
     { id: 'destiny', label: 'Vận mệnh' },
-    { id: 'size', label: 'Kích thước' },
-    { id: 'comp', label: 'So sánh' },
   ];
 
   return (
