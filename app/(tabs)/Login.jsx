@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
 
-export default function SignInScreen() {
+export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
 
@@ -24,8 +24,8 @@ export default function SignInScreen() {
     Keyboard.dismiss();
   };
 
-  const handleSignUp = () => {
-    navigation.navigate('SignUp');
+  const handleRegister = () => {
+    navigation.navigate('Register');
   };
   return (
     <SafeAreaView style={styles.container}>
@@ -106,7 +106,7 @@ export default function SignInScreen() {
               </View>
 
               <View style={styles.signUpContainer}>
-                <TouchableOpacity onPress={handleSignUp}>
+                <TouchableOpacity onPress={handleRegister}>
                   <Text style={styles.signUpText}>
                     Chưa có tài khoản?{' '}
                     <Text style={styles.signUpLink}>

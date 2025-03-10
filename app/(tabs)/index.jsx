@@ -9,7 +9,7 @@ export default function AuthScreen() {
 
   const handleSignIn = () => {
     try {
-      navigation.navigate('SignIn');
+      navigation.navigate('Login');
     } catch (error) {
       console.log('Navigation error:', error);
     }
@@ -17,7 +17,7 @@ export default function AuthScreen() {
 
   const handleSignUp = () => {
     try {
-      navigation.navigate('SignUp');
+      navigation.navigate('Register');
     } catch (error) {
       console.log('Navigation error:', error);
     }

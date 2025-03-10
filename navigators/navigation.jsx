@@ -8,8 +8,8 @@ enableScreens();
 
 // Import your screens
 import AuthScreen from '../app/(tabs)';
-import SignInScreen from '../app/(tabs)/SignIn';
-import SignUpScreen from '../app/(tabs)/SignUp';
+import LoginScreen from '../app/(tabs)/Login';
+import RegisterScreen from '../app/(tabs)/Register';
 import UserInfoScreen from '../screens/UserInfoScreen';
 
 const Stack = createStackNavigator();
@@ -31,13 +31,13 @@ export default function Navigation() {
           options={{ headerShown: false }}
         />
         <Stack.Screen 
-          name="SignIn" 
-          component={SignInScreen}
+          name="Login" 
+          component={LoginScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen 
-          name="SignUp" 
-          component={SignUpScreen}
+          name="Register" 
+          component={RegisterScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen 
