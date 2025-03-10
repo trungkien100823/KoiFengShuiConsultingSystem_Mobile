@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,16 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import SortPopup from '../../components/SortPopup';
 import MoreButton from '../../components/MoreButton';
-import { koiData } from '../../constants/koiData';
-import { pondData } from '../../constants/koiPond';
+import { koiAPI, koiData } from '../../constants/koiData';
+import { pondAPI, pondData, pondImages } from '../../constants/koiPond';
 import { images } from '../../constants/images';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 
@@ -27,36 +29,69 @@ export default function MenuScreen() {
   const [selectedTab, setSelectedTab] = useState('Koi');
   const [sortVisible, setSortVisible] = useState(false);
   const [currentSort, setCurrentSort] = useState('all');
-  const [displayData, setDisplayData] = useState(koiData);
+  const [displayData, setDisplayData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleTabChange = (tab) => {
-    setSelectedTab(tab);
-    if (tab === 'Koi') {
+  const fetchAllKoi = async () => {
+    try {
+      setIsLoading(true);
+      const data = await koiAPI.getAllKoi();
+      setDisplayData(data);
+    } catch (error) {
+      console.error('Error fetching Koi:', error);
       setDisplayData(koiData);
-    } else if (tab === 'Pond') {
-      setDisplayData(pondData);
+      Alert.alert(
+        "Loading Data",
+        "Unable to fetch from server. Using local data instead.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsLoading(false);
     }
-    setCurrentSort('all');
+  };
+
+  const fetchUserKoi = async () => {
+    try {
+      setIsLoading(true);
+      const data = await koiAPI.getUserKoi();
+      setDisplayData(data);
+    } catch (error) {
+      console.error('Error fetching user Koi:', error);
+      const filteredKoi = koiData.filter(koi => koi.variant === 'Jin');
+      setDisplayData(filteredKoi);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSort = (sortType) => {
     setCurrentSort(sortType);
-    let sortedList = [...displayData];
-    switch (sortType) {
-      case 'destiny':
-        sortedList.sort((a, b) => a.variant.localeCompare(b.variant));
-        break;
-      case 'size':
-        sortedList.sort((a, b) => a.size - b.size);
-        break;
-      case 'comp':
-        sortedList.sort((a, b) => b.likes - a.likes);
-        break;
-      default:
-        // 'all' case - restore original order
-        sortedList = [...koiData];
+    if (sortType === 'all') {
+      fetchAllKoi();
+    } else if (sortType === 'destiny') {
+      fetchUserKoi();
     }
-    setDisplayData(sortedList);
+  };
+
+  const handleTabChange = async (tab) => {
+    setSelectedTab(tab);
+    setIsLoading(true);
+    try {
+      if (tab === 'Koi') {
+        const data = await koiAPI.getAllKoi();
+        setDisplayData(data);
+      } else if (tab === 'Pond') {
+        const data = await pondAPI.getAllPonds();
+        setDisplayData(data);
+      } else {
+        setDisplayData([]);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setDisplayData([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLike = (id) => {
@@ -73,6 +108,62 @@ export default function MenuScreen() {
       })
     );
   };
+
+  const handleItemPress = (item) => {
+    console.log('Selected item:', item);
+    if (selectedTab === 'Koi') {
+      router.push({
+        pathname: '/(tabs)/fish_details',
+        params: { id: item.id }
+      });
+    } else if (selectedTab === 'Pond') {
+      router.push({
+        pathname: '/(tabs)/pond_details',
+        params: { id: item.id }
+      });
+    }
+  };
+
+  const renderItem = (item, index) => {
+    if (!item) {
+      console.log('Invalid item:', item);
+      return null;
+    }
+
+    // Generate a unique key using both id and index
+    const uniqueKey = `${selectedTab}-${item.id || index}`;
+
+    return (
+      <TouchableOpacity
+        key={uniqueKey}
+        style={styles.itemCard}
+        onPress={() => handleItemPress(item)}
+      >
+        <View style={styles.imageContainer}>
+          <View style={styles.imagePlaceholder} />
+        </View>
+        <View style={styles.cardContent}>
+          <Text style={styles.itemName}>
+            {item.name || 'Unknown Name'}
+          </Text>
+          <Text style={styles.itemVariant}>
+            {selectedTab === 'Koi' ? (item.variant || 'Unknown Variant') : (item.shape || 'Unknown Shape')}
+          </Text>
+          <Text style={styles.itemDescription} numberOfLines={2}>
+            {item.description || 'No description available'}
+          </Text>
+          <MoreButton 
+            item={item} 
+            type={selectedTab}
+          />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  useEffect(() => {
+    handleTabChange(selectedTab);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -110,13 +201,13 @@ export default function MenuScreen() {
           style={[styles.tab, selectedTab === 'Pond' && styles.selectedTab]}
           onPress={() => handleTabChange('Pond')}
         >
-          <Text style={styles.tabText}>Hồ cá</Text>
+          <Text style={[styles.tabText, selectedTab === 'Pond' && styles.selectedTabText]}>Hồ cá</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tab, selectedTab === 'Other' && styles.selectedTab]}
           onPress={() => handleTabChange('Other')}
         >
-          <Text style={styles.tabText}>Khác</Text>
+          <Text style={[styles.tabText, selectedTab === 'Other' && styles.selectedTabText]}>Khác</Text>
         </TouchableOpacity>
       </View>
 
@@ -124,44 +215,61 @@ export default function MenuScreen() {
         style={styles.mainContent}
         showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-        >
-          {displayData.map((item) => (
-            <View key={item.id} style={styles.card}>
-              <Image 
-                source={images[item.imageName]} 
-                style={styles.image} 
-              />
-              <View style={styles.infoContainer}>
-                <View style={styles.nameContainer}>
-                  <Text style={styles.name}>
-                    {item.name} 
-                    {selectedTab === 'Koi' ? 
-                      <Text style={styles.variant}> - {item.variant}</Text> :
-                      <Text style={styles.variant}> - {item.shape}</Text>
-                    }
-                  </Text>
-                  <TouchableOpacity 
-                    style={styles.likesContainer}
-                    onPress={() => handleLike(item.id)}
-                  >
-                    <Ionicons 
-                      name={item.liked ? "heart" : "heart-outline"} 
-                      size={28} 
-                      color={item.liked ? "#FF0000" : "#666"} 
-                    />
-                    <Text style={styles.likesCount}>{item.likes}</Text>
-                  </TouchableOpacity>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#8B0000" />
+          </View>
+        ) : displayData && displayData.length > 0 ? (
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+          >
+            {displayData.map((item, index) => (
+              <View key={`${selectedTab}-${item.id || index}`} style={styles.card}>
+                <Image 
+                  source={selectedTab === 'Pond' ? pondImages[item.imageName] : images[item.imageName]} 
+                  style={styles.image} 
+                />
+                <View style={styles.infoContainer}>
+                  <View style={styles.nameContainer}>
+                    <Text style={styles.name}>
+                      {item.name} 
+                      {selectedTab === 'Koi' ? 
+                        <Text style={styles.variant}> - {item.variant}</Text> :
+                        <Text style={styles.variant}> - {item.shape}</Text>
+                      }
+                    </Text>
+                    <TouchableOpacity 
+                      style={styles.likesContainer}
+                      onPress={() => handleLike(item.id)}
+                    >
+                      <Ionicons 
+                        name={item.liked ? "heart" : "heart-outline"} 
+                        size={28} 
+                        color={item.liked ? "#FF0000" : "#666"} 
+                      />
+                      <Text style={styles.likesCount}>{item.likes}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.description}>{item.description}</Text>
+                  {selectedTab === 'Pond' && item.features && (
+                    <View style={styles.featuresContainer}>
+                      {item.features.map((feature, index) => (
+                        <Text key={index} style={styles.feature}>• {feature}</Text>
+                      ))}
+                    </View>
+                  )}
+                  <MoreButton item={item} type={selectedTab} />
                 </View>
-                <Text style={styles.description}>{item.description}</Text>
-                <MoreButton koi={item} />
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No data available</Text>
+          </View>
+        )}
       </ScrollView>
 
       <SortPopup 
@@ -169,6 +277,7 @@ export default function MenuScreen() {
         onClose={() => setSortVisible(false)}
         onSort={handleSort}
         currentSort={currentSort}
+        isLoading={isLoading}
       />
       <CustomTabBar />
     </View>
@@ -278,6 +387,31 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
     marginBottom: 15,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 400,
+  },
+  noDataContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 400,
+  },
+  noDataText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  featuresContainer: {
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  feature: {
+    color: '#666',
+    marginBottom: 5,
+    fontSize: 14,
   },
 });
 

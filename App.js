@@ -17,3 +17,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 }); 
+// In Program.cs or Startup.cs
+builder.Services.AddCors(options =>
+  {
+      options.AddPolicy("AllowAll",
+          builder =>
+          {
+              builder
+                  .AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+          });
+  });
+  
+  // ... and in the middleware section:
+  app.UseCors("AllowAll");

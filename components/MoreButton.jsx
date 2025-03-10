@@ -1,51 +1,55 @@
+import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
-export default function MoreButton({ koi }) {
+export default function MoreButton({ item, type }) {
   const router = useRouter();
 
   const handlePress = () => {
-    const isPond = 'shape' in koi;
-    router.push({
-      pathname: isPond ? '/pond_details' : '/fish_details',
-      params: {
-        name: koi.name,
-        variant: koi.variant,
-        shape: koi.shape,
-        description: koi.description,
-        imageName: koi.imageName,
-        likes: koi.likes,
-        liked: koi.liked,
-        size: koi.size,
-        depth: koi.depth,
-        idealFishCount: koi.idealFishCount,
-        features: koi.features?.join(','),
+    if (!item || !item.id) {
+      console.error('Invalid item data:', item);
+      return;
+    }
+
+    try {
+      if (type === 'Koi') {
+        router.push({
+          pathname: '/(tabs)/fish_details',
+          params: { id: item.id }
+        });
+      } else if (type === 'Pond') {
+        router.push({
+          pathname: '/(tabs)/pond_details',
+          params: { id: item.id }
+        });
       }
-    });
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
   };
 
   return (
     <TouchableOpacity 
-      style={styles.moreButton}
+      style={styles.button} 
       onPress={handlePress}
     >
-      <Text style={styles.moreButtonText}>Tìm hiểu thêm</Text>
+      <Text style={styles.buttonText}>Tìm hiểu thêm</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  moreButton: {
+  button: {
     backgroundColor: '#8B0000',
     paddingHorizontal: 30,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 10,
     alignSelf: 'flex-start',
-    marginTop: 5,
+    marginTop: 8,
   },
-  moreButtonText: {
-    color: 'white',
-    fontSize: 14,
+  buttonText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '500',
   },
 });

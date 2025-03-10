@@ -1,9 +1,14 @@
+import axios from 'axios';
+import { API_CONFIG } from './config';
+
+// Pond images mapping
 export const pondImages = {
   'natural_pond.jpg': require('../assets/images/natural_pond.jpg'),
   'formal_pond.jpg': require('../assets/images/formal_pond.jpg'),
   'zen_pond.jpg': require('../assets/images/zen_pond.jpg'),
   'waterfall_pond.jpg': require('../assets/images/waterfall_pond.jpg'),
   'raised_pond.jpg': require('../assets/images/raised_pond.jpg'),
+  'default_pond.jpg': require('../assets/images/natural_pond.jpg'),
 };
 
 export const pondData = [
@@ -98,3 +103,203 @@ export const pondData = [
     idealFishCount: '8-15',
   },
 ];
+
+// Helper functions defined outside of pondAPI
+const getPondFeatures = (shape, direction) => {
+  const baseFeatures = [
+    'Professional filtration system',
+    'UV sterilizer',
+    'Bottom drain',
+    'Skimmer system'
+  ];
+
+  const shapeFeatures = {
+    'Natural': ['Natural rock edges', 'Plant zones'],
+    'Formal': ['Clean geometric lines', 'Raised edges'],
+    'Zen': ['Minimalist design', 'Stone arrangements'],
+    'Modern': ['Contemporary styling', 'LED lighting']
+  };
+
+  const directionFeatures = {
+    'North': ['South-facing viewing area', 'Protected from cold winds'],
+    'South': ['Partial shade elements', 'Cool water features'],
+    'East': ['Morning sun exposure', 'Afternoon shade'],
+    'West': ['Evening sun features', 'Heat management system']
+  };
+
+  return [
+    ...(shapeFeatures[shape] || []),
+    ...(directionFeatures[direction] || []),
+    ...baseFeatures
+  ];
+};
+
+const calculateIdealFishCount = (size) => {
+  if (!size) return 'Not specified';
+  // Rough estimate: 1 koi per 50 m²
+  const count = Math.floor(size / 50);
+  return `${count}-${count + 5} koi`;
+};
+
+export const pondAPI = {
+  getAllPonds: async () => {
+    try {
+      const response = await axios.get(`${API_CONFIG.baseURL}/api/KoiPond/get-all`);
+      console.log('All ponds response:', response.data);
+      
+      if (response.data && response.data.isSuccess && Array.isArray(response.data.data)) {
+        return response.data.data.map(item => ({
+          id: item.koiPondId,
+          name: item.pondName || 'Unknown Pond',
+          shape: item.shapeName || 'Unknown Shape',
+          description: item.description || 'A beautiful Koi pond.',
+          features: getPondFeatures(item.shapeName, item.direction),
+          size: item.size ? `${item.size} m²` : 'Size not specified',
+          direction: item.direction || 'Not specified'
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching ponds:', error);
+      return [];
+    }
+  },
+
+  getUserPonds: async () => {
+    try {
+      const response = await axios.get(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.userPonds}`);
+      
+      if (response.data && response.data.isSuccess && Array.isArray(response.data.data)) {
+        return response.data.data.map(item => ({
+          id: item.id,
+          name: item.name,
+          shape: item.shape || 'Unknown',
+          description: item.description,
+          features: item.features || [],
+          imageName: getPondImageName(item.shape || item.name),
+          likes: 0,
+          liked: true,
+          size: item.size || 'Medium',
+          depth: item.depth || '1.5m',
+          idealFishCount: item.idealFishCount || '5-10'
+        }));
+      }
+      return pondData.filter(pond => pond.liked);
+    } catch (error) {
+      console.error('Error fetching user ponds:', error);
+      return pondData.filter(pond => pond.liked);
+    }
+  },
+
+  // Get details for a specific pond
+  getPondDetails: async (pondId) => {
+    try {
+      console.log('Fetching Pond details for ID:', pondId);
+      const response = await axios.get(`${API_CONFIG.baseURL}/api/KoiPond/get`, {
+        params: { id: pondId }
+      });
+      console.log('Pond details response:', response.data);
+      
+      if (response.data && response.data.isSuccess && response.data.data) {
+        const item = response.data.data;
+        return {
+          id: item.koiPondId,
+          name: item.pondName || 'Unknown Pond',
+          shape: item.shapeName || 'Unknown Shape',
+          description: item.description || 'A beautiful Koi pond.',
+          features: getPondFeatures(item.shapeName, item.direction) || [],
+          size: item.size ? `${item.size} m²` : 'Size not specified',
+          depth: item.depth || '1.5-2m',
+          idealFishCount: calculateIdealFishCount(item.size),
+          direction: item.direction || 'Not specified',
+          likes: Math.floor(Math.random() * 50),
+          liked: false,
+          price: item.price || `${Math.floor(Math.random() * 5000 + 1000)}$`,
+          materials: item.materials || ['Natural stone', 'Concrete', 'Filtration system'],
+          maintenance: item.maintenance || 'Regular cleaning and water quality monitoring required'
+        };
+      }
+      throw new Error('Invalid response format');
+    } catch (error) {
+      console.error('Error fetching Pond details:', error);
+      throw error;
+    }
+  },
+
+  // Helper functions
+  getPondFeatures: (shape, direction) => {
+    const baseFeatures = [
+      'Professional filtration system',
+      'UV sterilizer',
+      'Bottom drain',
+      'Skimmer system'
+    ];
+
+    const shapeFeatures = {
+      'Natural': ['Natural rock edges', 'Plant zones'],
+      'Formal': ['Clean geometric lines', 'Raised edges'],
+      'Zen': ['Minimalist design', 'Stone arrangements'],
+      'Modern': ['Contemporary styling', 'LED lighting']
+    };
+
+    const directionFeatures = {
+      'North': ['South-facing viewing area', 'Protected from cold winds'],
+      'South': ['Partial shade elements', 'Cool water features'],
+      'East': ['Morning sun exposure', 'Afternoon shade'],
+      'West': ['Evening sun features', 'Heat management system']
+    };
+
+    return [
+      ...(shapeFeatures[shape] || []),
+      ...(directionFeatures[direction] || []),
+      ...baseFeatures
+    ];
+  },
+
+  calculateIdealFishCount: (size) => {
+    if (!size) return 'Not specified';
+    // Rough estimate: 1 koi per 50 m²
+    const count = Math.floor(size / 50);
+    return `${count}-${count + 5} koi`;
+  }
+};
+
+// Helper functions to map API data to display format
+function getPondTypeFromShape(shapeName) {
+  const shapeMapping = {
+    'Oval': 'zen',
+    'Rectangle': 'formal',
+    'Irregular': 'natural',
+    'Circular': 'raised'
+  };
+  return shapeMapping[shapeName] || 'natural';
+}
+
+function getPondImageName(pondType) {
+  const imageMapping = {
+    'zen': 'zen_pond.jpg',
+    'formal': 'formal_pond.jpg',
+    'natural': 'natural_pond.jpg',
+    'raised': 'raised_pond.jpg'
+  };
+  return imageMapping[pondType] || 'natural_pond.jpg';
+}
+
+function getPondDescription(name, shape) {
+  if (name.includes('Zen')) {
+    return 'Hồ Koi phong cách Thiền với thiết kế tối giản, tạo không gian yên tĩnh và thanh bình. Kết hợp hoàn hảo giữa nước, đá và cây cảnh.';
+  } else if (name.includes('Modern')) {
+    return 'Thiết kế hồ Koi hiện đại với các đường nét hình học rõ ràng. Phù hợp với kiến trúc đương đại và tạo điểm nhấn cho không gian sân vườn.';
+  }
+  return 'Hồ Koi tự nhiên với thiết kế hài hòa, tạo không gian thư giãn hoàn hảo cho khu vườn của bạn.';
+}
+
+function translateDirection(direction) {
+  const directions = {
+    'North': 'Bắc',
+    'South': 'Nam',
+    'East': 'Đông',
+    'West': 'Tây'
+  };
+  return directions[direction] || direction;
+}
