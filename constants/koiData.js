@@ -64,58 +64,78 @@ export const koiData = [
   },
 ];
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const koiAPI = {
   getAllKoi: async () => {
     try {
-      const response = await axios.get(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.allKoi}`);
+      const response = await axios.get(`${API_CONFIG.baseURL}/api/KoiVariety`);
+      console.log('All Koi response:', response.data);
       
       if (response.data && response.data.isSuccess && Array.isArray(response.data.data)) {
         return response.data.data.map(item => ({
-          id: item.id || String(Math.random()),
-          name: item.varietyName || 'Unknown',
-          variant: item.varietyName || 'Unknown',
-          description: item.description || 'No description available',
-          imageName: `${(item.varietyName || 'unknown').toLowerCase()}.jpg`,
-          likes: 0,
-          liked: false,
-          size: item.size || '2',
-          colors: item.colors || []
+          id: item.koiId || item.id,
+          name: item.name || 'Unknown Koi',
+          variant: item.varietyName || 'Unknown Variety',
+          description: item.description || 'A beautiful Koi fish.',
         }));
       }
-      return koiData;
+      console.warn('Invalid response format for getAllKoi:', response.data);
+      return [];
     } catch (error) {
-      console.error('Error fetching Koi varieties:', error);
-      return koiData;
+      console.error('Error fetching Koi list:', error);
+      return [];
     }
   },
 
   getKoiDetails: async (koiId) => {
     try {
-      console.log('Fetching Koi details for ID:', koiId);
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/KoiVariety/DetailKoi/${koiId}`);
-      console.log('API Response:', response.data);
-      
-      if (response.data && response.data.isSuccess && response.data.data) {
-        const item = response.data.data;
-        return {
-          id: item.id,
-          name: item.name || 'Unknown Koi',
-          variant: item.varietyName || 'Unknown Variety',
-          description: item.description || 'A beautiful and unique Koi fish.',
-          characteristics: item.characteristics || 'Distinctive patterns and coloring.',
-          habitat: item.habitat || 'Freshwater ponds with proper filtration.',
-          diet: item.diet || 'High-quality Koi food, vegetables, and insects.',
-          lifespan: item.lifespan || '25-35 years',
-          size: item.size || `${Math.floor(Math.random() * 30 + 20)} cm`,
-          price: item.price || `${Math.floor(Math.random() * 500 + 100)}$`,
-          likes: Math.floor(Math.random() * 50),
-          liked: false,
-          colors: item.colors || ['Red', 'White', 'Black']
-        };
+      if (!koiId) {
+        throw new Error('No Koi ID provided');
       }
-      throw new Error('Invalid response format');
+
+      console.log('Fetching Koi details for ID:', koiId);
+      
+      // Using the exact URL format from your example
+      const response = await axios.get(`${API_CONFIG.baseURL}/api/KoiVariety/${koiId}`);
+      console.log('Raw Koi details response:', response);
+      
+      // Check if we got any data
+      if (!response.data) {
+        console.error('No data in response');
+        throw new Error('No data received from server');
+      }
+
+      // Log the actual data structure
+      console.log('Response data structure:', JSON.stringify(response.data, null, 2));
+
+      // If the data is directly in response.data (not in a data property)
+      const item = response.data.data || response.data;
+      console.log('Parsed item:', item);
+
+      return {
+        id: item.koiId || item.id,
+        name: item.name || 'Unknown Koi',
+        variant: item.varietyName || 'Unknown Variety',
+        description: item.description || 'A beautiful and unique Koi fish.',
+        characteristics: item.characteristics || 'Distinctive patterns and coloring.',
+        habitat: item.habitat || 'Freshwater ponds with proper filtration.',
+        diet: item.diet || 'High-quality Koi food, vegetables, and insects.',
+        lifespan: item.lifespan || '25-35 years',
+        size: item.size || `${Math.floor(Math.random() * 30 + 20)} cm`,
+        price: item.price || `${Math.floor(Math.random() * 500 + 100)}$`,
+        likes: Math.floor(Math.random() * 50),
+        liked: false,
+        colors: item.colors || ['Red', 'White', 'Black']
+      };
     } catch (error) {
-      console.error('Error fetching Koi details:', error);
+      console.error('Error fetching Koi details:', {
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        koiId: koiId,
+        url: `${API_CONFIG.baseURL}/api/KoiVariety/${koiId}`
+      });
       throw error;
     }
   },
@@ -140,6 +160,32 @@ export const koiAPI = {
     } catch (error) {
       console.error('Error fetching user Koi:', error);
       return koiData.filter(koi => koi.variant === 'Jin');
+    }
+  },
+
+  calculateCompatibility: async (calculationData) => {
+    try {
+      console.log('Sending calculation request with data:', calculationData);
+      
+      const response = await axios.post(
+        `${API_CONFIG.baseURL}/api/Customer/calculate-compatibility`,
+        calculationData
+      );
+
+      console.log('Raw API response:', response.data);
+
+      if (response.data && typeof response.data.data !== 'undefined') {
+        return {
+          data: {
+            score: response.data.data
+          }
+        };
+      }
+
+      throw new Error(`Invalid API response format: ${JSON.stringify(response.data)}`);
+    } catch (error) {
+      console.error('API call error:', error);
+      throw error;
     }
   }
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
@@ -8,6 +8,7 @@ import BackButton from '../../components/BackButton';
 import LikeButton from '../../components/LikeButton';
 import { images } from '../../constants/images';
 import { ScrollView as HorizontalScrollView } from 'react-native';
+import { koiAPI } from '../../constants/koiData';
 
 export default function FishDetails() {
   const params = useLocalSearchParams();
@@ -17,6 +18,9 @@ export default function FishDetails() {
   const [whitePercentage, setWhitePercentage] = useState(40);
   const [selected, setSelected] = useState("");
   const [selectedPond, setSelectedPond] = useState("");
+  const [fishCount, setFishCount] = useState(1);
+  const [compatibilityScore, setCompatibilityScore] = useState(0);
+  const [compatibilityMessage, setCompatibilityMessage] = useState("");
 
   const directions = [
     {key: '1', value: 'Đông'},
@@ -29,42 +33,93 @@ export default function FishDetails() {
     {key: '8', value: 'Tây Nam'},
   ];
 
-  const calculateCompatibility = () => {
-    const colorBalance = Math.abs(blackPercentage + redPercentage + whitePercentage - 100);
-    const hasSelectedPond = selectedPond ? 1 : 0;
-    const hasSelectedDirection = selected ? 1 : 0;
-    
-    const result = Math.max(0, Math.min(100, 
-      100 - colorBalance + 
-      (hasSelectedPond * 20) + 
-      (hasSelectedDirection * 20)
-    ));
-
-    router.push({
-      pathname: '/(tabs)/calculation_result',
-      params: { 
-        result: Math.round(result),
-        from: 'fish_details',
-        // Fish details
-        name: params.name,
-        variant: params.variant,
-        imageName: params.imageName,
-        liked: params.liked,
-        description: params.description,
-        characteristics: params.characteristics,
-        habitat: params.habitat,
-        diet: params.diet,
-        lifespan: params.lifespan,
-        size: params.size,
-        price: params.price,
-        // Calculation state
-        blackPercentage: blackPercentage.toString(),
-        redPercentage: redPercentage.toString(),
-        whitePercentage: whitePercentage.toString(),
-        selectedPond: selectedPond,
-        selected: selected
-      }
+  const adjustFishCount = (increment) => {
+    setFishCount(prevCount => {
+      const newCount = increment ? prevCount + 1 : prevCount - 1;
+      return Math.max(1, newCount); // Ensure count doesn't go below 1
     });
+  };
+
+  const calculateCompatibility = async () => {
+    try {
+      // Validate total percentage is 100
+      const totalPercentage = blackPercentage + redPercentage + whitePercentage;
+      if (totalPercentage !== 100) {
+        Alert.alert('Error', 'Total color percentage must equal 100%');
+        return;
+      }
+
+      // Debug logs to check values
+      console.log('Validating fields:', {
+        selectedPond,
+        selected,
+        fishCount,
+        totalPercentage
+      });
+
+      // Validate all required fields
+      if (!selectedPond) {
+        Alert.alert('Error', 'Please select a pond shape');
+        return;
+      }
+
+      if (!selected) {
+        Alert.alert('Error', 'Please select a pond direction');
+        return;
+      }
+
+      if (!fishCount || fishCount <= 0) {
+        Alert.alert('Error', 'Please enter a valid number of fish');
+        return;
+      }
+
+      const calculationData = {
+        colorRatios: {
+          additionalProp1: blackPercentage / 100,
+          additionalProp2: redPercentage / 100,
+          additionalProp3: whitePercentage / 100
+        },
+        pondShape: selectedPond,
+        pondDirection: selected,
+        fishCount: parseInt(fishCount)
+      };
+
+      console.log('Sending calculation data:', calculationData);
+
+      const result = await koiAPI.calculateCompatibility(calculationData);
+      console.log('Received API response:', result); // Debug log
+
+      // Check if result exists and has the expected structure
+      if (result && result.data && typeof result.data.score !== 'undefined') {
+        router.push({
+          pathname: '/(tabs)/calculation_result',
+          params: {
+            result: result.data.score,
+            from: 'fish_details',
+            name: params.name,
+            variant: params.variant,
+            imageName: params.imageName,
+            liked: params.liked,
+            description: params.description,
+            size: params.size,
+            blackPercentage,
+            redPercentage,
+            whitePercentage,
+            selectedPond,
+            selected
+          }
+        });
+      } else {
+        console.error('Invalid API response structure:', result);
+        throw new Error(`Invalid API response: ${JSON.stringify(result)}`);
+      }
+    } catch (error) {
+      console.error('Calculation error details:', error);
+      Alert.alert(
+        'Error',
+        'Failed to calculate compatibility. Please check your input and try again.'
+      );
+    }
   };
 
   return (
@@ -170,7 +225,7 @@ export default function FishDetails() {
                 {/* Overall Compatibility */}
                 <View style={styles.compatibilityContainer}>
                   <Text style={styles.compatibilityLabel}>Compatibility:</Text>
-                  <Text style={styles.compatibilityValue}>60%</Text>
+                  <Text style={styles.compatibilityValue}>{compatibilityMessage}</Text>
                 </View>
 
                 {/* Pond Style Section */}
@@ -246,6 +301,31 @@ export default function FishDetails() {
                     placeholder="Hướng đặt hồ"
                     search={false}
                   />
+                </View>
+
+                {/* Fish Count Section */}
+                <View style={styles.fishCountSection}>
+                  <Text style={styles.sectionTitle}>Số lượng cá:</Text>
+                  <View style={styles.fishCountContainer}>
+                    <TouchableOpacity 
+                      style={styles.countButton}
+                      onPress={() => adjustFishCount(false)}
+                    >
+                      <Text style={styles.countButtonText}>-</Text>
+                    </TouchableOpacity>
+                    
+                    <View style={styles.countDisplay}>
+                      <Text style={styles.countText}>{fishCount}</Text>
+                      <Text style={styles.countLabel}>con</Text>
+                    </View>
+
+                    <TouchableOpacity 
+                      style={styles.countButton}
+                      onPress={() => adjustFishCount(true)}
+                    >
+                      <Text style={styles.countButtonText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {/* Calculate Button */}
@@ -464,5 +544,54 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 10,
+  },
+  fishCountSection: {
+    marginVertical: 20,
+    paddingHorizontal: 20,
+  },
+  fishCountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 15,
+    padding: 10,
+  },
+  countButton: {
+    backgroundColor: '#8B0000',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  countButtonText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  countDisplay: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    paddingHorizontal: 30,
+  },
+  countText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#8B0000',
+    marginRight: 8,
+  },
+  countLabel: {
+    fontSize: 16,
+    color: '#666',
   },
 }); 

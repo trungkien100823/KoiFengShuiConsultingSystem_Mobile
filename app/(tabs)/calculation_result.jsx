@@ -38,18 +38,22 @@ export default function CalculationResult() {
   };
 
   const getPercentageColor = (value) => {
-    if (value < 40) return '#FF0000';
-    if (value <= 60) return '#FFD700';
-    return '#00FF00';
+    if (value < 20) return '#FF0000';  // Red
+    if (value < 60) return '#FFD700';  // Yellow
+    return '#00FF00';  // Green
   };
 
   const getAdviceText = (value) => {
-    if (value < 40) {
-      return "Bạn không hợp với loài cá này, tuy nhiên hướng hồ chưa phù hợp";
-    } else if (value <= 60) {
-      return "Bạn rất hợp với loài cá này, tuy nhiên hướng hồ chưa phù hợp";
+    if (value < 20) {
+      return "Rất không hợp, cần xem xét lại phong thủy.";
+    } else if (value < 40) {
+      return "Hợp mức thấp, có thể cải thiện thêm.";
+    } else if (value < 60) {
+      return "Hợp trung bình, có thể chấp nhận.";
+    } else if (value < 80) {
+      return "Hợp tốt, có thể sử dụng.";
     } else {
-      return "Bạn rất hợp với loài cá này và hướng hồ phù hợp";
+      return "Rất hợp phong thủy, lý tưởng!";
     }
   };
 
