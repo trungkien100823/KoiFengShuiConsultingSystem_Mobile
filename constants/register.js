@@ -1,3 +1,4 @@
+// app/(tabs)/Register.jsx
 import React, { useState } from 'react';
 import { 
   SafeAreaView, 
@@ -17,23 +18,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { authAPI } from '../../constants/auth';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RegisterScreen() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [gender, setGender] = useState('');
-  const [isValidInput, setIsValidInput] = useState(false);
+  const navigation = useNavigation();
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [isEmail, setIsEmail] = useState(true);
-  const navigation = useNavigation();
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dob, setDob] = useState(new Date());
-  const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [gender, setGender] = useState('');
+  const [dob, setDob] = useState(new Date());
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const dismissKeyboard = () => {
@@ -44,103 +41,89 @@ export default function RegisterScreen() {
     navigation.navigate('Login');
   };
 
-  const checkInputType = (text) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setIsEmail(emailRegex.test(text));
-  };
-
-  const validateForm = () => {
-    // Validate họ tên
+  const validateInput = () => {
+    // Validate fullName - chỉ cho phép chữ và khoảng trắng
     const nameRegex = /^[\p{L} ]+$/u;
     if (!nameRegex.test(fullName)) {
       Alert.alert('Lỗi', 'Tên không được chứa số và các ký tự đặc biệt');
       return false;
     }
-  
+
     // Validate email
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Lỗi', 'Email không hợp lệ');
       return false;
     }
-  
-    // Validate số điện thoại
+
+    // Validate phone number
     const phoneRegex = /^\d{10}$/;
     if (!phoneRegex.test(phoneNumber)) {
       Alert.alert('Lỗi', 'Số điện thoại phải có đúng 10 chữ số');
       return false;
     }
-  
-    // Validate mật khẩu
-    if (!password || password.length < 6) {
-      Alert.alert('Lỗi', 'Mật khẩu phải có ít nhất 6 ký tự');
+
+    // Validate các trường bắt buộc
+    if (!fullName || !email || !phoneNumber || !gender || !password || !confirmPassword) {
+      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
       return false;
     }
-  
+
+    // Validate password matching
     if (password !== confirmPassword) {
       Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp');
       return false;
     }
-  
-    // Validate ngày sinh
-    if (!dob) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ngày sinh');
-      return false;
-    }
-  
-    // Validate giới tính
-    if (!gender) {
-      Alert.alert('Lỗi', 'Vui lòng chọn giới tính');
-      return false;
-    }
-  
+
     return true;
   };
 
   const handleSubmit = async () => {
     try {
-      if (!validateForm()) {
+      if (!validateInput()) {
         return;
       }
-  
+
       setIsLoading(true);
-  
-      const registerData = {
+
+      const userData = {
         fullName: fullName,
         email: email,
         phoneNumber: phoneNumber,
+        gender: gender,
+        dob: dob.toISOString(),
         password: password,
-        confirmedPassword: confirmPassword,
-        gender: gender === 'male', // Chuyển đổi male -> true, female -> false
-        dob: dob.toISOString()
+        confirmPassword: confirmPassword
       };
-  
-      const result = await authAPI.register(registerData);
-  
-      Alert.alert(
-        'Thành công',
-        'Đăng ký tài khoản thành công!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('Login')
-          }
-        ]
-      );
+
+      const result = await authAPI.register(userData);
+
+      if (result.success) {
+        Alert.alert(
+          'Thành công',
+          'Đăng ký tài khoản thành công!',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+      }
     } catch (error) {
       Alert.alert(
         'Lỗi',
-        error.toString()
+        error.message || 'Đã có lỗi xảy ra khi đăng ký'
       );
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   const onDateChange = (event, selectedDate) => {
-    if (event.type === 'set' && selectedDate) {
+    setShowDatePicker(false);
+    if (selectedDate) {
       setDob(selectedDate);
-      setShowDatePicker(false);
     }
   };
 
@@ -174,26 +157,20 @@ export default function RegisterScreen() {
                     value={fullName}
                     onChangeText={setFullName}
                   />
-                  {fullName.length > 0 && (
-                    <Ionicons name="checkmark" size={24} color="#4CAF50" />
-                  )}
                 </View>
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Gmail</Text>
+                <Text style={styles.label}>Email</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.input}
                     placeholder="example@gmail.com"
+                    placeholderTextColor="#999"
                     keyboardType="email-address"
                     value={email}
                     onChangeText={setEmail}
-                    autoCapitalize="none"
                   />
-                  {email.length > 0 && (
-                    <Ionicons name="checkmark" size={24} color="#4CAF50" />
-                  )}
                 </View>
               </View>
 
@@ -203,37 +180,13 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="0123456789"
+                    placeholderTextColor="#999"
                     keyboardType="numeric"
                     maxLength={10}
                     value={phoneNumber}
                     onChangeText={setPhoneNumber}
                   />
-                  {phoneNumber.length === 10 && (
-                    <Ionicons name="checkmark" size={24} color="#4CAF50" />
-                  )}
                 </View>
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Ngày sinh</Text>
-                <TouchableOpacity 
-                  style={styles.dateInput}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Text style={styles.dateText}>
-                    {dob.toLocaleDateString('vi-VN')}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={24} color="#666" />
-                </TouchableOpacity>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={dob}
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                    maximumDate={new Date()}
-                  />
-                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -276,6 +229,26 @@ export default function RegisterScreen() {
                     />
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Ngày sinh</Text>
+                <TouchableOpacity 
+                  style={styles.dateButton}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={styles.dateButtonText}>
+                    {dob.toLocaleDateString('vi-VN')}
+                  </Text>
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={dob}
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                  />
+                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -387,8 +360,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  checkIcon: {
-    marginLeft: 10,
+  dateButton: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+    paddingVertical: 8,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#333',
   },
   genderContainer: {
     flexDirection: 'row',
@@ -399,6 +378,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 30,
+  },
+  genderButtonSelected: {
+    // Thêm styles cho trạng thái được chọn nếu cần
   },
   radioButton: {
     height: 20,
@@ -420,31 +402,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  switchInputType: {
-    marginLeft: 10,
-  },
-  switchInputTypeText: {
-    color: '#B22222',
-    fontSize: 12,
-  },
-  dateInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    paddingVertical: 12,
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#333',
-  },
   signUpButton: {
     backgroundColor: '#8B0000',
     padding: 15,
     borderRadius: 25,
     alignItems: 'center',
     marginTop: 20,
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   signUpButtonText: {
     color: 'white',
@@ -461,8 +427,5 @@ const styles = StyleSheet.create({
   signInLink: {
     color: '#8B0000',
     fontWeight: 'bold',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-}); 
+  }
+});

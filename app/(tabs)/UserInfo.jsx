@@ -1,39 +1,39 @@
-import React from 'react';
-import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, Dimensions } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import BackButton from '../../components/BackButton';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { authAPI } from '../../constants/auth';
 
 const elementColors = {
-  Hỏa: '#FF4500', // Orange Red for Fire
-  Kim: '#C0C0C0', // Silver for Metal
-  Thủy: '#006994', // Ocean Blue for Water
-  Mộc: '#228B22', // Forest Green for Wood
-  Thổ: '#DEB887', // Burlywood (Light Brown) for Earth
+  Hỏa: '#FF4500',
+  Kim: '#C0C0C0', 
+  Thủy: '#006994',
+  Mộc: '#228B22',
+  Thổ: '#DEB887',
 };
 
 export default function UserInfo() {
   const navigation = useNavigation();
-  const route = useRoute();
-  const { userData } = route.params;
-  const elementColor = elementColors[userData.element] || '#FF4500';
-  const params = useLocalSearchParams();
-  const router = useRouter();
-  const score = parseFloat(params.score) || 0;
+  const [userInfo, setUserInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const getCompatibilityMessage = (score) => {
-    if (score < 20) return "Rất không hợp, cần xem xét lại phong thủy.";
-    if (score < 40) return "Hợp mức thấp, có thể cải thiện thêm.";
-    if (score < 60) return "Hợp trung bình, có thể chấp nhận.";
-    if (score < 80) return "Hợp tốt, có thể sử dụng.";
-    return "Rất hợp phong thủy, lý tưởng!";
+  useEffect(() => {
+    loadUserInfo();
+  }, []);
+
+  const loadUserInfo = async () => {
+    try {
+      const result = await authAPI.currentCustomerElement();
+      if (result.success) {
+        setUserInfo(result.data);
+      }
+    } catch (error) {
+      Alert.alert('Lỗi', error.toString());
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getCompatibilityColor = (score) => {
-    if (score < 20) return '#FF0000';      // Red for very incompatible
-    if (score < 60) return '#FFD700';      // Yellow for moderate compatibility
-    return '#008000';                      // Green for good compatibility
-  };
+  const elementColor = userInfo ? elementColors[userInfo.element] || '#FF4500' : '#FF4500';
 
   return (
     <ImageBackground
@@ -41,41 +41,44 @@ export default function UserInfo() {
       style={styles.background}
     >
       <View style={styles.container}>
-        <View style={styles.header}>
-          <BackButton />
-          <Text style={styles.headerTitle}>Kết quả tính toán</Text>
-        </View>
-
-        <View style={styles.content}>
-          <View style={styles.resultCard}>
-            <Text style={styles.resultTitle}>Điểm tương hợp:</Text>
-            <Text style={[
-              styles.scoreText,
-              { color: getCompatibilityColor(score) }
-            ]}>
-              {score}%
-            </Text>
-            <Text style={[
-              styles.messageText,
-              { color: getCompatibilityColor(score) }
-            ]}>
-              {getCompatibilityMessage(score)}
+        <View style={styles.contentContainer}>
+          <Text style={styles.title}>Thông tin của bạn</Text>
+          
+          <View style={styles.elementSection}>
+            <Text style={styles.elementLabel}>Ngũ hành của bạn là</Text>
+            <Text style={[styles.elementText, { color: elementColor }]}>
+              {userInfo?.element || 'Đang tải...'}
             </Text>
           </View>
 
-          <View style={styles.detailsCard}>
-            <Text style={styles.detailsTitle}>Chi tiết:</Text>
-            <Text style={styles.detailItem}>Tỉ lệ màu sắc: {params.colorRatio || 'N/A'}</Text>
-            <Text style={styles.detailItem}>Hình dạng hồ: {params.pondShape || 'N/A'}</Text>
-            <Text style={styles.detailItem}>Hướng: {params.direction || 'N/A'}</Text>
-            <Text style={styles.detailItem}>Số lượng cá: {params.fishCount || 'N/A'}</Text>
+          <View style={styles.infoContainer}>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Họ và tên:</Text>
+              <Text style={styles.value}>{userInfo?.fullName || 'Đang tải...'}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Ngày sinh:</Text>
+              <Text style={styles.value}>
+                {userInfo ? new Date(userInfo.dob).toLocaleDateString('vi-VN') : 'Đang tải...'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Giới tính:</Text>
+              <Text style={styles.value}>
+                {userInfo ? (userInfo.gender ? 'Nam' : 'Nữ') : 'Đang tải...'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Cung mệnh:</Text>
+              <Text style={styles.value}>{userInfo?.lifePalace || 'Đang tải...'}</Text>
+            </View>
           </View>
 
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: elementColor }]}
+            onPress={() => navigation.navigate('menu')}
           >
-            <Text style={styles.backButtonText}>Quay lại</Text>
+            <Text style={styles.buttonText}>Trang chủ</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -95,79 +98,62 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
+  contentContainer: {
+    width: '100%',
+    alignItems: 'center',
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    color: 'white',
+    marginBottom: 30,
+    fontWeight: 'bold',
+  },
+  elementSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  elementLabel: {
+    color: 'white',
+    fontSize: 18,
+    marginBottom: 10,
+  },
+  elementText: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    marginVertical: 10,
+  },
+  infoContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
+    borderRadius: 10,
+    width: width - 40,
+  },
+  infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: '#8B0000',
+    justifyContent: 'space-between',
+    marginBottom: 15,
   },
-  headerTitle: {
-    fontSize: 20,
+  label: {
+    color: 'white',
     fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 16,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  resultCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  resultTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
-  },
-  scoreText: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  messageText: {
     fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
   },
-  detailsCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-  },
-  detailsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
-  },
-  detailItem: {
+  value: {
+    color: 'white',
     fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
   },
-  backButton: {
-    backgroundColor: '#8B0000',
-    padding: 15,
+  button: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
+    marginTop: 30,
+    width: width - 40,
   },
-  backButtonText: {
-    color: '#fff',
+  buttonText: {
+    color: 'white',
     fontSize: 18,
+    textAlign: 'center',
     fontWeight: 'bold',
   },
 });
