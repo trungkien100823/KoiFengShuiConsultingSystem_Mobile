@@ -77,10 +77,6 @@ export default function UserInfo() {
           <TouchableOpacity
             style={[styles.button, { backgroundColor: elementColor }]}
             onPress={() => navigation.navigate('menu')}
-          >
-            <Text style={styles.buttonText}>Trang chủ</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </ImageBackground>
   );
