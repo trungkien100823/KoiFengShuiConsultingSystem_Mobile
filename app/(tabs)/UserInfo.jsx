@@ -1,20 +1,39 @@
-import React from 'react';
-import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, Dimensions } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { authAPI } from '../../constants/auth';
 
 const elementColors = {
-  Hỏa: '#FF4500', // Orange Red for Fire
-  Kim: '#C0C0C0', // Silver for Metal
-  Thủy: '#006994', // Ocean Blue for Water
-  Mộc: '#228B22', // Forest Green for Wood
-  Thổ: '#DEB887', // Burlywood (Light Brown) for Earth
+  Hỏa: '#FF4500',
+  Kim: '#C0C0C0', 
+  Thủy: '#006994',
+  Mộc: '#228B22',
+  Thổ: '#DEB887',
 };
 
 export default function UserInfo() {
   const navigation = useNavigation();
-  const route = useRoute();
-  const { userData } = route.params;
-  const elementColor = elementColors[userData.element] || '#FF4500';
+  const [userInfo, setUserInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadUserInfo();
+  }, []);
+
+  const loadUserInfo = async () => {
+    try {
+      const result = await authAPI.currentCustomerElement();
+      if (result.success) {
+        setUserInfo(result.data);
+      }
+    } catch (error) {
+      Alert.alert('Lỗi', error.toString());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const elementColor = userInfo ? elementColors[userInfo.element] || '#FF4500' : '#FF4500';
 
   return (
     <ImageBackground
@@ -28,36 +47,37 @@ export default function UserInfo() {
           <View style={styles.elementSection}>
             <Text style={styles.elementLabel}>Ngũ hành của bạn là</Text>
             <Text style={[styles.elementText, { color: elementColor }]}>
-              {userData.element}
+              {userInfo?.element || 'Đang tải...'}
             </Text>
           </View>
 
           <View style={styles.infoContainer}>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Họ và tên:</Text>
-              <Text style={styles.value}>{userData.fullName}</Text>
+              <Text style={styles.value}>{userInfo?.fullName || 'Đang tải...'}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Ngày sinh:</Text>
-              <Text style={styles.value}>{userData.birthDate}</Text>
+              <Text style={styles.value}>
+                {userInfo ? new Date(userInfo.dob).toLocaleDateString('vi-VN') : 'Đang tải...'}
+              </Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Giới tính:</Text>
-              <Text style={styles.value}>{userData.gender}</Text>
+              <Text style={styles.value}>
+                {userInfo ? (userInfo.gender ? 'Nam' : 'Nữ') : 'Đang tải...'}
+              </Text>
             </View>
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Hành mệnh:</Text>
-              <Text style={styles.value}>{userData.destiny}</Text>
+              <Text style={styles.label}>Cung mệnh:</Text>
+              <Text style={styles.value}>{userInfo?.lifePalace || 'Đang tải...'}</Text>
+
             </View>
           </View>
 
           <TouchableOpacity
             style={[styles.button, { backgroundColor: elementColor }]}
             onPress={() => navigation.navigate('menu')}
-          >
-            <Text style={styles.buttonText}>Trang chủ</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </ImageBackground>
   );
