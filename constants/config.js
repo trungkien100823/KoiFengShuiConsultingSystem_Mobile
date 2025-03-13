@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // Using your specific local network IP for all platforms
-const DEV_API_URL = 'http://192.168.1.46:5261';
+const DEV_API_URL = 'http://172.20.10.11:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
