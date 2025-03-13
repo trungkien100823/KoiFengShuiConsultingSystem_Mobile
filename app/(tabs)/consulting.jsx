@@ -147,7 +147,7 @@ export default function ConsultingScreen() {
           <TouchableOpacity 
             style={styles.bookButton}
             onPress={() => router.push({
-              pathname: '/booking',
+              pathname: '/(tabs)/OfflineOnline',
               params: { consultantId: consultants[activeIndex].id }
             })}
           >
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   },
   consultantImage: {
     width: '100%',
-    height: 350,
+    height: 330,
     borderTopLeftRadius: 15,
     borderTopRightRadius: 15,
   },

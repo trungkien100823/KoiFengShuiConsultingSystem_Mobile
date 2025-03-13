@@ -91,7 +91,7 @@ export default function ConsultantDetailsScreen() {
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.push('/consulting')}
           >
             <Ionicons name="chevron-back-circle" size={32} color="#8B0000" />
           </TouchableOpacity>
