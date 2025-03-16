@@ -8,6 +8,9 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "assets": [
+      "./assets/images/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
