@@ -1,50 +1,41 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import CustomTabBar from '../../components/ui/CustomTabBar';
+import { consultingCategories, consultingAPI, consultants as fallbackConsultants } from '../../constants/consulting';
 
 const { width } = Dimensions.get('window');
 const cardWidth = width * 0.8;
 
-// Sample consultant data
-const consultants = [
-  {
-    id: '1',
-    name: 'Nguyen Trong Manh',
-    title: 'Master',
-    rating: 4.0,
-    image: require('../../assets/images/consultant1.jpg'),
-  },
-  {
-    id: '2',
-    name: 'Tran Minh Duc',
-    title: 'Senior Expert',
-    rating: 4.8,
-    image: require('../../assets/images/consultant2.jpg'),
-  },
-  {
-    id: '3',
-    name: 'Le Van Hung',
-    title: 'Expert',
-    rating: 4.5,
-    image: require('../../assets/images/consultant3.jpg'),
-  },
-  {
-    id: '4',
-    name: 'Pham Thi Mai',
-    title: 'Master',
-    rating: 4.9,
-    image: require('../../assets/images/consultant4.jpg'),
-  }
-];
-
-
 export default function ConsultingScreen() {
   const router = useRouter();
+  const [consultants, setConsultants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedTab, setSelectedTab] = useState('Master');
+  const [selectedTab, setSelectedTab] = useState(consultingCategories[0]);
   const [sortVisible, setSortVisible] = useState(false);
+
+  useEffect(() => {
+    fetchConsultants();
+  }, []);
+
+  const fetchConsultants = async () => {
+    try {
+      setLoading(true);
+      const consultantData = await consultingAPI.getAllConsultants();
+      console.log("Consultant data retrieved:", consultantData);
+      
+      setConsultants(consultantData);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching consultants:', err);
+      setError('Failed to load consultants. Using sample data.');
+      setConsultants(Array.isArray(fallbackConsultants) ? fallbackConsultants : []);
+      setLoading(false);
+    }
+  };
 
   const handleScroll = (event) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -109,51 +100,79 @@ export default function ConsultingScreen() {
         </TouchableOpacity>
       </View>
 
-
       <View style={styles.carouselContainer}>
-        <ScrollView 
-          horizontal
-          pagingEnabled
-          snapToInterval={cardWidth + 20}
-          decelerationRate="fast"
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          onMomentumScrollEnd={handleScroll}
-        >
-          {consultants.map((consultant) => (
-            <View key={consultant.id} style={[styles.consultantWrapper, { width: cardWidth }]}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#8B0000" />
+            <Text style={styles.loadingText}>Loading consultants...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchConsultants}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : consultants && consultants.length > 0 ? (
+          <>
+            <ScrollView 
+              horizontal
+              pagingEnabled
+              snapToInterval={cardWidth + 20}
+              decelerationRate="fast"
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              onMomentumScrollEnd={handleScroll}
+            >
+              {consultants.map((consultant, index) => {
+                // Debug logging
+                console.log("Rendering consultant:", consultant.name, "with image:", consultant.image);
+                
+                return (
+                  <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
+                    <TouchableOpacity 
+                      style={styles.consultantCard}
+                      onPress={() => router.push({
+                        pathname: '/consultant_details',
+                        params: { consultantId: consultant.id }
+                      })}
+                    >
+                      <Text style={styles.consultantTitle}>{consultant.title || 'Master'}</Text>
+                      <Image 
+                        source={consultant.image} 
+                        style={styles.consultantImage}
+                        resizeMode="cover" 
+                      />
+                      <View style={styles.cardContent}>
+                        <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
+                      </View>
+                      <View style={styles.ratingContainer}>
+                        {renderStars(consultant.rating || 0)}
+                        <Text style={styles.ratingText}>{(consultant.rating || 0).toFixed(1)}/5.0</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </ScrollView>
+            
+            <View style={styles.buttonContainer}>
               <TouchableOpacity 
-                style={styles.consultantCard}
+                style={styles.bookButton}
                 onPress={() => router.push({
-                  pathname: '/consultant_details',
-                  params: { consultantId: consultant.id }
+                  pathname: '/(tabs)/OfflineOnline',
+                  params: { consultantId: consultants[activeIndex]?.id }
                 })}
               >
-                <Text style={styles.consultantTitle}>{consultant.title}</Text>
-                <Image source={consultant.image} style={styles.consultantImage} />
-                <View style={styles.cardContent}>
-                  <Text style={styles.consultantName}>{consultant.name}</Text>
-                </View>
-                <View style={styles.ratingContainer}>
-                  {renderStars(consultant.rating)}
-                  <Text style={styles.ratingText}>{consultant.rating.toFixed(1)}/5.0</Text>
-                </View>
+                <Text style={styles.bookButtonText}>Book now</Text>
               </TouchableOpacity>
             </View>
-          ))}
-        </ScrollView>
-        
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={styles.bookButton}
-            onPress={() => router.push({
-              pathname: '/(tabs)/OfflineOnline',
-              params: { consultantId: consultants[activeIndex].id }
-            })}
-          >
-            <Text style={styles.bookButtonText}>Book now</Text>
-          </TouchableOpacity>
-        </View>
+          </>
+        ) : (
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No consultants available</Text>
+          </View>
+        )}
       </View>
       
       <CustomTabBar />
@@ -233,76 +252,127 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   scrollContent: {
+    paddingHorizontal: 10,
+    paddingRight: -30,
     paddingBottom: 20,
   },
   consultantWrapper: {
+    marginLeft: -10,
     marginRight: 20,
+    height: 450,
   },
   consultantCard: {
-    width: '100%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 15,
-    backgroundColor: '#fff',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    paddingBottom: 15,
+    shadowRadius: 10,
+    elevation: 10,
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    marginRight: 20,
   },
   consultantTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    paddingTop: 10,
+    position: 'absolute',
+    top: 15,
+    left: 15,
+    backgroundColor: '#8B0000',
+    color: '#FFFFFF',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    zIndex: 1,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   consultantImage: {
     width: '100%',
-    height: 330,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
+    height: 350,
   },
   cardContent: {
-    paddingHorizontal: 15,
-    paddingTop: 15,
+    padding: 10,
   },
   consultantName: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#333',
     marginBottom: 5,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
+    paddingBottom: 5,
   },
   ratingText: {
-    fontSize: 15,
-    color: '#666',
-    marginTop: 5,
     marginLeft: 5,
+    fontSize: 14,
+    color: '#666',
   },
   buttonContainer: {
+    padding: 5,
+    marginLeft: 10,
+    marginBottom: 30,
     alignItems: 'flex-start',
-    marginTop: 10,
-    marginLeft: 15,
-    marginBottom: 20
   },
   bookButton: {
     backgroundColor: '#8B0000',
-    borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 30,
-    alignItems: 'center',
+    borderRadius: 10,
+    minWidth: 120,
   },
   bookButtonText: {
-    color: '#FFF',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 300,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 300,
+  },
+  errorText: {
+    marginBottom: 20,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#8B0000',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
+  noDataContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 300,
+  },
+  noDataText: {
+    fontSize: 16,
+    color: '#666',
+  }
 });

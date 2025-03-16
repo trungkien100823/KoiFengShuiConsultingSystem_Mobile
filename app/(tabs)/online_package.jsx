@@ -10,37 +10,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { consultingPackages } from '../../constants/consulting';
 
 export default function OnlinePackageScreen() {
   const router = useRouter();
   
-  const consultingPackages = [
-    {
-      id: '1',
-      title: 'CƠ BẢN',
-      label: 'Gói tư vấn',
-      image: require('../../assets/images/koi_image.jpg'),
-    },
-    {
-      id: '2',
-      title: 'NÂNG CAO',
-      label: 'Gói tư vấn',
-      image: require('../../assets/images/koi_image.jpg'),
-    },
-    {
-      id: '3',
-      title: 'CHUYÊN SÂU',
-      label: 'Gói tư vấn',
-      image: require('../../assets/images/koi_image.jpg'),
-    },
-    {
-      id: '4',
-      title: 'DOANH NGHIỆP',
-      label: 'Gói tư vấn',
-      image: require('../../assets/images/koi_image.jpg'),
-    },
-  ];
-
   return (
     <ImageBackground 
       source={require('../../assets/images/feng shui.png')}
@@ -71,9 +45,16 @@ export default function OnlinePackageScreen() {
               key={pkg.id}
               style={styles.packageCard}
               onPress={() => {
-                console.log(`Selected package: ${pkg.title}`);
-                // Navigate to schedule screen
-                router.push('/(tabs)/online_schedule');
+                // Pass package data through navigation
+                router.push({
+                  pathname: '/(tabs)/online_checkout',
+                  params: {
+                    packageId: pkg.id,
+                    packageTitle: pkg.title,
+                    packageLabel: pkg.label,
+                    packageImage: pkg.image
+                  }
+                });
               }}
             >
               <ImageBackground

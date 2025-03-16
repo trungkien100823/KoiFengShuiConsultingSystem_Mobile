@@ -6,12 +6,14 @@ const DEV_API_URL = 'http://192.168.31.148:5261';
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
   endpoints: {
-    allKoi: '/api/KoiVariety',
+    allKoi: '/api/KoiVariety/get-with-color',
     userKoi: '/api/KoiVariety/get-koi-current-login',
     detailKoi: '/api/KoiVariety/{id}',
     allPonds: '/api/KoiPond/get-all',
     detailPond: '/api/KoiPond/get',
-    pondRecommendations: '/api/KoiPond/recommend'
+    pondRecommendations: '/api/KoiPond/recommend',
+    allConsultants: '/api/Master/get-all',
+    detailConsultant: '/api/Master/{id}',
   }
 };
 

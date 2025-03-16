@@ -1,30 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, ImageBackground } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, ImageBackground, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { consultingAPI, consultants } from '../../constants/consulting';
 
-// Sample consultant data - this would be fetched based on the ID
-const consultantData = {
-  id: '1',
-  name: 'Nguyen Trong Manh',
-  title: 'Master',
-  rating: 4.0,
-  image: require('../../assets/images/consultant1.jpg'),
-  specialty: 'Thầy truyền thừa phong thủy',
-  experience: '5+ Năm',
-  completedProjects: '200+ Hồ sơ',
-  bio: 'With over 20 years of in-depth research in feng shui, Mr. Nguyen has mastered the traditional principles of feng shui, thoroughly understanding the principles of this ancient art. He holds a Bachelor of a Master in Education Management and a PhD candidate in Business.',
-  specialties: [
-    'Tư vấn Phong thủy nhà ở',
-    'Tư vấn Phong thủy nhà hàng, doanh nghiệp',
-    'Tư vấn Phong thủy mua bán bất động sản',
-    'Tư vấn Phong thủy quy hoạch khu đô thị',
-    'Tư vấn Phong thủy mộ phần',
-    'Tư vấn Phong thủy văn phòng'
-  ]
-};
-
-// Add this near the top with other sample data
+// Sample comment data
 const commentData = [
   {
     id: 1,
@@ -77,9 +57,64 @@ export default function ConsultantDetailsScreen() {
   const params = useLocalSearchParams();
   const consultantId = params.consultantId;
   
-  // In a real app, you would fetch the consultant data based on the ID
-  // const consultant = fetchConsultantById(consultantId);
-  const consultant = consultantData; // Using sample data for now
+  const [consultant, setConsultant] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (consultantId) {
+      fetchConsultantDetails();
+    } else {
+      // If no ID provided, use the first sample consultant
+      setConsultant(consultants[0]);
+      setLoading(false);
+    }
+  }, [consultantId]);
+
+  const fetchConsultantDetails = async () => {
+    try {
+      setLoading(true);
+      console.log(`Fetching details for consultant ID: ${consultantId}`);
+      
+      // This should now return either API data or fallback data
+      const data = await consultingAPI.getConsultantById(consultantId);
+      
+      console.log("Consultant data received:", data?.name);
+      setConsultant(data);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error in consultant details component:', err);
+      setError(`Failed to load consultant details: ${err.message}`);
+      
+      // As a last resort, use the first consultant
+      console.log("Using first consultant as fallback");
+      setConsultant(consultants[0]);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#8B0000" />
+        <Text style={styles.loadingText}>Loading consultant details...</Text>
+      </View>
+    );
+  }
+
+  if (!consultant) {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Text style={styles.errorText}>Consultant not found</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => router.push('/consulting')}
+        >
+          <Text style={styles.retryButtonText}>Back to Consultants</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -346,5 +381,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+  },
+  retryButton: {
+    backgroundColor: '#8B0000',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
