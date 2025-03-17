@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // Using your specific local network IP for all platforms
-const DEV_API_URL = 'http://172.20.10.11:5261';
+const DEV_API_URL = 'http://192.168.1.34:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
@@ -21,6 +21,16 @@ export const API_CONFIG = {
     login: '/api/Account/login',
 
     // Customer endpoints
-    currentCustomerElement: '/api/Customer/current-customer-element-palace'
+    currentCustomerElement: '/api/Customer/current-customer-element-palace',
+
+
+    // workshop endpoints
+    newestWorkshop: '/api/Workshop/sort-createdDate',
+    trendingWorkshop: '/api/Workshop/trending',
+    workshopDetails: '/api/Workshop/{id}',
+
+    // ticket endpoints
+    createRegisterAttend: '/api/RegisterAttend/create',
+    ticketDetails: '/api/RegisterAttend/{registerAttendId}',
   }
 };
