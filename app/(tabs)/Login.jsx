@@ -101,9 +101,18 @@ export default function LoginScreen() {
           {isLoading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.loginButtonText}>ĐĂNG NHẬP</Text>
+            <Text style={styles.loginButtonText}>Đăng nhập</Text>
           )}
         </TouchableOpacity>
+
+        <View style={styles.registerPromptContainer}>
+          <Text style={styles.registerPromptText}>
+            Chưa có tài khoản? 
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/Register')}>
+            <Text style={styles.registerLink}>Đăng ký</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -170,5 +179,21 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold'
+  },
+  registerPromptContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20
+  },
+  registerPromptText: {
+    color: '#333',
+    fontSize: 16
+  },
+  registerLink: {
+    color: '#8B0000',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 5
   }
 });
