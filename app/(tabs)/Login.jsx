@@ -104,6 +104,7 @@ export default function LoginScreen() {
             <Text style={styles.loginButtonText}>Đăng nhập</Text>
           )}
         </TouchableOpacity>
+
         <View style={styles.registerPromptContainer}>
           <Text style={styles.registerPromptText}>
             Chưa có tài khoản? 

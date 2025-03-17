@@ -74,7 +74,7 @@ export default function UserInfo() {
             </View>
           </View>
 
-          <TouchableOpacity
+          <TouchableOpacity 
             style={[styles.button, { backgroundColor: elementColor }]}
             onPress={() => navigation.navigate('menu')}
           >
