@@ -19,6 +19,7 @@ import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { workshopService } from '../../constants/workshop';
+import CustomTabBar from '../../components/ui/CustomTabBar';
 
 // Component hiển thị một workshop
 const WorkshopCard = ({ workshop }) => {
@@ -283,7 +284,23 @@ export default function Workshop() {
           workshops={newestWorkshops}
           loading={loading}
         />
+
+        {/* Thay thế nút xem tất cả workshops */}
+        <TouchableOpacity 
+          style={styles.seeAllContainer}
+          onPress={() => {
+            console.log('Attempting to navigate to WorkshopFilter');
+            navigation.navigate('workshop_filter');
+          }}
+        >
+          <Text style={styles.seeAllText}>SEE ALL</Text>
+          <Ionicons name="arrow-forward" size={20} color="#AE1D1D" />
+        </TouchableOpacity>
       </ScrollView>
+      
+      {/* Thêm CustomTabBar vào đây */}
+      <CustomTabBar />
+      
     </SafeAreaView>
   );
 }
@@ -423,5 +440,20 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
+  },
+  
+  // Thay thế styles cho nút xem tất cả
+  seeAllContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    marginBottom: 30,
+  },
+  seeAllText: {
+    color: '#AE1D1D',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 8,
   }
 });

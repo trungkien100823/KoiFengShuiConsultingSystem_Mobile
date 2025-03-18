@@ -1,14 +1,13 @@
 import { Platform } from 'react-native';
 
 // Using your specific local network IP for all platforms
-const DEV_API_URL = 'http://192.168.1.34:5261';
+const DEV_API_URL = 'http://192.168.1.195:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
   endpoints: {
-
-    allKoi: '/api/KoiVariety/get-with-color',
-
+    // Koi endpoints
+    allKoi: '/api/KoiVariety',
     userKoi: '/api/KoiVariety/get-koi-current-login',
     detailKoi: '/api/KoiVariety/{id}',
     
@@ -16,17 +15,14 @@ export const API_CONFIG = {
     allPonds: '/api/KoiPond/get-all',
     detailPond: '/api/KoiPond/get',
     pondRecommendations: '/api/KoiPond/recommend',
-
-    allConsultants: '/api/Master/get-all',
-    detailConsultant: '/api/Master/{id}',
     
     // Auth endpoints
     register: '/api/Account/register',
     login: '/api/Account/login',
+    currentUser: '/api/Account/current-user',
 
     // Customer endpoints
     currentCustomerElement: '/api/Customer/current-customer-element-palace',
-
 
     // workshop endpoints
     newestWorkshop: '/api/Workshop/sort-createdDate',
@@ -36,5 +32,12 @@ export const API_CONFIG = {
     // ticket endpoints
     createRegisterAttend: '/api/RegisterAttend/create',
     ticketDetails: '/api/RegisterAttend/{registerAttendId}',
+    getRegistersByGroup: '/api/RegisterAttend/register-by-group/{id}',
+
+    // master endpoints
+    masterDetails: '/api/Master/{id}',
+
+    // payment endpoints
+    payment: '/api/Payment/payos/customer/payment-url',
   }
 };

@@ -48,7 +48,7 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Đăng nhập</Text>
-        <TouchableOpacity style={styles.menuButton}>
+        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/UserInfo')}>
           <Ionicons name="ellipsis-horizontal" size={24} color="white" />
         </TouchableOpacity>
       </View>
@@ -104,7 +104,6 @@ export default function LoginScreen() {
             <Text style={styles.loginButtonText}>Đăng nhập</Text>
           )}
         </TouchableOpacity>
-
         <View style={styles.registerPromptContainer}>
           <Text style={styles.registerPromptText}>
             Chưa có tài khoản? 

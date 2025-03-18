@@ -13,6 +13,7 @@ import RegisterScreen from '../app/(tabs)/Register';
 import UserInfoScreen from '../screens/UserInfoScreen';
 import WorkshopScreen from '../app/(tabs)/workshop';
 import WorkshopDetailsScreen from '../app/(tabs)/workshopDetails';
+import WorkshopFilterScreen from '../app/(tabs)/workshop_filter';
 import TicketConfirmationScreen from '../app/(tabs)/ticket_confirmation';
 import TicketDetailsScreen from '../app/(tabs)/ticketDetails';
 
@@ -70,6 +71,11 @@ export default function Navigation() {
         <Stack.Screen 
           name="ticketDetails" 
           component={TicketDetailsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="workshop_filter" 
+          component={WorkshopFilterScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
