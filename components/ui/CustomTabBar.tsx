@@ -41,6 +41,14 @@ export default function CustomTabBar() {
       
       <TouchableOpacity 
         style={styles.tabItem}
+        onPress={() => router.push('../../(tabs)/your_order')}
+      >
+        <Ionicons name="receipt-outline" size={24} color="#fff" />
+        <Text style={styles.tabText}>Order</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.tabItem}
         onPress={() => router.push('../../(tabs)/profile')}
       >
         <Ionicons name="person" size={24} color="#fff" />

@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, StatusBar } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { paymentService } from '../../constants/paymentService';
+import { useRouter } from 'expo-router';
 
 export default function PaymentWebView() {
+  const router = useRouter();
   const route = useRoute();
   const navigation = useNavigation();
   const { 
@@ -14,94 +16,64 @@ export default function PaymentWebView() {
     serviceId, 
     serviceInfo, 
     serviceType,
-    returnScreen = 'home'
+    returnScreen = 'home',
+    orderId
   } = route.params || {};
   
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const webViewRef = useRef(null);
+
+  const decodedPaymentUrl = decodeURIComponent(paymentUrl || '');
+  console.log('Loading payment URL:', decodedPaymentUrl);
 
   const handleNavigationStateChange = (navState) => {
-    // Kiểm tra URL để xác định kết quả thanh toán
     const currentUrl = navState.url.toLowerCase();
+    console.log('Current URL:', currentUrl);
     
-    // Nếu URL chứa các từ khóa như "success", "return", "callback=success"
-    if (currentUrl.includes('success') || currentUrl.includes('return_url') || currentUrl.includes('callback=success')) {
-      handlePaymentSuccess();
+    // Xử lý khi thanh toán thành công
+    if (currentUrl.includes('success')) {
+      // Đợi 5 giây ở màn hình thành công rồi mới chuyển về workshop
+      setTimeout(() => {
+        router.replace('/(tabs)/workshop');
+      }, 5000);
+      return;
     }
-    
-    // Nếu URL chứa các từ khóa như "fail", "error", "callback=fail"
-    if (currentUrl.includes('fail') || currentUrl.includes('error') || currentUrl.includes('callback=fail')) {
-      handlePaymentFail();
-    }
-    
-    // Nếu URL chứa các từ khóa như "cancel", "callback=cancel"
-    if (currentUrl.includes('cancel') || currentUrl.includes('callback=cancel')) {
-      handlePaymentCancel();
+
+    // Xử lý khi hủy thanh toán
+    if (currentUrl.includes('cancel')) {
+      // Chuyển thẳng về workshop ngay lập tức khi hủy
+      router.replace('/(tabs)/workshop');
+      return;
     }
   };
 
-  const handlePaymentSuccess = () => {
-    // Hiển thị thông báo dựa trên loại dịch vụ
-    let title = 'Thanh toán thành công';
-    let message = 'Cảm ơn bạn đã thanh toán.';
+  const handleShouldStartLoadWithRequest = (request) => {
+    const { url } = request;
     
-    switch (serviceType) {
-      case paymentService.SERVICE_TYPES.BOOKING_ONLINE:
-        message = 'Buổi tư vấn trực tuyến của bạn đã được xác nhận.';
-        break;
-      case paymentService.SERVICE_TYPES.BOOKING_OFFLINE:
-        message = 'Buổi tư vấn trực tiếp của bạn đã được xác nhận.';
-        break;
-      case paymentService.SERVICE_TYPES.COURSE:
-        message = 'Bạn đã đăng ký khóa học thành công.';
-        break;
-      case paymentService.SERVICE_TYPES.REGISTER_ATTEND:
-        message = 'Bạn có thể xem thông tin vé ngay bây giờ.';
-        break;
+    // Danh sách domain được phép
+    const allowedDomains = [
+      'pay.payos.vn',
+      'api.payos.vn',
+      'koifengshui.com',
+      '192.168.1.8:5261',
+      'sandbox.payos.vn'
+    ];
+
+    // Cho phép tất cả URL có chứa "cancel" hoặc "success"
+    if (url.toLowerCase().includes('cancel') || url.toLowerCase().includes('success')) {
+      // Cho phép load URL success/cancel để hiển thị trang thành công/hủy
+      return true;
     }
-    
-    Alert.alert(
-      title,
-      message,
-      [
-        {
-          text: 'Xem chi tiết',
-          onPress: () => {
-            // Điều hướng dựa trên loại dịch vụ
-            navigation.navigate(returnScreen, {
-              serviceId: serviceId,
-              serviceInfo: serviceInfo
-            });
-          }
-        }
-      ]
-    );
-  };
 
-  const handlePaymentFail = () => {
-    Alert.alert(
-      'Thanh toán thất bại',
-      'Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại sau.',
-      [
-        {
-          text: 'Đóng',
-          onPress: () => navigation.goBack()
-        }
-      ]
-    );
-  };
+    // Kiểm tra domain cho các URL khác
+    const isAllowedDomain = allowedDomains.some(domain => url.includes(domain));
+    if (!isAllowedDomain) {
+      console.log('Blocked URL:', url);
+      return false;
+    }
 
-  const handlePaymentCancel = () => {
-    Alert.alert(
-      'Thanh toán đã hủy',
-      'Bạn đã hủy quá trình thanh toán.',
-      [
-        {
-          text: 'Đóng',
-          onPress: () => navigation.goBack()
-        }
-      ]
-    );
+    return true;
   };
 
   const handleOnLoadEnd = () => {
@@ -138,13 +110,17 @@ export default function PaymentWebView() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
       <LinearGradient
         colors={['#AE1D1D', '#212121']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thanh toán</Text>
@@ -154,20 +130,18 @@ export default function PaymentWebView() {
       {hasError ? (
         renderErrorView()
       ) : (
-        <View style={styles.webViewContainer}>
-          <WebView
-            source={{ uri: paymentUrl }}
-            onLoad={() => console.log('WebView đang tải...')}
-            onLoadEnd={handleOnLoadEnd}
-            onError={handleOnError}
-            onNavigationStateChange={handleNavigationStateChange}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true}
-            style={styles.webView}
-          />
-          {isLoading && renderLoadingView()}
-        </View>
+        <WebView
+          ref={webViewRef}
+          source={{ uri: decodedPaymentUrl }}
+          onNavigationStateChange={handleNavigationStateChange}
+          onLoadEnd={handleOnLoadEnd}
+          onError={handleOnError}
+          onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          startInLoadingState={true}
+          renderLoading={renderLoadingView}
+        />
       )}
     </SafeAreaView>
   );

@@ -52,7 +52,6 @@ export default function LoginScreen() {
           <Ionicons name="ellipsis-horizontal" size={24} color="white" />
         </TouchableOpacity>
       </View>
-
       <View style={styles.formContainer}>
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Email</Text>

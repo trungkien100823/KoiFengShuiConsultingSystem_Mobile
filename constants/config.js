@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // Using your specific local network IP for all platforms
-const DEV_API_URL = 'http://192.168.1.195:5261';
+const DEV_API_URL = 'http://192.168.1.8:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
@@ -39,5 +39,9 @@ export const API_CONFIG = {
 
     // payment endpoints
     payment: '/api/Payment/payos/customer/payment-url',
+
+    // order endpoints
+    pendingOrders: "/api/Order/get-pending-order",
+    cancelOrder: "/api/Order/cancel/{id}",
   }
 };

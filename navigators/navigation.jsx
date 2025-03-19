@@ -16,6 +16,7 @@ import WorkshopDetailsScreen from '../app/(tabs)/workshopDetails';
 import WorkshopFilterScreen from '../app/(tabs)/workshop_filter';
 import TicketConfirmationScreen from '../app/(tabs)/ticket_confirmation';
 import TicketDetailsScreen from '../app/(tabs)/ticketDetails';
+import YourOrderScreen from '../app/(tabs)/your_order';
 
 const Stack = createStackNavigator();
 
@@ -76,6 +77,11 @@ export default function Navigation() {
         <Stack.Screen 
           name="workshop_filter" 
           component={WorkshopFilterScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="your_order" 
+          component={YourOrderScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
