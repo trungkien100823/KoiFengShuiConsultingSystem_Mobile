@@ -33,7 +33,7 @@ export const paymentService = {
       
       console.log('URL thanh toán đầy đủ:', `${API_CONFIG.baseURL}${paymentEndpoint}`);
       
-      // Gọi API thanh toán với phương thức POST nhưng dữ liệu trong query parameters
+      // Gọi API thanh toán với phương thức POST
       const response = await axios.post(
         `${API_CONFIG.baseURL}${paymentEndpoint}`,
         {}, // Body trống
@@ -45,57 +45,20 @@ export const paymentService = {
           timeout: options.timeout || 30000
         }
       );
-      
-      console.log('Response từ API thanh toán:', JSON.stringify(response.data));
-      
+
+      // Kiểm tra và xử lý response
       if (response.data && response.data.isSuccess) {
         return {
           success: true,
           paymentUrl: response.data.data.paymentUrl,
-          message: response.data.message || 'Tạo URL thanh toán thành công'
+          orderId: response.data.data.orderId // Thêm orderId vào response
         };
       }
-      
+
       throw new Error(response.data?.message || 'Không thể tạo URL thanh toán');
+
     } catch (error) {
       console.error('Lỗi khi tạo URL thanh toán:', error);
-      
-      if (error.response) {
-        console.error('Chi tiết lỗi response:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-        
-        // Xử lý lỗi validation từ API
-        if (error.response.status === 400) {
-          const validationErrors = error.response.data?.errors;
-          if (validationErrors) {
-            if (validationErrors.serviceId || validationErrors.ServiceId) {
-              const serviceIdErrors = Array.isArray(validationErrors.serviceId || validationErrors.ServiceId) 
-                ? (validationErrors.serviceId || validationErrors.ServiceId).join(', ') 
-                : 'Invalid serviceId';
-              return {
-                success: false,
-                message: `Lỗi serviceId: ${serviceIdErrors}`,
-                error: error
-              };
-            }
-            
-            // Xử lý lỗi paymentType nếu có
-            if (validationErrors.paymentType || validationErrors.PaymentType) {
-              const paymentTypeErrors = Array.isArray(validationErrors.paymentType || validationErrors.PaymentType) 
-                ? (validationErrors.paymentType || validationErrors.PaymentType).join(', ') 
-                : 'Invalid paymentType';
-              return {
-                success: false,
-                message: `Lỗi paymentType: ${paymentTypeErrors}`,
-                error: error
-              };
-            }
-          }
-        }
-      }
-      
       return {
         success: false,
         message: error.message || 'Đã xảy ra lỗi khi tạo URL thanh toán',
@@ -160,36 +123,18 @@ export const paymentService = {
     try {
       // Tạo URL thanh toán
       const result = await paymentService.createPaymentUrl(serviceId, serviceType);
+      console.log('Kết quả tạo URL thanh toán:', result);
       
       if (result.success && result.paymentUrl) {
-        // Chuyển sang màn hình WebView để hiển thị trang thanh toán
-        paymentService.navigateToPayment(
-          navigation,
-          result.paymentUrl,
-          serviceId,
-          serviceInfo,
-          serviceType
-        );
-        
-        // Gọi callback thành công nếu có
+        // Trả về kết quả trực tiếp thay vì chỉ trả về {success: true}
         if (onSuccess) onSuccess(result);
-        
-        return { success: true };
+        return result; // Thay đổi ở đây
       } else {
-        // Gọi callback lỗi nếu có
-        if (onError) onError(result);
-        
-        // Trả về lỗi
-        return { 
-          success: false, 
-          message: result.message || 'Không thể tạo liên kết thanh toán' 
-        };
+        throw new Error(result.message || 'Không thể tạo liên kết thanh toán');
       }
     } catch (error) {
-      // Gọi callback lỗi nếu có
+      console.error('Lỗi xử lý thanh toán:', error);
       if (onError) onError({ success: false, error });
-      
-      // Trả về lỗi
       return { 
         success: false, 
         message: error.message || 'Đã xảy ra lỗi khi xử lý thanh toán',

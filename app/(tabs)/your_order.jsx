@@ -130,6 +130,10 @@ export default function YourOrderScreen() {
 
   const handlePayment = async (order) => {
     try {
+      // Log để debug
+      console.log('Order object received:', order);
+      console.log('Order ID:', order.id);
+
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
         Alert.alert('Thông báo', 'Vui lòng đăng nhập để thanh toán');
@@ -153,15 +157,15 @@ export default function YourOrderScreen() {
         const fullOrderInfo = response.data.data.find(o => o.orderId.trim() === order.id);
         
         if (fullOrderInfo && fullOrderInfo.paymentReference) {
-          // Log để debug
-          console.log('PaymentURL:', fullOrderInfo.paymentReference);
+          // Log toàn bộ thông tin order để debug
+          console.log('Full order info:', fullOrderInfo);
+          console.log('Order ID to be passed:', fullOrderInfo.orderId);
           
-          // Sửa lại pathname và thêm query parameter
           router.push({
-            pathname: '/payment_webview', // Bỏ (tabs)
+            pathname: '/payment_webview',
             params: {
               paymentUrl: encodeURIComponent(fullOrderInfo.paymentReference),
-              orderId: order.id,
+              orderId: fullOrderInfo.orderId, // Đảm bảo dùng orderId từ response API
               returnScreen: 'your_order'
             }
           });
@@ -170,8 +174,11 @@ export default function YourOrderScreen() {
         }
       }
     } catch (error) {
-      console.error('Lỗi khi xử lý thanh toán:', error);
-      console.log('Response data:', error.response?.data);
+      console.error('Chi tiết lỗi:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       Alert.alert('Lỗi', 'Không thể xử lý thanh toán');
     }
   };

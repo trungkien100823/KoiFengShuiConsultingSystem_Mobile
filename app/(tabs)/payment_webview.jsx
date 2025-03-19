@@ -4,13 +4,13 @@ import { WebView } from 'react-native-webview';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { paymentService } from '../../constants/paymentService';
-import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { API_CONFIG } from '../../constants/config';
 
 export default function PaymentWebView() {
-  const router = useRouter();
-  const route = useRoute();
   const navigation = useNavigation();
+  const route = useRoute();
   const { 
     paymentUrl, 
     serviceId, 
@@ -27,23 +27,76 @@ export default function PaymentWebView() {
   const decodedPaymentUrl = decodeURIComponent(paymentUrl || '');
   console.log('Loading payment URL:', decodedPaymentUrl);
 
-  const handleNavigationStateChange = (navState) => {
+  const handleNavigationStateChange = async (navState) => {
     const currentUrl = navState.url.toLowerCase();
     console.log('Current URL:', currentUrl);
+    console.log('OrderId received:', orderId);
     
     // Xử lý khi thanh toán thành công
     if (currentUrl.includes('success')) {
-      // Đợi 5 giây ở màn hình thành công rồi mới chuyển về workshop
-      setTimeout(() => {
-        router.replace('/(tabs)/workshop');
-      }, 5000);
+      try {
+        // Kiểm tra orderId
+        if (!orderId) {
+          console.error('Không tìm thấy orderId');
+          Alert.alert('Lỗi', 'Không tìm thấy thông tin đơn hàng');
+          return;
+        }
+
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
+          console.error('Không tìm thấy token');
+          Alert.alert('Lỗi', 'Vui lòng đăng nhập lại');
+          return;
+        }
+
+        console.log('Đang gọi API cập nhật trạng thái đơn hàng:', `${API_CONFIG.baseURL}/api/Order/update-to-PENDINGCONFIRM/${orderId}`);
+
+        // Gọi API để cập nhật trạng thái đơn hàng
+        const response = await axios.put(
+          `${API_CONFIG.baseURL}/api/Order/update-to-PENDINGCONFIRM/${orderId}`,
+          null,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        console.log('Kết quả cập nhật trạng thái:', response.data);
+
+        if (response.data && response.data.isSuccess) {
+          console.log('Đã cập nhật trạng thái đơn hàng thành công');
+          
+          // Đợi 5 giây rồi chuyển màn hình
+          setTimeout(() => {
+            navigation.navigate('workshop');
+          }, 5000);
+          
+        } else {
+          throw new Error(response.data?.message || 'Cập nhật trạng thái thất bại');
+        }
+
+      } catch (error) {
+        console.error('Chi tiết lỗi khi cập nhật trạng thái đơn hàng:', error.response?.data || error);
+        // Chỉ hiện Alert khi có lỗi
+        Alert.alert(
+          'Thông báo',
+          'Đã xảy ra lỗi khi cập nhật trạng thái đơn hàng. Vui lòng liên hệ hỗ trợ.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('workshop')
+            }
+          ]
+        );
+      }
       return;
     }
 
     // Xử lý khi hủy thanh toán
     if (currentUrl.includes('cancel')) {
-      // Chuyển thẳng về workshop ngay lập tức khi hủy
-      router.replace('/(tabs)/workshop');
+      navigation.navigate('workshop');
       return;
     }
   };
@@ -118,7 +171,7 @@ export default function PaymentWebView() {
         style={styles.header}
       >
         <TouchableOpacity 
-          onPress={() => router.back()} 
+          onPress={() => navigation.goBack()} 
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color="white" />

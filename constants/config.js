@@ -43,5 +43,6 @@ export const API_CONFIG = {
     // order endpoints
     pendingOrders: "/api/Order/get-pending-order",
     cancelOrder: "/api/Order/cancel/{id}",
+    updatePendingConfirm: '/api/Order/update-to-PENDINGCONFIRM/{id}',
   }
 };

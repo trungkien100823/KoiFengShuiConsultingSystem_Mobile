@@ -370,7 +370,7 @@ export default function TicketConfirmation() {
       // Sử dụng service thanh toán với GroupId
       const result = await paymentService.processPayment({
         navigation,
-        serviceId: groupId,  // GroupId từ ticket creation
+        serviceId: groupId,
         serviceType: paymentService.SERVICE_TYPES.REGISTER_ATTEND,
         serviceInfo: {
           title: workshopInfo.title,
@@ -398,8 +398,19 @@ export default function TicketConfirmation() {
         }
       });
       
-      if (!result.success) {
-        // Xử lý khi có lỗi nhưng không được bắt bởi onError
+      if (result.success) {
+        // Lấy paymentUrl và orderId trực tiếp từ result
+        const { paymentUrl, orderId } = result;
+        console.log('Payment URL:', paymentUrl); // Thêm log để debug
+        console.log('Order ID:', orderId); // Thêm log để debug
+        
+        // Sử dụng navigation.navigate
+        navigation.navigate('payment_webview', {
+          paymentUrl: encodeURIComponent(paymentUrl),
+          orderId: orderId,
+          returnScreen: 'workshop'
+        });
+      } else {
         Alert.alert(
           'Thông báo',
           result.message || 'Không thể tạo liên kết thanh toán.',
