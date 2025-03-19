@@ -11,6 +11,12 @@ import AuthScreen from '../app/(tabs)';
 import LoginScreen from '../app/(tabs)/Login';
 import RegisterScreen from '../app/(tabs)/Register';
 import UserInfoScreen from '../screens/UserInfoScreen';
+import WorkshopScreen from '../app/(tabs)/workshop';
+import WorkshopDetailsScreen from '../app/(tabs)/workshopDetails';
+import WorkshopFilterScreen from '../app/(tabs)/workshop_filter';
+import TicketConfirmationScreen from '../app/(tabs)/ticket_confirmation';
+import TicketDetailsScreen from '../app/(tabs)/ticketDetails';
+import YourOrderScreen from '../app/(tabs)/your_order';
 
 const Stack = createStackNavigator();
 
@@ -47,6 +53,36 @@ export default function Navigation() {
             headerShown: false,
             presentation: 'modal'
           }}
+        />
+        <Stack.Screen 
+          name="workshop" 
+          component={WorkshopScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="workshopDetails" 
+          component={WorkshopDetailsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="ticket_confirmation" 
+          component={TicketConfirmationScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="ticketDetails" 
+          component={TicketDetailsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="workshop_filter" 
+          component={WorkshopFilterScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="your_order" 
+          component={YourOrderScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>

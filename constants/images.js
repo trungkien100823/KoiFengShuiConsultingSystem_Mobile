@@ -12,4 +12,7 @@ export const images = {
     'zen_pond.jpg': require('../assets/images/zen_pond.jpg'),
     'waterfall_pond.jpg': require('../assets/images/waterfall_pond.jpg'),
     'raised_pond.jpg': require('../assets/images/raised_pond.jpg'),
+
+    // Workshop Images
+    'buddha.png': require('../assets/images/buddha.png'),
   };

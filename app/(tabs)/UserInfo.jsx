@@ -71,7 +71,6 @@ export default function UserInfo() {
             <View style={styles.infoRow}>
               <Text style={styles.label}>Cung mệnh:</Text>
               <Text style={styles.value}>{userInfo?.lifePalace || 'Đang tải...'}</Text>
-
             </View>
           </View>
 
@@ -79,7 +78,7 @@ export default function UserInfo() {
             style={[styles.button, { backgroundColor: elementColor }]}
             onPress={() => navigation.navigate('menu')}
           >
-            <Text style={styles.buttonText}>Go to Menu</Text>
+            <Text style={styles.buttonText}>Trang chủ</Text>
           </TouchableOpacity>
         </View>
       </View>
