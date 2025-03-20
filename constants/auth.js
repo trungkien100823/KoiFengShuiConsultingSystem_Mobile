@@ -99,8 +99,7 @@ export const checkAuthStatus = async () => {
     } catch (error) {
       return false;
     }
-  };
-  
+  };  
   export const logout = async () => {
     try {
       await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userEmail']);

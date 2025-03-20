@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,18 +6,137 @@ import {
   TouchableOpacity, 
   ImageBackground,
   SafeAreaView,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SelectList } from 'react-native-dropdown-select-list';
+
+// Define utility functions at the module level so they're accessible everywhere
+const formatDateString = (date) => {
+  if (typeof date === 'string') {
+    return date; // Already a string, return as is
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getDayName = (date) => {
+  const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  return days[date.getDay()];
+};
+
+// Format date for display (DD/MM/YYYY)
+const formatDisplayDate = (dateString) => {
+  if (!dateString) return '';
+  
+  // Check if dateString is in YYYY-MM-DD format
+  if (dateString.includes('-')) {
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      // Convert YYYY-MM-DD to DD/MM/YYYY
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+  }
+  
+  // Already in DD/MM/YYYY format or something else
+  return dateString;
+};
+
+// Fix the SimpleDatePicker component to properly format dates
+const SimpleDatePicker = ({ onSelectDate, selectedDate }) => {
+  const [dates, setDates] = useState([]);
+  
+  useEffect(() => {
+    // Generate dates for the next 30 days with complete information
+    const generateDates = () => {
+      const datesArray = [];
+      const today = new Date();
+      
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        const day = date.getDate();
+        const month = date.getMonth() + 1;
+        const year = date.getFullYear();
+        
+        datesArray.push({
+          dateString: `${month}/${day}/${year}`, // Store as MM/DD/YYYY
+          formattedDay: day,  // For display
+          formattedMonth: month, // For display
+          formattedYear: year, // For display
+          day: day,
+          month: month,
+          year: year,
+          dayName: getDayName(date),
+          fullDate: date // Store the full date object
+        });
+      }
+      
+      return datesArray;
+    };
+    
+    setDates(generateDates());
+  }, []);
+  
+  return (
+    <View style={styles.datePickerContainer}>
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={dates}
+        keyExtractor={(item) => item.dateString}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[
+              styles.dateItem,
+              selectedDate === item.dateString && styles.selectedDateItem
+            ]}
+            onPress={() => onSelectDate(item)}
+          >
+            <Text style={[
+              styles.dayName,
+              selectedDate === item.dateString && styles.selectedDateText
+            ]}>
+              {item.dayName}
+            </Text>
+            <Text style={[
+              styles.dayNumber,
+              selectedDate === item.dateString && styles.selectedDateText
+            ]}>
+              {item.day}
+            </Text>
+            <Text style={[
+              styles.monthText,
+              selectedDate === item.dateString && styles.selectedDateText
+            ]}>
+              {item.month}/{item.year}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
+    </View>
+  );
+};
 
 export default function OnlineScheduleScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const customerInfo = params?.customerInfo ? JSON.parse(params.customerInfo) : null;
+  const packageInfo = params?.packageInfo ? JSON.parse(params.packageInfo) : null;
+  
   const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
+  const [selectedDateObj, setSelectedDateObj] = useState(null);
+  const [selectedStartTime, setSelectedStartTime] = useState(null);
+  const [selectedEndTime, setSelectedEndTime] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [dates, setDates] = useState([]);
+  const [allDates, setAllDates] = useState([]); // Store all generated dates
 
   // Get today's actual date
   const today = new Date();
@@ -78,13 +197,186 @@ export default function OnlineScheduleScreen() {
     return dates;
   };
 
-  const timeSlots = [
-    { key: '1', value: '8:00 - 10:00' },
-    { key: '2', value: '10:00 - 12:00' },
-    { key: '3', value: '13:00 - 15:00' },
-    { key: '4', value: '15:00 - 17:00' },
-    { key: '5', value: '17:00 - 19:00' },
+  // Generate time slots in 30-minute increments
+  const startTimeOptions = [
+    {key: '08:00', value: '08:00'},
+    {key: '08:30', value: '08:30'},
+    {key: '09:00', value: '09:00'},
+    {key: '09:30', value: '09:30'},
+    {key: '10:00', value: '10:00'},
+    {key: '10:30', value: '10:30'},
+    {key: '11:00', value: '11:00'},
+    {key: '11:30', value: '11:30'},
+    {key: '13:00', value: '13:00'},
+    {key: '13:30', value: '13:30'},
+    {key: '14:00', value: '14:00'},
+    {key: '14:30', value: '14:30'},
+    {key: '15:00', value: '15:00'},
+    {key: '15:30', value: '15:30'},
+    {key: '16:00', value: '16:00'},
+    {key: '16:30', value: '16:30'},
+    {key: '17:00', value: '17:00'},
+    {key: '17:30', value: '17:30'},
   ];
+  
+  // Generate available end times based on selected start time
+  const getEndTimeOptions = (startTime) => {
+    if (!startTime) return [];
+    
+    // Parse the start time
+    const [startHour, startMinute] = startTime.split(':').map(num => parseInt(num, 10));
+    const startTimeMinutes = startHour * 60 + startMinute;
+    
+    const endTimeOptions = [];
+    
+    // Add options in 30-minute increments, at least 30 mins, at most 2 hours
+    for (let minutes = 30; minutes <= 120; minutes += 30) {
+      const totalMinutes = startTimeMinutes + minutes;
+      const endHour = Math.floor(totalMinutes / 60);
+      const endMinute = totalMinutes % 60;
+      
+      // Skip lunch break (12:00-13:00) and after 18:00
+      if ((endHour === 12) || endHour > 18) continue;
+      
+      const formattedEndTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+      endTimeOptions.push({key: formattedEndTime, value: formattedEndTime});
+    }
+    
+    return endTimeOptions;
+  };
+  
+  // Fix the selectDate function to ensure we get complete date information
+  const selectDate = (item) => {
+    console.log('Date selected:', item);
+    
+    // Make sure we have a proper date string in MM/DD/YYYY format
+    let dateString;
+    
+    if (item.month && item.day && item.year) {
+      // Format as MM/DD/YYYY
+      dateString = `${item.month}/${item.day}/${item.year}`;
+    } else if (item.dateString && item.dateString.includes('/')) {
+      // Already has month/day/year format
+      dateString = item.dateString;
+    } else if (item.dateString) {
+      // Only has day number, need to add month/year
+      const today = new Date();
+      dateString = `${today.getMonth() + 1}/${item.dateString}/${today.getFullYear()}`;
+    } else {
+      // Complete fallback
+      const today = new Date();
+      dateString = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
+    }
+    
+    console.log('Formatted date string:', dateString);
+    
+    setSelectedDate(dateString);
+    setSelectedDateObj({
+      ...item,
+      dateString: dateString
+    });
+    
+    // Reset time selections
+    setSelectedStartTime(null);
+    setSelectedEndTime(null);
+  };
+  
+  const handleStartTimeChange = (time) => {
+    setSelectedStartTime(time);
+    setSelectedEndTime(null); // Reset end time when start time changes
+  };
+  
+  const validateTimes = (start, end) => {
+    if (!start || !end) return false;
+    
+    // Parse the times
+    const [startHour, startMinute] = start.split(':').map(num => parseInt(num, 10));
+    const [endHour, endMinute] = end.split(':').map(num => parseInt(num, 10));
+    
+    const startTotalMinutes = startHour * 60 + startMinute;
+    const endTotalMinutes = endHour * 60 + endMinute;
+    const durationMinutes = endTotalMinutes - startTotalMinutes;
+    
+    // Ensure end time is after start time
+    if (endTotalMinutes <= startTotalMinutes) {
+      Alert.alert("Lỗi", "Thời gian kết thúc phải sau thời gian bắt đầu");
+      return false;
+    }
+    
+    // Ensure duration is at least 30 minutes
+    if (durationMinutes < 30) {
+      Alert.alert("Lỗi", "Thời gian tư vấn tối thiểu là 30 phút");
+      return false;
+    }
+    
+    // Ensure duration is at most 2 hours
+    if (durationMinutes > 120) {
+      Alert.alert("Lỗi", "Thời gian tư vấn tối đa là 2 giờ");
+      return false;
+    }
+    
+    return true;
+  };
+  
+  // Simplify the handleContinue function to match API format
+  const handleContinue = () => {
+    if (!selectedDate) {
+      Alert.alert("Thông báo", "Vui lòng chọn ngày cho lịch hẹn");
+      return;
+    }
+    
+    if (!selectedStartTime || !selectedEndTime) {
+      Alert.alert("Thông báo", "Vui lòng chọn giờ bắt đầu và kết thúc cho lịch hẹn");
+      return;
+    }
+    
+    if (!validateTimes(selectedStartTime, selectedEndTime)) {
+      return;
+    }
+    
+    // Make sure the date is in MM/DD/YYYY format
+    let formattedDate;
+    if (selectedDateObj && selectedDateObj.month && selectedDateObj.day && selectedDateObj.year) {
+      formattedDate = `${selectedDateObj.month}/${selectedDateObj.day}/${selectedDateObj.year}`;
+    } else if (selectedDate && selectedDate.includes('/')) {
+      // Try to parse existing format
+      const parts = selectedDate.split('/');
+      if (parts.length === 3) {
+        if (parts[0].length <= 2 && parts[1].length <= 2) {
+          // Already in MM/DD/YYYY or DD/MM/YYYY format
+          const month = parts[0]; // Assume the first part is month to match MM/DD/YYYY
+          const day = parts[1];
+          const year = parts[2];
+          formattedDate = `${month}/${day}/${year}`;
+        }
+      }
+    }
+    
+    if (!formattedDate) {
+      // Fallback to today in MM/DD/YYYY format
+      const today = new Date();
+      formattedDate = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
+    }
+    
+    // The scheduleInfo contains only date and time data with Pascal case
+    const scheduleInfo = {
+      Date: formattedDate, // MM/DD/YYYY format
+      StartTime: selectedStartTime,
+      EndTime: selectedEndTime
+    };
+    
+    console.log("Passing schedule info to checkout:", scheduleInfo);
+    console.log("Passing customer info to checkout:", JSON.parse(params.customerInfo));
+    
+    // Pass all the information to the next screen
+    router.push({
+      pathname: '/(tabs)/online_checkout',
+      params: {
+        customerInfo: params.customerInfo,
+        scheduleInfo: JSON.stringify(scheduleInfo)
+      }
+    });
+  };
 
   const getDateStyle = (date) => {
     // Check if the date is the current date (only in current month and year)
@@ -103,6 +395,32 @@ export default function OnlineScheduleScreen() {
     }
     return [styles.dateCircle, styles.available];
   };
+
+  useEffect(() => {
+    // Generate dates for the next 30 days
+    const generateDates = () => {
+      const datesArray = [];
+      const today = new Date();
+      
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        datesArray.push({
+          dateString: formatDateString(date),
+          day: date.getDate(),
+          month: date.getMonth() + 1,
+          year: date.getFullYear(),
+          dayName: getDayName(date),
+          fullDate: date
+        });
+      }
+      
+      return datesArray;
+    };
+    
+    setDates(generateDates());
+  }, []);
 
   return (
     <ImageBackground 
@@ -157,7 +475,7 @@ export default function OnlineScheduleScreen() {
                     {date && (
                       <TouchableOpacity
                         style={getDateStyle(date)}
-                        onPress={() => !fullyBookedDates.includes(date) && setSelectedDate(date)}
+                        onPress={() => !fullyBookedDates.includes(date) && selectDate({dateString: date.toString()})}
                         disabled={fullyBookedDates.includes(date)}
                       >
                         <Text style={styles.dateText}>{date}</Text>
@@ -169,18 +487,45 @@ export default function OnlineScheduleScreen() {
             </View>
           </View>
 
-          <View style={styles.timeSlotContainer}>
-            <SelectList 
-              setSelected={setSelectedTimeSlot}
-              data={timeSlots}
-              boxStyles={styles.dropdown}
-              dropdownStyles={styles.dropdownList}
-              inputStyles={styles.dropdownText}
-              dropdownTextStyles={styles.dropdownText}
-              placeholder="Select time slot"
-              search={false}
-            />
-          </View>
+          {selectedDate && (
+            <View style={styles.timeSection}>
+              <Text style={styles.dateSelected}>
+                Ngày đã chọn: {formatDisplayDate(selectedDate)}
+              </Text>
+              
+              <View style={styles.timeSelectionContainer}>
+                <Text style={styles.timeLabel}>Giờ bắt đầu</Text>
+                <SelectList
+                  setSelected={handleStartTimeChange}
+                  data={startTimeOptions}
+                  save="key"
+                  placeholder="Chọn giờ bắt đầu"
+                  boxStyles={styles.selectBox}
+                  dropdownStyles={styles.dropdown}
+                  inputStyles={styles.selectText}
+                  dropdownTextStyles={styles.dropdownText}
+                  search={false}
+                />
+              </View>
+              
+              {selectedStartTime && (
+                <View style={[styles.timeSelectionContainer, {marginTop: 16}]}>
+                  <Text style={styles.timeLabel}>Giờ kết thúc</Text>
+                  <SelectList
+                    setSelected={setSelectedEndTime}
+                    data={getEndTimeOptions(selectedStartTime)}
+                    save="key"
+                    placeholder="Chọn giờ kết thúc"
+                    boxStyles={styles.selectBox}
+                    dropdownStyles={styles.dropdown}
+                    inputStyles={styles.selectText}
+                    dropdownTextStyles={styles.dropdownText}
+                    search={false}
+                  />
+                </View>
+              )}
+            </View>
+          )}
 
           <View style={styles.legend}>
             <View style={styles.legendItem}>
@@ -199,16 +544,9 @@ export default function OnlineScheduleScreen() {
 
           <TouchableOpacity 
             style={styles.continueButton}
-            onPress={() => {
-              if (selectedDate && selectedTimeSlot) {
-                router.push('/(tabs)/online_transaction');
-              } else {
-                // You might want to add an alert here for validation
-                alert('Please select both date and time slot');
-              }
-            }}
+            onPress={handleContinue}
           >
-            <Text style={styles.continueButtonText}>Continue</Text>
+            <Text style={styles.continueButtonText}>Tiếp tục</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -344,22 +682,44 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: '#FFFFFF',
   },
-  timeSlotContainer: {
-    marginBottom: 20,
+  timeSection: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  dateSelected: {
+    fontSize: 16,
+    color: '#8B0000',
+    marginBottom: 16,
+  },
+  timeSelectionContainer: {
+    marginBottom: 8,
+  },
+  timeLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8,
+  },
+  selectBox: {
+    borderColor: '#ddd',
+    backgroundColor: '#f5f5f5',
   },
   dropdown: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
-    padding: 15,
+    borderColor: '#ddd',
+    backgroundColor: '#f5f5f5',
   },
-  dropdownList: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+  selectText: {
+    color: '#333',
   },
   dropdownText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#333',
   },
   legend: {
     flexDirection: 'row',

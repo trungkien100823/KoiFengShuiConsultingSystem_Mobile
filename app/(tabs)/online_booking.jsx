@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -10,12 +10,13 @@ import {
   ScrollView,
   Keyboard,
   TouchableWithoutFeedback,
-  Modal,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SelectList } from 'react-native-dropdown-select-list';
+import { consultingAPI } from '../../constants/consulting';
 
 export default function OnlineBookingScreen() {
   const router = useRouter();
@@ -24,14 +25,41 @@ export default function OnlineBookingScreen() {
   const [email, setEmail] = useState('');
   const [description, setDescription] = useState('');
   const [selectedConsultant, setSelectedConsultant] = useState('');
-  const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [consultants, setConsultants] = useState([
+    { key: 'auto', value: 'Chúng tôi sẽ chọn giúp' }
+  ]);
 
-  const consultants = [
-    { key: 'auto', value: 'Chúng tôi sẽ chọn giúp' },
-    { key: '1', value: 'Nguyễn Văn A' },
-    { key: '2', value: 'Trần Thị B' },
-    { key: '3', value: 'Lê Văn C' },
-  ];
+  // Fetch consultants when component mounts
+  useEffect(() => {
+    const fetchConsultants = async () => {
+      try {
+        const consultantData = await consultingAPI.getAllConsultants();
+        
+        // Format consultants for the dropdown
+        const formattedConsultants = [
+          { key: 'auto', value: 'Chúng tôi sẽ chọn giúp' },
+          ...consultantData.map(consultant => ({
+            key: consultant.id,
+            value: consultant.name
+          }))
+        ];
+        
+        setConsultants(formattedConsultants);
+      } catch (error) {
+        console.error('Error fetching consultants:', error);
+        // Keep the default "auto" option and add sample consultants as fallback
+        Alert.alert(
+          "Thông báo",
+          "Không thể tải danh sách thầy phong thủy. Vui lòng thử lại sau."
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchConsultants();
+  }, []);
 
   return (
     <ImageBackground 
@@ -61,18 +89,24 @@ export default function OnlineBookingScreen() {
             <View style={styles.formContainer}>
               {/* Consultant Picker */}
               <View style={styles.formGroup}>
-                <SelectList 
-                  setSelected={setSelectedConsultant} 
-                  data={consultants} 
-                  boxStyles={styles.dropdown}
-                  dropdownStyles={styles.dropdownList}
-                  inputStyles={styles.dropdownText}
-                  dropdownTextStyles={styles.dropdownText}
-                  placeholder="Thầy phong thủy"
-                  search={false}
-                  defaultOption={{ key: '', value: 'Thầy phong thủy' }}
-                  arrowicon={<Ionicons name="chevron-down" size={24} color="#FFFFFF" />}
-                />
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  </View>
+                ) : (
+                  <SelectList 
+                    setSelected={setSelectedConsultant} 
+                    data={consultants} 
+                    boxStyles={styles.dropdown}
+                    dropdownStyles={styles.dropdownList}
+                    inputStyles={styles.dropdownText}
+                    dropdownTextStyles={styles.dropdownText}
+                    placeholder="Thầy phong thủy"
+                    search={false}
+                    defaultOption={{ key: 'auto', value: 'Thầy phong thủy' }}
+                    arrowicon={<Ionicons name="chevron-down" size={24} color="#FFFFFF" />}
+                  />
+                )}
               </View>
 
               {/* Name Input */}
@@ -131,11 +165,44 @@ export default function OnlineBookingScreen() {
               <TouchableOpacity 
                 style={styles.submitButton}
                 onPress={() => {
-                  // Navigate to online_package.jsx
-                  router.push('/(tabs)/online_package');
+                  if (!name || !phone || !email) {
+                    Alert.alert("Thông báo", "Vui lòng điền đầy đủ thông tin");
+                    return;
+                  }
+                  
+                  // Get the selected master data
+                  let masterId = selectedConsultant || "auto";
+                  let masterName = "Chúng tôi sẽ chọn giúp";
+                  
+                  if (masterId !== "auto") {
+                    // Find the selected master from the list
+                    const master = consultants.find(c => c.id === masterId || c.key === masterId);
+                    if (master) {
+                      masterName = master.name || master.value;
+                    } else {
+                      // Default to a known ID if auto is selected or master not found
+                      masterId = "3BFE51B2-D79C-46D1-9";
+                      masterName = "Sensei Tanaka";
+                    }
+                  }
+                  
+                  // Navigate with complete info using PascalCase fields
+                  router.push({
+                    pathname: '/(tabs)/online_schedule',
+                    params: {
+                      customerInfo: JSON.stringify({
+                        Name: name,
+                        Phone: phone,
+                        Email: email,
+                        Description: description,
+                        MasterId: masterId,
+                        MasterName: masterName
+                      })
+                    }
+                  });
                 }}
               >
-                <Text style={styles.submitButtonText}>Chọn gói tư vấn</Text>
+                <Text style={styles.submitButtonText}>Chọn lịch tư vấn</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -269,4 +336,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000000',
   },
+  loadingContainer: {
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+  }
 });

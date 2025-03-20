@@ -190,36 +190,44 @@ export const consultingAPI = {
   }
 };
 
-// Consulting packages
+// Sample consulting packages using the same koi image
 export const consultingPackages = [
   {
     id: '1',
-    title: 'CƠ BẢN',
-    label: 'Gói tư vấn',
-    price: '1.000.000',
+    title: 'Gói tư vấn CƠ BẢN',
+    label: 'Phong thủy nhà ở',
+    description: 'Tư vấn các vấn đề cơ bản về phong thủy cho nhà ở',
+    price: 1500000,
+    duration: '60 phút',
     image: require('../assets/images/koi_image.jpg'),
   },
   {
     id: '2',
-    title: 'NÂNG CAO',
-    label: 'Gói tư vấn',
-    price: '2.000.000',
+    title: 'Gói tư vấn NÂNG CAO',
+    label: 'Phong thủy đặc biệt',
+    description: 'Tư vấn chuyên sâu cho phong thủy nhà ở và văn phòng',
+    price: 2500000,
+    duration: '90 phút',
     image: require('../assets/images/koi_image.jpg'),
   },
   {
     id: '3',
-    title: 'CHUYÊN SÂU',
-    label: 'Gói tư vấn',
-    price: '3.000.000',
+    title: 'Gói tư vấn CHUYÊN SÂU',
+    label: 'Phong thủy cao cấp',
+    description: 'Phân tích chi tiết và tư vấn chuyên sâu về phong thủy',
+    price: 3500000,
+    duration: '120 phút',
     image: require('../assets/images/koi_image.jpg'),
   },
   {
     id: '4',
-    title: 'DOANH NGHIỆP',
-    label: 'Gói tư vấn',
-    price: '5.000.000',
+    title: 'Gói tư vấn DOANH NGHIỆP',
+    label: 'Phong thủy doanh nghiệp',
+    description: 'Tư vấn phong thủy cho văn phòng, công ty và doanh nghiệp',
+    price: 5000000,
+    duration: '180 phút',
     image: require('../assets/images/koi_image.jpg'),
-  },
+  }
 ];
 
 // Expertises or categories

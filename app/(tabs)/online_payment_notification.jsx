@@ -1,164 +1,139 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  Image, 
-  TouchableOpacity, 
-  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+  Image,
   Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
-import { consultingAPI, consultants as fallbackConsultants } from '../../constants/consulting';
 
 export default function OnlinePaymentNotificationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const bookingData = params?.bookingData ? JSON.parse(params.bookingData) : null;
   
-  // Meeting link (would be dynamically generated in production)
-  const meetingLink = "https://meet.google.com/nui-wqp-srj";
+  // Handle "Continue" button press
+  const handleContinue = () => {
+    // Navigate to home or another screen
+    router.push('/(tabs)');
+  };
   
-  const [consultant, setConsultant] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchConsultant = async () => {
-    try {
-      // In a real app, this would be the ID of the assigned consultant
-      const consultantId = '1'; 
-      const data = await consultingAPI.getConsultantById(consultantId);
-      setConsultant(data);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching consultant:', err);
-      // Fallback to sample data
-      setConsultant(fallbackConsultants[0]);
-      setLoading(false);
+  // Handle "Back" button press
+  const handleBack = () => {
+    // Go back to previous screen
+    router.push('/(tabs)/consulting');
+  };
+  
+  // Handle opening the meeting link
+  const openMeetingLink = () => {
+    if (bookingData?.linkMeet) {
+      Linking.openURL(bookingData.linkMeet);
     }
   };
-
-  // Sample appointment date/time - in production, this would be scheduled
-  const appointmentDate = "15/3/2025";
-  const appointmentTime = "10:00 - 12:00";
-
+  
+  if (!bookingData) {
+    return (
+      <View style={[styles.container, {justifyContent: 'center', alignItems: 'center'}]}>
+        <Text style={{color: '#333', fontSize: 18}}>Không tìm thấy thông tin đặt lịch</Text>
+        <TouchableOpacity 
+          style={{marginTop: 20, padding: 10, backgroundColor: '#8B0000', borderRadius: 5}}
+          onPress={() => router.push('/(tabs)')}
+        >
+          <Text style={{color: 'white'}}>Quay lại trang chủ</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Xác nhận thanh toán</Text>
-      </View>
-
-      {/* Success Message */}
-      <View style={styles.successContainer}>
+    <SafeAreaView style={styles.container}>
+      {/* Payment Success Message */}
+      <View style={styles.confirmationHeader}>
+        <Text style={styles.confirmationTitle}>Xác nhận thanh toán</Text>
+        
         <View style={styles.successCircle}>
-          <Ionicons name="checkmark" size={50} color="#FFFFFF" />
+          <Ionicons name="checkmark" size={50} color="#fff" />
         </View>
-        <Text style={styles.successText}>Dịch vụ đã được thanh toán</Text>
-        <Text style={styles.successText}>thành công</Text>
+        
+        <Text style={styles.successMessage}>
+          Dịch vụ đã được thanh toán thành công
+        </Text>
       </View>
-
-      {/* Service Details Section */}
-      <View style={styles.serviceSection}>
-        <Text style={styles.sectionTitle}>Dịch vụ của bạn</Text>
+      
+      {/* Consultation Details */}
+      <View style={styles.consultationDetails}>
+        <Text style={styles.consultationTitle}>Lịch tư vấn</Text>
         
-        {/* Package Card */}
-        <View style={styles.packageCard}>
-          <Image
-            source={params.packageImage || require('../../assets/images/koi_image.jpg')}
-            style={styles.packageImage}
-          />
-          <View style={styles.packageOverlay}>
-            <Text style={styles.packageLabel}>Gói tư vấn</Text>
-            <Text style={styles.packageTitle}>{params.packageTitle || "CƠ BẢN"}</Text>
-          </View>
-        </View>
-        
-        {/* Appointment Info */}
-        <Text style={styles.infoLabel}>Lịch tư vấn</Text>
-        <View style={styles.appointmentRow}>
-          <View style={styles.consultantInfo}>
-            <Image source={consultant?.image} style={styles.consultantImage} />
-            <View style={styles.dateTimeContainer}>
-              <View style={styles.dateTimeRow}>
-                <Ionicons name="time-outline" size={22} color="#8B0000" />
-                <Text style={styles.dateTimeText}>{appointmentDate}</Text>
-                <Text style={styles.dateTimeText}>{appointmentTime}</Text>
-              </View>
-              <View style={styles.consultantRow}>
-                <Ionicons name="person-outline" size={22} color="#8B0000" />
-                <Text style={styles.consultantName}>{consultant?.name}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-        
-        {/* Google Meet Link */}
-        <View style={styles.meetSection}>
+        {/* Consultant Info */}
+        <View style={styles.consultantContainer}>
           <Image 
-            source={require('../../assets/images/google_meet.png')} 
-            style={styles.meetIcon} 
-            resizeMode="contain"
+            source={bookingData.masterImage ? { uri: bookingData.masterImage } : require('../../assets/images/consultant1.jpg')} 
+            style={styles.consultantImage}
           />
-          <Text 
-            style={styles.meetLink}
-            onPress={() => Linking.openURL(meetingLink)}
-          >
-            {meetingLink}
-          </Text>
+          <Text style={styles.consultantName}>{bookingData.masterName}</Text>
         </View>
+        
+        {/* Meeting Link */}
+        <TouchableOpacity style={styles.meetingLink} onPress={openMeetingLink}>
+          <Ionicons name="videocam-outline" size={22} color="#fff" />
+          <Text style={styles.meetingLinkText} numberOfLines={1} ellipsizeMode="tail">
+            {bookingData.linkMeet || "https://meet.google.com/mru-twqp-srj"}
+          </Text>
+        </TouchableOpacity>
         
         {/* QR Code */}
-        <View style={styles.qrContainer}>
+        <View style={styles.qrCodeContainer}>
           <QRCode
-            value={meetingLink}
-            size={150}
-            backgroundColor="white"
-            color="black"
+            value={bookingData.linkMeet || "https://meet.google.com/mru-twqp-srj"}
+            size={120}
+            backgroundColor="transparent"
+            color="#000"
           />
         </View>
       </View>
       
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
+      {/* Buttons */}
+      <View style={styles.buttonsContainer}>
         <TouchableOpacity 
-          style={styles.continueButton}
-          onPress={() => router.push('/(tabs)')}
+          style={styles.button}
+          onPress={handleContinue}
         >
-          <Text style={styles.continueButtonText}>Tiếp tục</Text>
+          <Text style={styles.buttonText}>Tiếp tục</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.push('/(tabs)/consulting')}
+          style={[styles.button, styles.backButton]}
+          onPress={handleBack}
         >
           <Text style={styles.backButtonText}>Trở lại</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF',
   },
-  header: {
+  confirmationHeader: {
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 20,
+    padding: 20,
+    backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
   },
-  headerTitle: {
+  confirmationTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#8B0000',
-  },
-  successContainer: {
-    alignItems: 'center',
-    paddingVertical: 30,
+    marginBottom: 15,
   },
   successCircle: {
     width: 80,
@@ -167,158 +142,91 @@ const styles = StyleSheet.create({
     backgroundColor: '#00C853',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    marginVertical: 15,
   },
-  successText: {
-    fontSize: 18,
-    color: '#333333',
+  successMessage: {
+    fontSize: 16,
+    color: '#333',
     textAlign: 'center',
-    lineHeight: 26,
   },
-  serviceSection: {
-    backgroundColor: '#8B0000',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+  consultationDetails: {
     flex: 1,
+    backgroundColor: '#8B0000',
     padding: 20,
   },
-  sectionTitle: {
+  consultationTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#FFF',
     marginBottom: 20,
+    textAlign: 'center',
   },
-  packageCard: {
-    height: 180,
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  packageImage: {
-    width: '100%',
-    height: '100%',
-  },
-  packageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  packageLabel: {
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  packageTitle: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  infoLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 10,
-  },
-  appointmentRow: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 15,
-  },
-  consultantInfo: {
+  consultantContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
   },
   consultantImage: {
     width: 60,
     height: 60,
     borderRadius: 30,
     marginRight: 15,
-  },
-  dateTimeContainer: {
-    flex: 1,
-  },
-  dateTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  dateTimeText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    marginLeft: 5,
-    marginRight: 10,
-  },
-  consultantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
   consultantName: {
-    color: '#FFFFFF',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 5,
   },
-  meetSection: {
+  meetingLink: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    padding: 10,
+    borderRadius: 8,
     marginBottom: 20,
   },
-  meetIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 10,
-  },
-  meetLink: {
-    color: '#FFFFFF',
+  meetingLinkText: {
+    color: '#FFF',
     fontSize: 14,
-    textDecorationLine: 'underline',
+    marginLeft: 10,
+    flex: 1,
   },
-  qrContainer: {
+  qrCodeContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#FFF',
     padding: 15,
-    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     alignSelf: 'center',
-    marginBottom: 20,
   },
-  buttonContainer: {
+  buttonsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    paddingTop: 10,
+    padding: 15,
     backgroundColor: '#8B0000',
+    justifyContent: 'space-between',
   },
-  continueButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 25,
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    minWidth: 120,
+  button: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
-  },
-  continueButtonText: {
-    color: '#8B0000',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginHorizontal: 5,
   },
   backButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#FFFFFF',
-    borderRadius: 25,
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    minWidth: 120,
-    alignItems: 'center',
+    borderColor: '#FFF',
   },
-  backButtonText: {
-    color: '#FFFFFF',
+  buttonText: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFF',
   },
 });
