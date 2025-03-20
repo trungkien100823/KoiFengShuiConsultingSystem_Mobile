@@ -1,173 +1,217 @@
-import React from 'react';
-import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, Dimensions } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import BackButton from '../../components/BackButton';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  Image, 
+  ScrollView,
+  SafeAreaView,
+  ActivityIndicator,
+  Alert
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import CustomTabBar from '../../components/ui/CustomTabBar';
+import UserInfo from './UserInfo';
+import { getAuthToken } from '../../services/authService';
+import { API_CONFIG } from '../../constants/config';
+import axios from 'axios';
 
-const elementColors = {
-  Hỏa: '#FF4500', // Orange Red for Fire
-  Kim: '#C0C0C0', // Silver for Metal
-  Thủy: '#006994', // Ocean Blue for Water
-  Mộc: '#228B22', // Forest Green for Wood
-  Thổ: '#DEB887', // Burlywood (Light Brown) for Earth
-};
-
-export default function UserInfo() {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const { userData } = route.params;
-  const elementColor = elementColors[userData.element] || '#FF4500';
-  const params = useLocalSearchParams();
+export default function ProfileScreen() {
   const router = useRouter();
-  const score = parseFloat(params.score) || 0;
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const getCompatibilityMessage = (score) => {
-    if (score < 20) return "Rất không hợp, cần xem xét lại phong thủy.";
-    if (score < 40) return "Hợp mức thấp, có thể cải thiện thêm.";
-    if (score < 60) return "Hợp trung bình, có thể chấp nhận.";
-    if (score < 80) return "Hợp tốt, có thể sử dụng.";
-    return "Rất hợp phong thủy, lý tưởng!";
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const token = await getAuthToken();
+        
+        if (!token) {
+          console.log('No token found, user not logged in');
+          setLoading(false);
+          return;
+        }
+        
+        const response = await axios.get(`${API_CONFIG.baseURL}/api/Account/current-user`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.data && response.data.isSuccess) {
+          console.log('User data:', response.data.data);
+          setUser(response.data.data);
+        } else {
+          console.warn('Failed to fetch user data:', response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserData();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('accessToken');
+      setUser(null);
+      Alert.alert('Success', 'You have been logged out');
+      router.push('/(tabs)/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
-  const getCompatibilityColor = (score) => {
-    if (score < 20) return '#FF0000';      // Red for very incompatible
-    if (score < 60) return '#FFD700';      // Yellow for moderate compatibility
-    return '#008000';                      // Green for good compatibility
-  };
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8B0000" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ImageBackground
-      source={require('../../assets/images/feng shui.png')}
-      style={styles.background}
-    >
-      <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
-          <BackButton />
-          <Text style={styles.headerTitle}>Kết quả tính toán</Text>
+          <Text style={styles.pageTitle}>Tài khoản</Text>
         </View>
-
-        <View style={styles.content}>
-          <View style={styles.resultCard}>
-            <Text style={styles.resultTitle}>Điểm tương hợp:</Text>
-            <Text style={[
-              styles.scoreText,
-              { color: getCompatibilityColor(score) }
-            ]}>
-              {score}%
-            </Text>
-            <Text style={[
-              styles.messageText,
-              { color: getCompatibilityColor(score) }
-            ]}>
-              {getCompatibilityMessage(score)}
-            </Text>
+        
+        {user ? (
+          <UserInfo 
+            user={user} 
+            // Make sure all required props are passed with fallbacks
+            avatar={user.avatar || require('../../assets/images/default-avatar.png')}
+            name={user.userName || user.fullName || 'User'}
+            phone={user.phoneNumber || 'No phone'}
+            email={user.email || 'No email'}
+            address={user.address || 'No address'}
+            // Pass an empty object if element is undefined to avoid error
+            element={user.element || {}} 
+          />
+        ) : (
+          <View style={styles.loginPrompt}>
+            <Text style={styles.loginText}>Please log in to view your profile</Text>
+            <TouchableOpacity 
+              style={styles.loginButton}
+              onPress={() => router.push('/(tabs)/login')}
+            >
+              <Text style={styles.loginButtonText}>Login</Text>
+            </TouchableOpacity>
           </View>
-
-          <View style={styles.detailsCard}>
-            <Text style={styles.detailsTitle}>Chi tiết:</Text>
-            <Text style={styles.detailItem}>Tỉ lệ màu sắc: {params.colorRatio || 'N/A'}</Text>
-            <Text style={styles.detailItem}>Hình dạng hồ: {params.pondShape || 'N/A'}</Text>
-            <Text style={styles.detailItem}>Hướng: {params.direction || 'N/A'}</Text>
-            <Text style={styles.detailItem}>Số lượng cá: {params.fishCount || 'N/A'}</Text>
-          </View>
-
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backButtonText}>Quay lại</Text>
+        )}
+        
+        <View style={styles.menuSection}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(tabs)/settings')}>
+            <Ionicons name="settings-outline" size={24} color="#333" />
+            <Text style={styles.menuItemText}>Cài đặt</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(tabs)/support')}>
+            <Ionicons name="help-circle-outline" size={24} color="#333" />
+            <Text style={styles.menuItemText}>Hỗ trợ</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+          
+          {user && (
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={24} color="#d9534f" />
+              <Text style={[styles.menuItemText, {color: '#d9534f'}]}>Đăng xuất</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
-      </View>
-    </ImageBackground>
+      </ScrollView>
+      <CustomTabBar />
+    </SafeAreaView>
   );
 }
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    width: '100%',
-  },
   container: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    backgroundColor: '#fff',
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  menuSection: {
+    marginTop: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    marginHorizontal: 15,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#eee',
+  },
+  menuItemText: {
+    flex: 1,
+    marginLeft: 15,
+    fontSize: 16,
+    color: '#333',
+  },
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8f8f8',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: '#8B0000',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 16,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  resultCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  resultTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
-  },
-  scoreText: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  messageText: {
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  detailsCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-  },
-  detailsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
-  },
-  detailItem: {
+  loadingText: {
+    marginTop: 15,
     fontSize: 16,
     color: '#666',
-    marginBottom: 8,
   },
-  backButton: {
-    backgroundColor: '#8B0000',
-    padding: 15,
-    borderRadius: 8,
+  loginPrompt: {
+    marginTop: 50,
     alignItems: 'center',
-    marginTop: 20,
+    paddingHorizontal: 20,
   },
-  backButtonText: {
+  loginText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+  },
+  loginButton: {
+    backgroundColor: '#8B0000',
+    paddingVertical: 12,
+    paddingHorizontal: 35,
+    borderRadius: 25,
+  },
+  loginButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

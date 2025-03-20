@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from './config';
+import { getAuthHeaders } from '../services/authService';
 
 // Koi fish images mapping
 export const koiImages = {
@@ -69,7 +70,16 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 export const koiAPI = {
   getAllKoi: async () => {
     try {
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/KoiVariety`);
+      const headers = await getAuthHeaders();
+      
+      console.log('Fetching Koi data from:', `${API_CONFIG.baseURL}/api/KoiVariety/get-koi-current-login`);
+      console.log('With headers:', headers);
+      
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/KoiVariety/get-koi-current-login`, 
+        { headers }
+      );
+      
       console.log('All Koi response:', response.data);
       
       if (response.data && response.data.isSuccess && Array.isArray(response.data.data)) {
@@ -78,13 +88,23 @@ export const koiAPI = {
           name: item.name || 'Unknown Koi',
           variant: item.varietyName || 'Unknown Variety',
           description: item.description || 'A beautiful Koi fish.',
+          imageName: 'default_koi.jpg', // Default image
+          likes: Math.floor(Math.random() * 20) + 5,
+          liked: false,
         }));
       }
       console.warn('Invalid response format for getAllKoi:', response.data);
       return [];
     } catch (error) {
       console.error('Error fetching Koi list:', error);
-      return [];
+      console.error('Error details:', error.response?.data);
+      
+      if (error.response?.status === 401) {
+        console.warn('Authentication error - token may be expired');
+      }
+      
+      // Return local data as fallback
+      return koiData;
     }
   },
 
