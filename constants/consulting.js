@@ -122,48 +122,27 @@ export const consultingAPI = {
   // Get consultant by ID - returns directly the fallback on error
   getConsultantById: async (id) => {
     try {
-      console.log(`Attempting to fetch consultant with ID: ${id}`);
+      console.log(`Đang lấy thông tin master với ID: ${id}`);
       const response = await axios.get(`${API_CONFIG.baseURL}/api/Master/${id}`);
       
       if (response.data && response.data.isSuccess && response.data.data) {
-        const consultantData = response.data.data;
-        
-        // Map consultant names to specific images
-        let consultantImage;
-        if (consultantData.masterName?.includes('Tanaka')) {
-          consultantImage = require('../assets/images/consultant2.jpg');
-        } else if (consultantData.masterName?.includes('Wong')) {
-          consultantImage = require('../assets/images/consultant3.jpg');
-        } else {
-          consultantImage = require('../assets/images/consultant1.jpg');
-        }
+        const masterData = response.data.data;
         
         return {
-          id: consultantData.masterId,
-          name: consultantData.masterName,
-          title: 'Master',
-          rating: consultantData.rating || 4.0,
-          image: consultantImage,
-          specialty: 'Thầy truyền thừa phong thủy',
-          experience: '5+ Năm',
-          completedProjects: '200+ Hồ sơ',
-          bio: consultantData.description || 'Thầy có kinh nghiệm hơn 5 năm trong lĩnh vực phong thủy, chuyên tư vấn về thiết kế nhà ở, văn phòng và mộ phần.',
-          specialties: [
-            'Tư vấn Phong thủy nhà ở',
-            'Tư vấn Phong thủy nhà hàng, doanh nghiệp',
-            'Tư vấn Phong thủy mua bán bất động sản',
-            'Tư vấn Phong thủy quy hoạch khu đô thị'
-          ]
+          id: masterData.masterId,
+          name: masterData.masterName,
+          rating: masterData.rating || 0,
+          title: masterData.title || 'Master',
+          expertise: masterData.expertise || 'Chưa cập nhật',
+          experience: masterData.experience || 'Chưa cập nhật',
+          biography: masterData.biography || 'Chưa cập nhật',
+          image: require('../assets/images/consultant1.jpg') // Ảnh mặc định
         };
-      } else {
-        throw new Error('API response format was incorrect');
       }
+      throw new Error('Không tìm thấy thông tin master');
     } catch (error) {
-      console.error(`Error fetching consultant ${id}:`, error);
-      // Find matching consultant or use first one
-      const fallbackData = consultants.find(c => c.id === id) || consultants[0];
-      console.log("Using fallback consultant:", fallbackData.name);
-      return fallbackData;
+      console.error(`Lỗi khi lấy thông tin master ${id}:`, error);
+      throw error;
     }
   },
   

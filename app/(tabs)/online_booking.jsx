@@ -14,12 +14,18 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SelectList } from 'react-native-dropdown-select-list';
 import { consultingAPI } from '../../constants/consulting';
+import { API_CONFIG } from '../../constants/config';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function OnlineBookingScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const selectedMasterId = params.selectedMasterId;
+  const selectedMasterName = params.selectedMasterName;
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -30,7 +36,14 @@ export default function OnlineBookingScreen() {
     { key: 'auto', value: 'Chúng tôi sẽ chọn giúp' }
   ]);
 
-  // Fetch consultants when component mounts
+  // Cập nhật selectedConsultant khi có master được chọn từ trang chi tiết
+  useEffect(() => {
+    if (selectedMasterId && selectedMasterName) {
+      setSelectedConsultant(selectedMasterId);
+    }
+  }, [selectedMasterId, selectedMasterName]);
+
+  // Sửa lại phần fetch consultants
   useEffect(() => {
     const fetchConsultants = async () => {
       try {
@@ -38,7 +51,7 @@ export default function OnlineBookingScreen() {
         
         // Format consultants for the dropdown
         const formattedConsultants = [
-          { key: 'auto', value: 'Chúng tôi sẽ chọn giúp' },
+          { key: null, value: 'Chúng tôi sẽ chọn giúp' },
           ...consultantData.map(consultant => ({
             key: consultant.id,
             value: consultant.name
@@ -46,12 +59,19 @@ export default function OnlineBookingScreen() {
         ];
         
         setConsultants(formattedConsultants);
+
+        // Nếu có master được chọn, tìm và chọn trong dropdown
+        if (selectedMasterId) {
+          const selectedMaster = formattedConsultants.find(c => c.key === selectedMasterId);
+          if (selectedMaster) {
+            setSelectedConsultant(selectedMasterId);
+          }
+        }
       } catch (error) {
         console.error('Error fetching consultants:', error);
-        // Keep the default "auto" option and add sample consultants as fallback
         Alert.alert(
           "Thông báo",
-          "Không thể tải danh sách thầy phong thủy. Vui lòng thử lại sau."
+          "Không thể tải danh sách master. Vui lòng thử lại sau."
         );
       } finally {
         setIsLoading(false);
@@ -59,6 +79,47 @@ export default function OnlineBookingScreen() {
     };
 
     fetchConsultants();
+  }, [selectedMasterId]);
+
+  // Thêm useEffect để lấy thông tin người dùng hiện tại
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        
+        if (!token) {
+          Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+          router.push('login');
+          return;
+        }
+
+        const response = await axios.get(
+          `${API_CONFIG.baseURL}/api/Account/current-user`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+
+        console.log('Current user response:', response.data);
+
+        if (response.data) {
+          setName(response.data.fullName || response.data.userName || '');
+          setPhone(response.data.phoneNumber || '');
+          setEmail(response.data.email || '');
+        } else {
+          Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng');
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy thông tin người dùng:', error);
+        Alert.alert('Lỗi', 'Không thể lấy thông tin người dùng');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCurrentUser();
   }, []);
 
   return (
@@ -101,9 +162,13 @@ export default function OnlineBookingScreen() {
                     dropdownStyles={styles.dropdownList}
                     inputStyles={styles.dropdownText}
                     dropdownTextStyles={styles.dropdownText}
-                    placeholder="Thầy phong thủy"
+                    placeholder="Chúng tôi sẽ chọn giúp"
                     search={false}
-                    defaultOption={{ key: 'auto', value: 'Thầy phong thủy' }}
+                    defaultOption={
+                      selectedMasterId 
+                        ? { key: selectedMasterId, value: selectedMasterName }
+                        : { key: null, value: 'Chúng tôi sẽ chọn giúp' }
+                    }
                     arrowicon={<Ionicons name="chevron-down" size={24} color="#FFFFFF" />}
                   />
                 )}
@@ -170,23 +235,21 @@ export default function OnlineBookingScreen() {
                     return;
                   }
                   
-                  // Get the selected master data
-                  let masterId = selectedConsultant || "auto";
-                  let masterName = "Chúng tôi sẽ chọn giúp";
+                  // Lấy thông tin master đã chọn
+                  let masterId = null;
+                  let masterName = 'Chúng tôi sẽ chọn giúp';
                   
-                  if (masterId !== "auto") {
-                    // Find the selected master from the list
-                    const master = consultants.find(c => c.id === masterId || c.key === masterId);
-                    if (master) {
-                      masterName = master.name || master.value;
-                    } else {
-                      // Default to a known ID if auto is selected or master not found
-                      masterId = "3BFE51B2-D79C-46D1-9";
-                      masterName = "Sensei Tanaka";
+                  // Chỉ cập nhật masterId và masterName nếu đã chọn consultant cụ thể
+                  if (selectedConsultant !== null) {
+                    const selectedMaster = consultants.find(c => c.key === selectedConsultant);
+                    if (selectedMaster) {
+                      masterId = selectedMaster.key;
+                      masterName = selectedMaster.value;
                     }
                   }
+
+                  console.log('Selected consultant info:', { masterId, masterName });
                   
-                  // Navigate with complete info using PascalCase fields
                   router.push({
                     pathname: '/(tabs)/online_schedule',
                     params: {

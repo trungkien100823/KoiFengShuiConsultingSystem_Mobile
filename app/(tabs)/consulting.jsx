@@ -125,8 +125,6 @@ export default function ConsultingScreen() {
               onMomentumScrollEnd={handleScroll}
             >
               {consultants.map((consultant, index) => {
-                // Debug logging
-                console.log("Rendering consultant:", consultant.name, "with image:", consultant.image);
                 
                 return (
                   <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>

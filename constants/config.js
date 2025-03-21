@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // Using your specific local network IP for all platforms
-const DEV_API_URL = 'http://192.168.0.226:5261';
+const DEV_API_URL = 'http://192.168.1.25:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
@@ -10,9 +10,11 @@ export const API_CONFIG = {
     allKoi: '/api/KoiVariety',
     userKoi: '/api/KoiVariety/get-koi-current-login',
     detailKoi: '/api/KoiVariety/{id}',
+
     // Booking endpoints
     createBooking: '/api/Booking/create',
-    getBooking: '/api/Booking/get',
+    getBooking: '/api/Booking/{id}',
+
     // Pond endpoints
     allPonds: '/api/KoiPond/get-all',
     detailPond: '/api/KoiPond/get',
@@ -38,6 +40,7 @@ export const API_CONFIG = {
 
     // master endpoints
     masterDetails: '/api/Master/{id}',
+    getAllConsultants: '/api/Master/get-all',
 
     // payment endpoints
     payment: '/api/Payment/payos/customer/payment-url',
