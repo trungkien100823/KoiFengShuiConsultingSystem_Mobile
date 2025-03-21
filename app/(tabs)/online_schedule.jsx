@@ -12,6 +12,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SelectList } from 'react-native-dropdown-select-list';
+import axios from 'axios';
+import { API_CONFIG } from '../../constants/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define utility functions at the module level so they're accessible everywhere
 const formatDateString = (date) => {
@@ -247,33 +250,15 @@ export default function OnlineScheduleScreen() {
   
   // Fix the selectDate function to ensure we get complete date information
   const selectDate = (item) => {
-    console.log('Date selected:', item);
-    
-    // Make sure we have a proper date string in MM/DD/YYYY format
-    let dateString;
-    
-    if (item.month && item.day && item.year) {
-      // Format as MM/DD/YYYY
-      dateString = `${item.month}/${item.day}/${item.year}`;
-    } else if (item.dateString && item.dateString.includes('/')) {
-      // Already has month/day/year format
-      dateString = item.dateString;
-    } else if (item.dateString) {
-      // Only has day number, need to add month/year
-      const today = new Date();
-      dateString = `${today.getMonth() + 1}/${item.dateString}/${today.getFullYear()}`;
-    } else {
-      // Complete fallback
-      const today = new Date();
-      dateString = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
-    }
-    
-    console.log('Formatted date string:', dateString);
+    const dateString = `${currentMonth + 1}/${item.dateString}/${currentYear}`;
+    console.log('Selected date:', dateString);
     
     setSelectedDate(dateString);
     setSelectedDateObj({
-      ...item,
-      dateString: dateString
+      dateString: dateString,
+      day: parseInt(item.dateString),
+      month: currentMonth + 1,
+      year: currentYear
     });
     
     // Reset time selections
@@ -318,8 +303,7 @@ export default function OnlineScheduleScreen() {
     return true;
   };
   
-  // Simplify the handleContinue function to match API format
-  const handleContinue = () => {
+  const handleBooking = async () => {
     if (!selectedDate) {
       Alert.alert("Thông báo", "Vui lòng chọn ngày cho lịch hẹn");
       return;
@@ -333,67 +317,93 @@ export default function OnlineScheduleScreen() {
     if (!validateTimes(selectedStartTime, selectedEndTime)) {
       return;
     }
-    
-    // Make sure the date is in MM/DD/YYYY format
-    let formattedDate;
-    if (selectedDateObj && selectedDateObj.month && selectedDateObj.day && selectedDateObj.year) {
-      formattedDate = `${selectedDateObj.month}/${selectedDateObj.day}/${selectedDateObj.year}`;
-    } else if (selectedDate && selectedDate.includes('/')) {
-      // Try to parse existing format
-      const parts = selectedDate.split('/');
-      if (parts.length === 3) {
-        if (parts[0].length <= 2 && parts[1].length <= 2) {
-          // Already in MM/DD/YYYY or DD/MM/YYYY format
-          const month = parts[0]; // Assume the first part is month to match MM/DD/YYYY
-          const day = parts[1];
-          const year = parts[2];
-          formattedDate = `${month}/${day}/${year}`;
+
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+        router.push('login');
+        return;
+      }
+
+      const customer = JSON.parse(params.customerInfo);
+
+      // Format lại bookingDate để có dạng YYYY-MM-DD
+      const bookingDate = formatDateString(new Date(selectedDateObj.year, selectedDateObj.month - 1, selectedDateObj.day));
+      
+      // Format lại startTime và endTime để có thêm :00 ở cuối
+      const formattedStartTime = `${selectedStartTime}:00`;
+      const formattedEndTime = `${selectedEndTime}:00`;
+
+      // Chỉ gửi các trường cần thiết theo yêu cầu của API
+      const bookingData = {
+        masterId: customer.MasterId ? customer.MasterId.trim() : null,
+        description: customer.Description,
+        bookingDate: bookingDate,
+        startTime: formattedStartTime,
+        endTime: formattedEndTime
+      };
+
+      console.log('Booking data:', bookingData);
+
+      const response = await axios.post(
+        `${API_CONFIG.baseURL}/api/Booking/create`,
+        bookingData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
+      );
+
+      console.log('Booking response:', response.data);
+
+      if (response.data.isSuccess) {
+        const bookingId = response.data.data.bookingOnlineId;
+        console.log('BookingId to pass:', bookingId);
+        
+        Alert.alert(
+          "Thành công",
+          "Đặt lịch tư vấn thành công!",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                router.push({
+                  pathname: '/(tabs)/online_checkout',
+                  params: {
+                    bookingId: bookingId
+                  }
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        throw new Error(response.data.message || 'Đặt lịch không thành công');
       }
+
+    } catch (error) {
+      console.error('Booking error:', error);
+      Alert.alert(
+        "Lỗi",
+        error.response?.data?.message || 
+        error.response?.data?.title ||
+        error.message || 
+        "Đã có lỗi xảy ra khi đặt lịch"
+      );
     }
-    
-    if (!formattedDate) {
-      // Fallback to today in MM/DD/YYYY format
-      const today = new Date();
-      formattedDate = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
-    }
-    
-    // The scheduleInfo contains only date and time data with Pascal case
-    const scheduleInfo = {
-      Date: formattedDate, // MM/DD/YYYY format
-      StartTime: selectedStartTime,
-      EndTime: selectedEndTime
-    };
-    
-    console.log("Passing schedule info to checkout:", scheduleInfo);
-    console.log("Passing customer info to checkout:", JSON.parse(params.customerInfo));
-    
-    // Pass all the information to the next screen
-    router.push({
-      pathname: '/(tabs)/online_checkout',
-      params: {
-        customerInfo: params.customerInfo,
-        scheduleInfo: JSON.stringify(scheduleInfo)
-      }
-    });
   };
 
   const getDateStyle = (date) => {
-    // Check if the date is the current date (only in current month and year)
-    const isCurrentDate = date === currentDay && 
-                         currentMonth === currentMonthActual && 
-                         currentYear === currentYearActual;
-                         
-    if (fullyBookedDates.includes(date)) {
-      return [styles.dateCircle, styles.fullyBooked];
-    }
-    if (date === selectedDate) {
+    // Chuyển selectedDate thành ngày để so sánh
+    const selectedDay = selectedDate ? parseInt(selectedDate.split('/')[1]) : null;
+    
+    if (date === selectedDay) {
       return [styles.dateCircle, styles.selected];
     }
-    if (isCurrentDate) {
-      return [styles.dateCircle, styles.current];
-    }
-    return [styles.dateCircle, styles.available];
+    return [styles.dateCircle];
   };
 
   useEffect(() => {
@@ -432,7 +442,7 @@ export default function OnlineScheduleScreen() {
         <View style={styles.fixedHeader}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.push('/(tabs)/online_package')}
+            onPress={() => router.push('/(tabs)/online_booking')}
           >
             <Ionicons name="chevron-back-circle" size={32} color="#FFFFFF" />
           </TouchableOpacity>
@@ -475,8 +485,7 @@ export default function OnlineScheduleScreen() {
                     {date && (
                       <TouchableOpacity
                         style={getDateStyle(date)}
-                        onPress={() => !fullyBookedDates.includes(date) && selectDate({dateString: date.toString()})}
-                        disabled={fullyBookedDates.includes(date)}
+                        onPress={() => selectDate({dateString: date.toString()})}
                       >
                         <Text style={styles.dateText}>{date}</Text>
                       </TouchableOpacity>
@@ -527,26 +536,11 @@ export default function OnlineScheduleScreen() {
             </View>
           )}
 
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, styles.fullyBooked]} />
-              <Text style={styles.legendText}>Hết khách</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, styles.selected]} />
-              <Text style={styles.legendText}>Đã chọn</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, styles.available]} />
-              <Text style={styles.legendText}>Còn trống</Text>
-            </View>
-          </View>
-
           <TouchableOpacity 
             style={styles.continueButton}
-            onPress={handleContinue}
+            onPress={handleBooking}
           >
-            <Text style={styles.continueButtonText}>Tiếp tục</Text>
+            <Text style={styles.continueButtonText}>Đặt lịch</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -669,18 +663,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: 40,
   },
-  fullyBooked: {
-    backgroundColor: '#FF0000',
-  },
   selected: {
-    backgroundColor: '#666666',
-  },
-  available: {
-    backgroundColor: 'rgba(255, 255, 255, 0)',
-  },
-  current: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#FFFFFF',
+    backgroundColor: '#FF0008',
   },
   timeSection: {
     backgroundColor: '#fff',
@@ -720,25 +704,6 @@ const styles = StyleSheet.create({
   },
   dropdownText: {
     color: '#333',
-  },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 5,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  legendText: {
-    color: '#FFFFFF',
-    fontSize: 14,
   },
   continueButton: {
     backgroundColor: '#FF0008',  // Red color matching your theme
