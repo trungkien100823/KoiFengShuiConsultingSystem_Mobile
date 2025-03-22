@@ -25,7 +25,7 @@ export default function CustomTabBar() {
       
       <TouchableOpacity 
         style={styles.tabItem}
-        onPress={() => router.push('../../(tabs)/courses')}
+        onPress={() => router.push('/(tabs)/courses')}
       >
         <Ionicons name="book" size={24} color="#fff" />
         <Text style={styles.tabText}>Courses</Text>
