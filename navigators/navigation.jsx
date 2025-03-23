@@ -17,6 +17,7 @@ import WorkshopFilterScreen from '../app/(tabs)/workshop_filter';
 import TicketConfirmationScreen from '../app/(tabs)/ticket_confirmation';
 import TicketDetailsScreen from '../app/(tabs)/ticketDetails';
 import YourOrderScreen from '../app/(tabs)/your_order';
+import CoursesScreen from '../app/(tabs)/courses';
 
 const Stack = createStackNavigator();
 
@@ -82,6 +83,11 @@ export default function Navigation() {
         <Stack.Screen 
           name="your_order" 
           component={YourOrderScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="courses" 
+          component={CoursesScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
