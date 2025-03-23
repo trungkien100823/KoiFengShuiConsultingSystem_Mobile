@@ -1,69 +1,7 @@
 import axios from 'axios';
 import { API_CONFIG } from './config';
 import { getAuthHeaders } from '../services/authService';
-
-// Koi fish images mapping
-export const koiImages = {
-  'asagi.jpg': require('../assets/images/asagi.jpg'),
-  'kohaku.jpg': require('../assets/images/kohaku.jpg'),
-  'sanke.jpg': require('../assets/images/sanke.jpg'),
-  'showa.jpg': require('../assets/images/showa.jpg'),
-  'default_koi.jpg': require('../assets/images/asagi.jpg'),
-  // ... add all your koi images here
-};
-
-export const koiData = [
-  {
-    id: 1,
-    name: 'Asagi',
-    variant: 'Jin',
-    description: 'Cá Koi Asagi là một trong những giống cá Koi cổ xưa và mang tính biểu tượng nhất, được đánh giá cao về màu sắc hài hòa và thanh lịch.',
-    imageName: 'asagi.jpg',
-    likes: 21,
-    liked: false,
-    size: 2,
-  },
-  {
-    id: 2,
-    name: 'Kohaku',
-    variant: 'Tancho',
-    description: 'Kohaku được coi là vua của các loài Koi, với thân hình trắng và các hoa văn đỏ. Biến thể Tancho có một đốm đỏ duy nhất trên đầu.',
-    imageName: 'kohaku.jpg',
-    likes: 18,
-    liked: false,
-    size: 2,
-  },
-  {
-    id: 3,
-    name: 'Showa',
-    variant: 'Sanshoku',
-    description: 'Showa Sanshoku là cá Koi ba màu với nền đen, điểm xuyết các hoa văn đỏ và trắng, tạo nên vẻ ngoài đậm nét và ấn tượng.',
-    imageName: 'showa.jpg',
-    likes: 15,
-    liked: false,
-    size: 2,
-  },
-  {
-    id: 4,
-    name: 'Shiro Utsuri',
-    variant: 'Platinum',
-    description: 'Shiro Utsuri là cá Koi hai màu với nền trắng và các đốm đen. Nổi tiếng với sự tương phản ấn tượng và kiểu bơi thanh lịch.',
-    imageName: 'shiro.jpg',
-    likes: 25,
-    liked: false,
-    size: 2,
-  },
-  {
-    id: 5,
-    name: 'Kujaku',
-    variant: 'Metallic',
-    description: 'Kujaku là giống Koi ánh kim với nền trắng cùng các hoa văn cam, đỏ và đen chảy dọc thân, giống như bộ lông của chim công.',
-    imageName: 'kujaku.jpg',
-    likes: 19,
-    liked: false,
-    size: 2,
-  },
-];
+import { Alert } from 'react-native';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -72,38 +10,57 @@ export const koiAPI = {
     try {
       const headers = await getAuthHeaders();
       
-      console.log('Fetching Koi data from:', `${API_CONFIG.baseURL}/api/KoiVariety/get-koi-current-login`);
-      console.log('With headers:', headers);
+      console.log('Fetching all Koi data from:', `${API_CONFIG.baseURL}${API_CONFIG.endpoints.allKoi}`);
       
       const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/KoiVariety/get-koi-current-login`, 
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.allKoi}`, 
         { headers }
       );
       
-      console.log('All Koi response:', response.data);
+      console.log('Raw API response:', response.data);
       
-      if (response.data && response.data.isSuccess && Array.isArray(response.data.data)) {
-        return response.data.data.map(item => ({
-          id: item.koiId || item.id,
-          name: item.name || 'Unknown Koi',
-          variant: item.varietyName || 'Unknown Variety',
-          description: item.description || 'A beautiful Koi fish.',
-          imageName: 'default_koi.jpg', // Default image
-          likes: Math.floor(Math.random() * 20) + 5,
-          liked: false,
-        }));
+      if (response.data) {
+        // Kiểm tra message từ backend
+        if (response.data.message) {
+          Alert.alert(
+            "Thông báo",
+            response.data.message,
+            [{ text: "OK" }]
+          );
+        }
+
+        // Kiểm tra và xử lý dữ liệu
+        if (response.data.isSuccess && Array.isArray(response.data.data)) {
+          return response.data.data.map(item => {
+            console.log('Processing item:', item);
+            return {
+              id: item.koiVarietyId,
+              name: item.name,
+              variant: item.name,
+              description: item.description,
+              imageName: item.imageUrl || 'buddha.png',
+              likes: Math.floor(Math.random() * 20) + 5,
+              liked: false,
+            };
+          }).filter(item => item.id);
+        }
       }
-      console.warn('Invalid response format for getAllKoi:', response.data);
-      return [];
+      
+      console.warn('Invalid response format or empty data, using fallback data');
+      return koiData;
     } catch (error) {
       console.error('Error fetching Koi list:', error);
       console.error('Error details:', error.response?.data);
       
-      if (error.response?.status === 401) {
-        console.warn('Authentication error - token may be expired');
+      // Hiển thị message lỗi từ backend nếu có
+      if (error.response?.data?.message) {
+        Alert.alert(
+          "Thông báo",
+          error.response.data.message,
+          [{ text: "OK" }]
+        );
       }
       
-      // Return local data as fallback
       return koiData;
     }
   },
@@ -114,72 +71,66 @@ export const koiAPI = {
         throw new Error('No Koi ID provided');
       }
 
-      console.log('Fetching Koi details for ID:', koiId);
-      
-      // Using the exact URL format from your example
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/KoiVariety/${koiId}`);
-      console.log('Raw Koi details response:', response);
-      
-      // Check if we got any data
-      if (!response.data) {
-        console.error('No data in response');
-        throw new Error('No data received from server');
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/KoiVariety/${koiId}`,
+        { headers }
+      );
+
+      if (!response.data || !response.data.data) {
+        throw new Error('Invalid response format');
       }
 
-      // Log the actual data structure
-      console.log('Response data structure:', JSON.stringify(response.data, null, 2));
-
-      // If the data is directly in response.data (not in a data property)
-      const item = response.data.data || response.data;
-      console.log('Parsed item:', item);
-
+      const item = response.data.data;
       return {
-        id: item.koiId || item.id,
-        name: item.name || 'Unknown Koi',
-        variant: item.varietyName || 'Unknown Variety',
-        description: item.description || 'A beautiful and unique Koi fish.',
-        characteristics: item.characteristics || 'Distinctive patterns and coloring.',
-        habitat: item.habitat || 'Freshwater ponds with proper filtration.',
-        diet: item.diet || 'High-quality Koi food, vegetables, and insects.',
-        lifespan: item.lifespan || '25-35 years',
-        size: item.size || `${Math.floor(Math.random() * 30 + 20)} cm`,
-        price: item.price || `${Math.floor(Math.random() * 500 + 100)}$`,
-        likes: Math.floor(Math.random() * 50),
+        id: item.koiVarietyId,
+        name: item.name,
+        variant: item.name,
+        description: item.description,
+        imageName: item.imageUrl || 'buddha.png',
+        size: item.size || 2,
         liked: false,
-        colors: item.colors || ['Red', 'White', 'Black']
+        characteristics: item.characteristics,
+        habitat: item.habitat,
+        diet: item.diet,
+        lifespan: item.lifespan,
+        price: item.price,
+        colors: item.colors
       };
     } catch (error) {
-      console.error('Error fetching Koi details:', {
-        error: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        koiId: koiId,
-        url: `${API_CONFIG.baseURL}/api/KoiVariety/${koiId}`
-      });
+      console.error('Error fetching Koi details:', error);
       throw error;
     }
   },
 
   getUserKoi: async () => {
     try {
-      const response = await axios.get(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.userKoi}`);
-      if (response.data && response.data.isSuccess && Array.isArray(response.data.data)) {
-        return response.data.data.map(item => ({
-          id: item.id || String(Math.random()),
-          name: item.varietyName || 'Unknown',
-          variant: item.varietyName || 'Unknown',
-          description: item.description || 'No description available',
-          imageName: `${(item.varietyName || 'unknown').toLowerCase()}.jpg`,
-          likes: 0,
-          liked: false,
-          size: item.size || '2',
-          colors: item.colors || []
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.userKoi}`,
+        { headers }
+      );
+      
+      if (response.data && response.data.isSuccess) {
+        const mappedData = response.data.data.map(item => ({
+          id: item.koiVarietyId,
+          name: item.name || 'Unknown',
+          variant: item.name || 'Unknown',
+          description: item.description || '',
+          imageName: 'buddha.png', // Vì imageUrl luôn null nên dùng ảnh mặc định
         }));
+
+        // Thêm message vào item đầu tiên nếu có
+        if (mappedData.length > 0 && response.data.message) {
+          mappedData[0].message = response.data.message;
+        }
+        
+        return mappedData;
       }
-      return koiData.filter(koi => koi.variant === 'Jin');
+      return [];
     } catch (error) {
       console.error('Error fetching user Koi:', error);
-      return koiData.filter(koi => koi.variant === 'Jin');
+      return [];
     }
   },
 
@@ -207,5 +158,45 @@ export const koiAPI = {
       console.error('API call error:', error);
       throw error;
     }
-  }
+  },
+
+  getKoiWithColor: async (koiId) => {
+    try {
+      if (!koiId) {
+        throw new Error('No Koi ID provided');
+      }
+
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/KoiVariety/with-color-by/${koiId}`,
+        { headers }
+      );
+
+      console.log('API Response:', response.data); // Debug log
+
+      if (!response.data || !response.data.isSuccess || !response.data.data) {
+        throw new Error('Invalid response format');
+      }
+
+      const item = response.data.data;
+      return {
+        isSuccess: response.data.isSuccess,
+        data: {
+          id: item.id,
+          varietyName: item.varietyName || 'Unknown',
+          introduction: item.introduction || '',
+          description: item.description || 'Không có mô tả.',
+          imageUrl: item.imageUrl || 'buddha.png',
+          colors: item.colors?.map(color => ({
+            colorName: color.colorName,
+            colorCode: color.colorCode,
+            percentage: Number(color.percentage) || 0
+          })) || []
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching Koi with color details:', error);
+      throw error;
+    }
+  },
 };

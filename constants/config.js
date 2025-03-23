@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
 
-// Sửa lại baseURL để sử dụng IP chính xác của máy chủ backend
-//const DEV_API_URL = 'http://192.168.1.25:5261'; // Thay đổi IP này thành IP của máy chủ của bạn
+//const DEV_API_URL = 'http://192.168.1.25:5261';
 const DEV_API_URL = 'http://192.168.31.148:5261';
+
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
   endpoints: {
@@ -10,6 +10,7 @@ export const API_CONFIG = {
     allKoi: '/api/KoiVariety',
     userKoi: '/api/KoiVariety/get-koi-current-login',
     detailKoi: '/api/KoiVariety/{id}',
+    withColorBy: '/api/KoiVariety/with-color-by/{id}',
 
     // Booking endpoints
     createBooking: '/api/Booking/create',
@@ -17,7 +18,9 @@ export const API_CONFIG = {
 
     // Pond endpoints
     allPonds: '/api/KoiPond/get-all',
-    detailPond: '/api/KoiPond/get',
+    detailPond: '/api/KoiPond/{id}',
+    allPondShapes: '/api/KoiPond/get-all-shape',
+    pondByShape: '/api/KoiPond/get-by-shape/{id}',
     pondRecommendations: '/api/KoiPond/recommend',
     
     // Auth endpoints
@@ -27,6 +30,7 @@ export const API_CONFIG = {
 
     // Customer endpoints
     currentCustomerElement: '/api/Customer/current-customer-element-palace',
+    calculateCompatibility: '/api/Customer/calculate-compatibility',
 
     // workshop endpoints
     newestWorkshop: '/api/Workshop/sort-createdDate',
@@ -54,5 +58,5 @@ export const API_CONFIG = {
     koiVariety: '/api/KoiVariety',
     pond: '/api/Pond'
   },
-  timeoutDuration: 15000
+  timeoutDuration: 15000 // Tăng timeout lên 15 giây
 };
