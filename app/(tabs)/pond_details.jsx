@@ -3,8 +3,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import BackButton from '../../components/BackButton';
 import LikeButton from '../../components/LikeButton';
-import { pondAPI, pondImages } from '../../constants/koiPond';
+import { pondAPI } from '../../constants/koiPond';
 import { useState, useEffect } from 'react';
+
+const elementColors = {
+  Hỏa: '#FF4500',
+  Kim: '#C0C0C0', 
+  Thủy: '#006994',
+  Mộc: '#228B22',
+  Thổ: '#DEB887',
+};
 
 export default function PondDetails() {
   const params = useLocalSearchParams();
@@ -30,10 +38,13 @@ export default function PondDetails() {
 
   const getPondImageSource = (imageName) => {
     try {
-      return pondImages[imageName] || pondImages['default_pond.jpg'];
+      if (imageName && typeof imageName === 'string') {
+        return { uri: imageName };
+      }
+      return require('../../assets/images/buddha.png');
     } catch (error) {
-      console.error('Error loading pond image:', imageName);
-      return pondImages['default_pond.jpg'];
+      console.error('Error loading pond image:', error);
+      return require('../../assets/images/buddha.png');
     }
   };
 
@@ -55,13 +66,18 @@ export default function PondDetails() {
 
   const features = pondDetails.features || [];
 
+  // Thêm dữ liệu mẫu khi API trả về null
+  const defaultIntroduction = "Cá Koi là một trong những loài cá cảnh được yêu thích nhất trong phong thủy. Với màu sắc đặc trưng và ý nghĩa tâm linh sâu sắc, chúng không chỉ mang lại vẻ đẹp thẩm mỹ mà còn được tin là mang đến may mắn và thịnh vượng cho gia chủ.";
+
+  const defaultDescription = "Việc lựa chọn cá Koi phù hợp với phong thủy nhà ở có thể tăng cường năng lượng tích cực và tạo nên sự hài hòa trong không gian sống. Hồ cá được thiết kế với sự cân nhắc kỹ lưỡng về vị trí, hình dạng và kích thước để đảm bảo sự phát triển tốt nhất cho cá và mang lại may mắn cho gia chủ.";
+
   return (
     <View style={styles.container}>
       <ImageBackground 
         source={getPondImageSource(pondDetails.imageName)}
         style={styles.backgroundImage}
         resizeMode="cover"
-        defaultSource={pondImages['default_pond.jpg']}
+        defaultSource={require('../../assets/images/buddha.png')}
       >
         <View style={styles.header}>
           <BackButton />
@@ -83,41 +99,29 @@ export default function PondDetails() {
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.titleSection}>
-                <Text style={styles.pondName}>{pondDetails.name}</Text>
-                <Text style={styles.pondShape}>{pondDetails.shape}</Text>
+                <View style={styles.titleContainer}>
+                  <Text style={styles.pondName}>{pondDetails.pondName}</Text>
+                  <Text style={styles.shapeLabel}>Hình dạng: <Text style={styles.shapeValue}>{pondDetails.shapeName}</Text></Text>
+                </View>
+                <Text style={[
+                  styles.element, 
+                  { color: elementColors[pondDetails.element] || '#8B0000' }
+                ]}>
+                  {pondDetails.element}
+                </Text>
               </View>
 
-              <View style={styles.specificationGrid}>
-                <View style={styles.specBox}>
-                  <Ionicons name="resize" size={24} color="#666" />
-                  <Text style={styles.specLabel}>Kích thước</Text>
-                  <Text style={styles.specValue}>{pondDetails.size}</Text>
-                </View>
-                <View style={styles.specBox}>
-                  <Ionicons name="water" size={24} color="#666" />
-                  <Text style={styles.specLabel}>Độ sâu</Text>
-                  <Text style={styles.specValue}>{pondDetails.depth}</Text>
-                </View>
-                <View style={styles.specBox}>
-                  <Ionicons name="fish" size={24} color="#666" />
-                  <Text style={styles.specLabel}>Số cá phù hợp</Text>
-                  <Text style={styles.specValue}>{pondDetails.idealFishCount}</Text>
-                </View>
-              </View>
-
-              <View style={styles.shortDescriptionContainer}>
-                <Text style={styles.shortDescription}>{pondDetails.description}</Text>
+              <View style={styles.sizeSection}>
+                <Text style={styles.shortDescription}>
+                  {pondDetails.introduction || defaultIntroduction}
+                </Text>
               </View>
 
               <View style={styles.divider} />
 
-              <Text style={styles.featuresTitle}>Tính năng chính:</Text>
-              {features.map((feature, index) => (
-                <View key={index} style={styles.featureItem}>
-                  <Ionicons name="checkmark-circle" size={20} color="#8B0000" />
-                  <Text style={styles.featureText}>{feature.trim()}</Text>
-                </View>
-              ))}
+              <Text style={styles.fullDescription}>
+                {pondDetails.description || defaultDescription}
+              </Text>
             </ScrollView>
           </View>
         </ScrollView>
@@ -151,7 +155,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   spacer: {
-    height: 450, // Adjust this value to control when the white card appears
+    height: 450,
   },
   detailsCard: {
     backgroundColor: 'white',
@@ -159,7 +163,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     padding: 30,
     paddingTop: 40,
-    minHeight: '100%', // This ensures the white background extends to the bottom
+    minHeight: '100%',
   },
   likeButtonContainer: {
     position: 'absolute',
@@ -174,70 +178,50 @@ const styles = StyleSheet.create({
   titleSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 20,
     marginTop: 10,
+  },
+  titleContainer: {
+    flex: 1,
   },
   pondName: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 8,
   },
-  pondShape: {
-    fontSize: 22,
-    color: '#8B0000',
-  },
-  specificationGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  specBox: {
-    backgroundColor: '#F5F5F5',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    flex: 0.5,
-    marginHorizontal: 5,
-  },
-  specLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 10,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  specValue: {
+  shapeLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    color: '#666',
   },
-  shortDescriptionContainer: {
+  shapeValue: {
+    color: '#8B0000',
+    fontWeight: '500',
+  },
+  element: {
+    fontSize: 24,
+    color: '#8B0000',
+    fontWeight: '500',
+  },
+  sizeSection: {
     marginBottom: 20,
   },
   shortDescription: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
     lineHeight: 20,
+  },
+  fullDescription: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 20,
   },
   divider: {
     height: 1,
     backgroundColor: '#EEEEEE',
     marginVertical: 20,
-  },
-  featuresTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  featureText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
   },
   loadingContainer: {
     flex: 1,
