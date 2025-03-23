@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-// Sửa lại baseURL để sử dụng IP chính xác của máy chủ backend
-const DEV_API_URL = 'http://192.168.1.25:5261'; // Thay đổi IP này thành IP của máy chủ của bạn
+//const DEV_API_URL = 'http://192.168.1.25:5261';
+const DEV_API_URL = 'http://192.168.31.148:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
