@@ -1,95 +1,110 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function CalculationResult() {
   const params = useLocalSearchParams();
   const router = useRouter();
-  const percentage = parseInt(params.result) || 60;
-  const previousScreen = params.from;
-
-  const handleBack = () => {
-    if (previousScreen === 'fish_details') {
-      router.push({
-        pathname: '/(tabs)/fish_details',
-        params: {
-          name: params.name,
-          variant: params.variant,
-          imageName: params.imageName,
-          liked: params.liked,
-          description: params.description,
-          characteristics: params.characteristics,
-          habitat: params.habitat,
-          diet: params.diet,
-          lifespan: params.lifespan,
-          size: params.size,
-          price: params.price,
-          blackPercentage: params.blackPercentage,
-          redPercentage: params.redPercentage,
-          whitePercentage: params.whitePercentage,
-          selectedPond: params.selectedPond,
-          selected: params.selected
-        }
-      });
-    } else {
-      router.back();
-    }
+  
+  const getScoreColor = (score) => {
+    if (score >= 80) return '#4CAF50'; // Xanh lá - Rất tốt
+    if (score >= 60) return '#8BC34A'; // Xanh nhạt - Tốt
+    if (score >= 40) return '#FFC107'; // Vàng - Trung bình
+    if (score >= 20) return '#FF9800'; // Cam - Kém
+    return '#F44336'; // Đỏ - Rất kém
   };
 
-  const getPercentageColor = (value) => {
-    if (value < 20) return '#FF0000';  // Red
-    if (value < 60) return '#FFD700';  // Yellow
-    return '#00FF00';  // Green
+  const getScoreMessage = (score) => {
+    if (score >= 80) return 'Rất tốt! Sự kết hợp này mang lại may mắn và thịnh vượng.';
+    if (score >= 60) return 'Tốt! Sự kết hợp này khá hài hòa.';
+    if (score >= 40) return 'Trung bình. Có thể cải thiện thêm.';
+    if (score >= 20) return 'Chưa tốt. Nên xem xét thay đổi.';
+    return 'Không phù hợp. Cần thay đổi để cải thiện phong thủy.';
   };
 
-  const getAdviceText = (value) => {
-    if (value < 20) {
-      return "Rất không hợp, cần xem xét lại phong thủy.";
-    } else if (value < 40) {
-      return "Hợp mức thấp, có thể cải thiện thêm.";
-    } else if (value < 60) {
-      return "Hợp trung bình, có thể chấp nhận.";
-    } else if (value < 80) {
-      return "Hợp tốt, có thể sử dụng.";
-    } else {
-      return "Rất hợp phong thủy, lý tưởng!";
-    }
-  };
+  // Đảm bảo lấy đúng giá trị số và không làm tròn
+  const score = Number(params.result);
+  const message = params.message || getScoreMessage(score);
+
+  console.log('Raw result:', params.result);
+  console.log('Parsed score:', score);
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#8B0000', '#4B0000']}
-        style={styles.header}
-      >
-        <Text style={styles.title}>Kết quả tính toán</Text>
-      </LinearGradient>
+      <Text style={styles.title}>Kết Quả Phong Thủy</Text>
       
-      <View style={styles.content}>
-        <View style={styles.resultCard}>
-          <Text style={[
-            styles.percentage, 
-            { color: getPercentageColor(percentage) }
-          ]}>
-            {percentage}%
-          </Text>
+      <View style={styles.scoreContainer}>
+        <Text style={[styles.score, { color: getScoreColor(score) }]}>
+          {score}%
+        </Text>
+        <Text style={styles.message}>{message}</Text>
+      </View>
 
-          <View style={styles.adviceContainer}>
-            <Text style={styles.adviceLabel}>Nhận xét</Text>
-            <Text style={styles.adviceText}>
-              {getAdviceText(percentage)}
-            </Text>
-          </View>
+      <View style={styles.detailsContainer}>
+        <Text style={styles.detailsTitle}>Chi tiết:</Text>
+        
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Tên cá:</Text>
+          <Text style={styles.value}>{params.koiName || 'Chưa có tên'}</Text>
+        </View>
 
-          <TouchableOpacity 
-            style={styles.button}
-            onPress={handleBack}
-          >
-            <Text style={styles.buttonText}>Trở lại</Text>
-          </TouchableOpacity>
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Tên hồ:</Text>
+          <Text style={styles.value}>{params.name}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Hình dạng:</Text>
+          <Text style={styles.value}>{params.shapeName}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Hướng:</Text>
+          <Text style={styles.value}>{params.direction}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Số lượng cá:</Text>
+          <Text style={styles.value}>{params.fishCount} con</Text>
+        </View>
+
+        <Text style={styles.colorTitle}>Tỷ lệ màu sắc:</Text>
+        <View style={styles.colorContainer}>
+          {Object.entries(params)
+            .filter(([key]) => key.endsWith('Percentage'))
+            .map(([key, value]) => (
+              <View key={key} style={styles.colorRow}>
+                <Text style={styles.colorLabel}>
+                  {key.replace('Percentage', '').charAt(0).toUpperCase() + 
+                   key.replace('Percentage', '').slice(1)}:
+                </Text>
+                <Text style={styles.colorValue}>{value}%</Text>
+              </View>
+            ))
+          }
         </View>
       </View>
+
+      <TouchableOpacity 
+        style={styles.backButton}
+        onPress={() => router.push({
+          pathname: '/(tabs)/fish_details',
+          params: {
+            id: params.koiVarietyId, // Truyền lại ID của cá
+            koiVarietyId: params.koiVarietyId,
+            name: params.koiName || 'Unknown',
+            description: params.description || 'Chưa có mô tả.',
+            introduction: params.introduction || '',
+            imageName: params.imageName || 'buddha.png',
+            liked: params.liked || 'false',
+            size: params.size || '2'
+          }
+        })}
+      >
+        <Ionicons name="arrow-back-circle" size={24} color="#fff" style={styles.backIcon} />
+        <Text style={styles.backButtonText}>Quay lại</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -97,31 +112,30 @@ export default function CalculationResult() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
-  },
-  header: {
-    height: '30%',
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    padding: 20,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
+    marginBottom: 30,
   },
-  content: {
-    flex: 1,
-    marginTop: -50,
-  },
-  resultCard: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    borderRadius: 20,
-    padding: 20,
+  scoreContainer: {
     alignItems: 'center',
+    marginBottom: 30,
+  },
+  score: {
+    fontSize: 72,
+    fontWeight: 'bold',
+  },
+  detailsContainer: {
+    backgroundColor: '#F5F5F5',
+    padding: 25,
+    borderRadius: 15,
+    width: '100%',
+    maxWidth: 500,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -131,37 +145,87 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  percentage: {
-    fontSize: 72,
+  detailsTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
-    marginVertical: 30,
-  },
-  adviceContainer: {
-    width: '100%',
-    marginBottom: 30,
-  },
-  adviceLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 20,
     color: '#333',
   },
-  adviceText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 15,
+    alignItems: 'center',
+    paddingVertical: 5,
   },
-  button: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 25,
+  label: {
+    width: 120,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  value: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  colorTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 15,
+    color: '#333',
+  },
+  colorContainer: {
+    marginTop: 10,
     width: '100%',
   },
-  buttonText: {
-    color: 'white',
+  colorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginBottom: 5,
+  },
+  colorLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  colorValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  message: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 10,
+    color: '#666',
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#8B0000',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 30,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  backButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-    textAlign: 'center',
+    marginLeft: 8,
+  },
+  backIcon: {
+    marginRight: 5,
   },
 });

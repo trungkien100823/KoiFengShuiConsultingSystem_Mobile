@@ -17,7 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import SortPopup from '../../components/SortPopup';
 import MoreButton from '../../components/MoreButton';
-import { koiAPI, koiData } from '../../constants/koiData';
+import { koiAPI } from '../../constants/koiData';
 import { pondAPI, pondData, pondImages } from '../../constants/koiPond';
 import { images } from '../../constants/images';
 import CustomTabBar from '../../components/ui/CustomTabBar';
@@ -31,18 +31,48 @@ export default function MenuScreen() {
   const [currentSort, setCurrentSort] = useState('all');
   const [displayData, setDisplayData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasShownAlert, setHasShownAlert] = useState(false);
 
-  const fetchAllKoi = async () => {
+  const fetchUserKoi = async () => {
     try {
       setIsLoading(true);
-      const data = await koiAPI.getAllKoi();
-      setDisplayData(data);
+      const data = await koiAPI.getUserKoi();
+      if (Array.isArray(data)) {
+        setDisplayData(data);
+        if (data[0]?.message && !hasShownAlert) {
+          Alert.alert(
+            "Thông báo",
+            data[0].message,
+            [{ text: "OK" }]
+          );
+          setHasShownAlert(true);
+        }
+      } else {
+        setDisplayData([]);
+      }
     } catch (error) {
       console.error('Error fetching Koi:', error);
-      setDisplayData(koiData);
+      setDisplayData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchUserPonds = async () => {
+    try {
+      setIsLoading(true);
+      const data = await pondAPI.getAllPonds();
+      if (Array.isArray(data)) {
+        setDisplayData(data);
+      } else {
+        setDisplayData([]);
+      }
+    } catch (error) {
+      console.error('Error fetching Ponds:', error);
+      setDisplayData([]);
       Alert.alert(
-        "Loading Data",
-        "Unable to fetch from server. Using local data instead.",
+        "Thông báo",
+        "Không thể tải danh sách hồ cá",
         [{ text: "OK" }]
       );
     } finally {
@@ -50,39 +80,23 @@ export default function MenuScreen() {
     }
   };
 
-  const fetchUserKoi = async () => {
-    try {
-      setIsLoading(true);
-      const data = await koiAPI.getUserKoi();
-      setDisplayData(data);
-    } catch (error) {
-      console.error('Error fetching user Koi:', error);
-      const filteredKoi = koiData.filter(koi => koi.variant === 'Jin');
-      setDisplayData(filteredKoi);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSort = (sortType) => {
     setCurrentSort(sortType);
-    if (sortType === 'all') {
-      fetchAllKoi();
-    } else if (sortType === 'destiny') {
+    if (sortType === 'all' || sortType === 'destiny') {
       fetchUserKoi();
     }
   };
 
   const handleTabChange = async (tab) => {
+    if (tab === selectedTab) return;
+    
     setSelectedTab(tab);
     setIsLoading(true);
     try {
       if (tab === 'Koi') {
-        const data = await koiAPI.getAllKoi();
-        setDisplayData(data);
+        await fetchUserKoi();
       } else if (tab === 'Pond') {
-        const data = await pondAPI.getAllPonds();
-        setDisplayData(data);
+        await fetchUserPonds();
       } else {
         setDisplayData([]);
       }
@@ -94,75 +108,12 @@ export default function MenuScreen() {
     }
   };
 
-  const handleLike = (id) => {
-    setDisplayData(prevData => 
-      prevData.map(item => {
-        if (item.id === id) {
-          return {
-            ...item,
-            likes: item.liked ? item.likes - 1 : item.likes + 1,
-            liked: !item.liked,
-          };
-        }
-        return item;
-      })
-    );
-  };
-
-  const handleItemPress = (item) => {
-    console.log('Selected item:', item);
-    if (selectedTab === 'Koi') {
-      router.push({
-        pathname: '/(tabs)/fish_details',
-        params: { id: item.id }
-      });
-    } else if (selectedTab === 'Pond') {
-      router.push({
-        pathname: '/(tabs)/pond_details',
-        params: { id: item.id }
-      });
-    }
-  };
-
-  const renderItem = (item, index) => {
-    if (!item) {
-      console.log('Invalid item:', item);
-      return null;
-    }
-
-    // Generate a unique key using both id and index
-    const uniqueKey = `${selectedTab}-${item.id || index}`;
-
-    return (
-      <TouchableOpacity
-        key={uniqueKey}
-        style={styles.itemCard}
-        onPress={() => handleItemPress(item)}
-      >
-        <View style={styles.imageContainer}>
-          <View style={styles.imagePlaceholder} />
-        </View>
-        <View style={styles.cardContent}>
-          <Text style={styles.itemName}>
-            {item.name || 'Unknown Name'}
-          </Text>
-          <Text style={styles.itemVariant}>
-            {selectedTab === 'Koi' ? (item.variant || 'Unknown Variant') : (item.shape || 'Unknown Shape')}
-          </Text>
-          <Text style={styles.itemDescription} numberOfLines={2}>
-            {item.description || 'No description available'}
-          </Text>
-          <MoreButton 
-            item={item} 
-            type={selectedTab}
-          />
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   useEffect(() => {
-    handleTabChange(selectedTab);
+    fetchUserKoi();
+    return () => {
+      setDisplayData([]);
+      setHasShownAlert(false);
+    };
   }, []);
 
   return (
@@ -226,41 +177,28 @@ export default function MenuScreen() {
             showsHorizontalScrollIndicator={false}
           >
             {displayData.map((item, index) => (
-              <View key={`${selectedTab}-${item.id || index}`} style={styles.card}>
+              <View key={`${selectedTab}-${item.koiPondId || index}`} style={styles.card}>
                 <Image 
-                  source={selectedTab === 'Pond' ? pondImages[item.imageName] : images[item.imageName]} 
+                  source={
+                    selectedTab === 'Pond' 
+                      ? (item.imageUrl ? {uri: item.imageUrl} : images['buddha.png'])
+                      : (item.imageName && images[item.imageName] ? images[item.imageName] : images['buddha.png'])
+                  } 
                   style={styles.image} 
                 />
                 <View style={styles.infoContainer}>
                   <View style={styles.nameContainer}>
                     <Text style={styles.name}>
-                      {item.name} 
-                      {selectedTab === 'Koi' ? 
-                        <Text style={styles.variant}> - {item.variant}</Text> :
-                        <Text style={styles.variant}> - {item.shape}</Text>
-                      }
+                      {selectedTab === 'Pond' ? item.pondName : item.name}
                     </Text>
-                    <TouchableOpacity 
-                      style={styles.likesContainer}
-                      onPress={() => handleLike(item.id)}
-                    >
-                      <Ionicons 
-                        name={item.liked ? "heart" : "heart-outline"} 
-                        size={28} 
-                        color={item.liked ? "#FF0000" : "#666"} 
-                      />
-                      <Text style={styles.likesCount}>{item.likes}</Text>
-                    </TouchableOpacity>
                   </View>
-                  <Text style={styles.description}>{item.description}</Text>
-                  {selectedTab === 'Pond' && item.features && (
-                    <View style={styles.featuresContainer}>
-                      {item.features.map((feature, index) => (
-                        <Text key={index} style={styles.feature}>• {feature}</Text>
-                      ))}
-                    </View>
-                  )}
-                  <MoreButton item={item} type={selectedTab} />
+                  <MoreButton 
+                    item={{
+                      ...item,
+                      type: selectedTab
+                    }} 
+                    type={selectedTab}
+                  />
                 </View>
               </View>
             ))}
@@ -370,23 +308,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   name: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#333',
   },
   variant: {
+    fontSize: 24,
     color: '#8B0000',
-  },
-  likesContainer: {
-    padding: 8,
-    marginRight: -8,
-  },
-  likesCount: {
-    marginLeft: 5,
-  },
-  description: {
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 15,
   },
   loadingContainer: {
     flex: 1,

@@ -33,7 +33,7 @@ export default function OnlineBookingScreen() {
   const [selectedConsultant, setSelectedConsultant] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [consultants, setConsultants] = useState([
-    { key: 'auto', value: 'Chúng tôi sẽ chọn giúp' }
+    { key: 'null', value: 'Chúng tôi sẽ chọn giúp' }
   ]);
 
   // Cập nhật selectedConsultant khi có master được chọn từ trang chi tiết
