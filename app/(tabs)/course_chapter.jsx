@@ -11,10 +11,13 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { API_CONFIG } from '../../constants/config';
 
 const { width } = Dimensions.get('window');
 
@@ -22,50 +25,21 @@ export default function CourseChapterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [expandedChapter, setExpandedChapter] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false);
   const [completedLessons, setCompletedLessons] = useState({});
   const [completedQuizzes, setCompletedQuizzes] = useState({});
-  const [lastLesson, setLastLesson] = useState('section1-lesson1');
+  const [chapters, setChapters] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentChapter, setCurrentChapter] = useState(null);
 
   // Load user data on mount
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // Check registration status
-        const registrationStatus = await AsyncStorage.getItem('courseRegistered');
-        setIsRegistered(registrationStatus === 'true');
-        
         // Load completed lessons
         const savedLessons = await AsyncStorage.getItem('completedLessons');
         if (savedLessons) {
           const parsedLessons = JSON.parse(savedLessons);
           setCompletedLessons(parsedLessons);
-          
-          // Find the last lesson or next uncompleted lesson
-          const lessonOrder = [
-            'section1-lesson1',
-            'section1-lesson2',
-            'section1-lesson3',
-            'section2-lesson1',
-            'section2-lesson2',
-            'section2-lesson3',
-            'section3-lesson1',
-            'section3-lesson2',
-            'section3-lesson3',
-          ];
-          
-          // Find the last completed lesson or the first uncompleted one
-          let lastCompletedIndex = -1;
-          for (let i = 0; i < lessonOrder.length; i++) {
-            if (parsedLessons[lessonOrder[i]]) {
-              lastCompletedIndex = i;
-            }
-          }
-          
-          // Set next lesson to be the one after last completed or first if none completed
-          const nextLessonIndex = lastCompletedIndex < lessonOrder.length - 1 ? 
-            lastCompletedIndex + 1 : 0;
-          setLastLesson(lessonOrder[nextLessonIndex]);
         }
         
         // Load completed quizzes
@@ -81,6 +55,58 @@ export default function CourseChapterScreen() {
     loadUserData();
   }, []);
 
+  // Thêm useEffect để gọi API
+  useEffect(() => {
+    const fetchChapters = async () => {
+      try {
+        if (!params.courseId) {
+          throw new Error('Không tìm thấy thông tin khóa học');
+        }
+        
+        setIsLoading(true);
+        const token = await AsyncStorage.getItem('accessToken');
+        
+        if (!token) {
+          Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem nội dung khóa học');
+          router.push('/login');
+          return;
+        }
+
+        const response = await axios.get(
+          `${API_CONFIG.baseURL}/api/Chapter/get-all-chapters-by-courseId`, 
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            params: {
+              id: params.courseId
+            }
+          }
+        );
+
+        console.log('API Response:', response.data);
+
+        if (response.data?.isSuccess) {
+          setChapters(response.data.data);
+        } else {
+          throw new Error(response.data?.message || 'Không thể tải danh sách chương');
+        }
+
+      } catch (error) {
+        console.error('Error fetching chapters:', error);
+        Alert.alert(
+          'Lỗi',
+          'Không thể tải danh sách chương học. Vui lòng thử lại sau.'
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChapters();
+  }, [params.courseId]);
+
   const handleBackNavigation = () => {
     if (params.source === 'your_paid_courses') {
       router.push('/(tabs)/your_paid_courses');
@@ -89,32 +115,56 @@ export default function CourseChapterScreen() {
     }
   };
 
-  const toggleChapter = (chapterNumber) => {
-    setExpandedChapter(expandedChapter === chapterNumber ? null : chapterNumber);
-  };
-  
-  const handleRegisterOrContinue = async () => {
-    if (!isRegistered) {
-      // First-time registration
-      try {
-        await AsyncStorage.setItem('courseRegistered', 'true');
-        setIsRegistered(true);
-        
-        // Navigate to first lesson
-        router.push({
-          pathname: '/(tabs)/course_video',
-          params: { lessonId: 'section1-lesson1' }
-        });
-      } catch (error) {
-        console.log('Error saving registration', error);
-        Alert.alert('Error', 'Failed to register for the course. Please try again.');
+  const toggleChapter = async (chapter) => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem video');
+        router.push('/login');
+        return;
       }
-    } else {
-      // Continue from last position
+
+      if (chapter.status === 'Done') {
+        Alert.alert(
+          'Thông báo',
+          'Bạn đã hoàn thành chương học này, bạn có muốn xem lại?',
+          [
+            {
+              text: 'Không',
+              style: 'cancel'
+            },
+            {
+              text: 'Có',
+              onPress: () => {
+                router.push({
+                  pathname: '/(tabs)/course_video',
+                  params: {
+                    chapterId: chapter.chapterId,
+                    courseId: params.courseId
+                  }
+                });
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      // Nếu chưa hoàn thành thì chuyển thẳng đến trang video
       router.push({
         pathname: '/(tabs)/course_video',
-        params: { lessonId: lastLesson }
+        params: {
+          chapterId: chapter.chapterId,
+          courseId: params.courseId
+        }
       });
+
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert(
+        'Lỗi',
+        'Không thể tải thông tin chương học. Vui lòng thử lại sau.'
+      );
     }
   };
   
@@ -156,9 +206,6 @@ export default function CourseChapterScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.cartButton}>
-            <Ionicons name="cart-outline" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
 
         {/* Course Title and Rating */}
@@ -198,239 +245,42 @@ export default function CourseChapterScreen() {
 
           {/* Course Chapters */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Course chapters</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Danh sách chương</Text>
+              <Text style={styles.progressText}>
+                {calculateProgress()}% complete
+              </Text>
+            </View>
             
-            {/* Chapter 1 */}
+            {isLoading ? (
+              <ActivityIndicator size="large" color="#fff" />
+            ) : chapters.length > 0 ? (
+              chapters.map((chapter, index) => (
             <TouchableOpacity 
+                  key={chapter.chapterId}
               style={[
                 styles.chapterContainer,
-                expandedChapter === 1 && styles.expandedChapter
+                    chapter.status === 'Done' && styles.completedChapter
               ]}
-              onPress={() => toggleChapter(1)}
+                  onPress={() => toggleChapter(chapter)}
             >
               <View style={styles.chapterHeader}>
-                <Text style={styles.chapterNumber}>Chapter 1</Text>
-                <Text style={styles.chapterTitle}>Phong thủy cơ bản</Text>
-                <Ionicons 
-                  name={expandedChapter === 1 ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color="#fff" 
-                />
-              </View>
-              {expandedChapter === 1 && (
-                <View style={styles.lessonList}>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section1-lesson1')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>1. Giới thiệu về Phong thủy cổ học</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section1-lesson2')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>2. Ngũ hành: Kim, Mộc, Thủy, Hỏa, Thổ</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section1-lesson3')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>3. Âm dương và tứ tượng</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  
-                  {/* Chapter 1 Quiz */}
-                  <TouchableOpacity 
-                    style={[styles.lessonItem, styles.quizItem]}
-                    onPress={() => navigateToQuiz('section1-quiz')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>Kiểm tra kiến thức cơ bản phong thủy</Text>
-                    <Ionicons name="document-text" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Chapter 2 */}
-            <TouchableOpacity 
-              style={[
-                styles.chapterContainer,
-                expandedChapter === 2 && styles.expandedChapter
-              ]}
-              onPress={() => toggleChapter(2)}
-            >
-              <View style={styles.chapterHeader}>
-                <Text style={styles.chapterNumber}>Chapter 2</Text>
-                <Text style={styles.chapterTitle}>Cách xem hướng</Text>
-                <Ionicons 
-                  name={expandedChapter === 2 ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color="#fff" 
-                />
-              </View>
-              {expandedChapter === 2 && (
-                <View style={styles.lessonList}>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section2-lesson1')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>1. Bát quái và phương vị</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section2-lesson2')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>2. Xác định hướng nhà và phòng</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section2-lesson3')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>3. Hướng tốt cho từng mệnh</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  
-                  {/* Chapter 2 Quiz */}
-                  <TouchableOpacity 
-                    style={[styles.lessonItem, styles.quizItem]}
-                    onPress={() => navigateToQuiz('section2-quiz')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>Kiểm tra hướng và bát quái</Text>
-                    <Ionicons name="document-text" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
-            
-            {/* Chapter 3 */}
-            <TouchableOpacity 
-              style={[
-                styles.chapterContainer,
-                expandedChapter === 3 && styles.expandedChapter
-              ]}
-              onPress={() => toggleChapter(3)}
-            >
-              <View style={styles.chapterHeader}>
-                <Text style={styles.chapterNumber}>Chapter 3</Text>
-                <Text style={styles.chapterTitle}>Thủy mạch trong phong thủy</Text>
-                <Ionicons 
-                  name={expandedChapter === 3 ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color="#fff" 
-                />
-              </View>
-              {expandedChapter === 3 && (
-                <View style={styles.lessonList}>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section3-lesson1')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>1. Vai trò của thủy trong phong thủy</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section3-lesson2')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>2. Hồ cá Koi và phong thủy</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  
-                  {/* Chapter 3 Quiz */}
-                  <TouchableOpacity 
-                    style={[styles.lessonItem, styles.quizItem]}
-                    onPress={() => navigateToQuiz('section3-quiz')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>Kiểm tra kiến thức về thủy mạch</Text>
-                    <Ionicons name="document-text" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
-            
-            {/* Final Exam */}
-            <TouchableOpacity 
-              style={styles.finalExamContainer}
-              onPress={() => navigateToQuiz('final-exam')}
-            >
-              <View style={styles.finalExamContent}>
-                <View style={styles.finalExamIconContainer}>
-                  <Ionicons name="trophy-outline" size={24} color="#fff" />
-                </View>
-                <View style={styles.finalExamTextContainer}>
-                  <Text style={styles.finalExamTitle}>Bài kiểm tra cuối khóa</Text>
-                  <Text style={styles.finalExamDescription}>
-                    Hoàn thành khóa học và nhận chứng chỉ
-                  </Text>
-                </View>
-                <View style={styles.finalExamStatus}>
-                  {completedQuizzes['final-exam'] ? (
-                    <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                  ) : (
-                    <Ionicons name="chevron-forward" size={24} color="#8B0000" />
+                    <Text style={styles.chapterNumber}>Chương {index + 1}</Text>
+                    <Text style={styles.chapterTitle}>{chapter.title}</Text>
+                    <View style={styles.chapterDuration}>
+                      <Ionicons name="time-outline" size={16} color="#fff" />
+                      <Text style={styles.durationText}>{chapter.duration}</Text>
+                      {chapter.status === 'Done' && (
+                        <Ionicons name="checkmark-circle" size={20} color="#4CAF50" style={styles.completedIcon} />
                   )}
                 </View>
               </View>
             </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.noDataText}>Chưa có chương học nào</Text>
+            )}
           </View>
-          
-          {/* Register/Continue Button */}
-          <TouchableOpacity 
-            style={styles.registerButton}
-            onPress={handleRegisterOrContinue}
-          >
-            <Text style={styles.registerButtonText}>
-              {isRegistered ? `Continue (${calculateProgress()}% complete)` : 'Register'}
-            </Text>
-          </TouchableOpacity>
           
           {/* Bottom padding */}
           <View style={{ height: 40 }} />
@@ -463,9 +313,6 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  cartButton: {
-    padding: 8,
   },
   titleContainer: {
     paddingHorizontal: 16,
@@ -513,9 +360,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  expandedChapter: {
-    backgroundColor: '#660000',
-  },
   chapterHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -530,6 +374,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     flex: 1,
     fontWeight: 'bold',
+  },
+  chapterDuration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  durationText: {
+    color: '#fff',
+    marginLeft: 4,
+    fontSize: 12,
   },
   lessonList: {
     padding: 8,
@@ -554,20 +408,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
     fontSize: 14,
-  },
-  registerButton: {
-    backgroundColor: '#8B0000',
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  registerButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
   },
   quizItem: {
     backgroundColor: 'rgba(139, 0, 0, 0.7)', // Darker red for quiz items
@@ -616,5 +456,28 @@ const styles = StyleSheet.create({
     width: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  noDataText: {
+    color: '#fff',
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 16,
+  },
+  completedChapter: {
+    backgroundColor: 'rgba(0, 128, 0, 0.3)',
+  },
+  completedIcon: {
+    marginLeft: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  progressText: {
+    color: '#4CAF50',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
