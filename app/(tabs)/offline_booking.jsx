@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,17 +9,105 @@ import {
   ImageBackground,
   ScrollView,
   Keyboard,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../../constants/config';
 
 export default function OfflineBookingScreen() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const params = useLocalSearchParams();
   const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [shouldCompleteBooking, setShouldCompleteBooking] = useState(false);
+
+  useEffect(() => {
+    const completeBooking = async () => {
+      if (params.packageId && params.selectedPrice && params.shouldCompleteBooking) {
+        try {
+          setIsSubmitting(true);
+          const token = await AsyncStorage.getItem('accessToken');
+          const savedDescription = await AsyncStorage.getItem('offlineBookingDescription');
+          
+          if (!token) {
+            Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+            router.push('/(tabs)/login');
+            return;
+          }
+
+          const response = await axios.post(
+            `${API_CONFIG.baseURL}/api/Booking/offline-transaction-complete?packageId=${params.packageId}&selectedPrice=${params.selectedPrice}`,
+            {
+              description: savedDescription
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          console.log('Response from API:', response.data);
+
+          if (response.data && response.data.isSuccess && response.data.data) {
+            const bookingOfflineId = response.data.data.bookingOfflineId;
+            console.log('Created BookingOfflineId:', bookingOfflineId);
+
+            await AsyncStorage.removeItem('offlineBookingDescription');
+            Alert.alert(
+              'Thành công',
+              'Bạn đã đăng ký lịch tư vấn thành công',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    router.push({
+                      pathname: '/(tabs)/offline_payment',
+                      params: {
+                        serviceId: bookingOfflineId,
+                        serviceType: 1,
+                        selectedPrice: params.selectedPrice
+                      }
+                    });
+                  }
+                }
+              ]
+            );
+          } else {
+            throw new Error('Không nhận được bookingOfflineId từ API');
+          }
+        } catch (error) {
+          console.error('Lỗi khi hoàn tất booking:', error);
+          Alert.alert('Lỗi', error.response?.data?.message || 'Không thể hoàn tất đặt lịch. Vui lòng thử lại sau.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    };
+
+    if (params.packageId && params.selectedPrice && params.shouldCompleteBooking) {
+      completeBooking();
+    }
+  }, [params.packageId, params.selectedPrice, params.shouldCompleteBooking]);
+
+  const handleContinue = () => {
+    if (!description.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập mô tả nhu cầu tư vấn');
+      return;
+    }
+
+    // Lưu description vào AsyncStorage
+    AsyncStorage.setItem('offlineBookingDescription', description);
+    
+    // Chuyển đến trang chọn gói
+    router.push('/(tabs)/offline_package');
+  };
 
   return (
     <ImageBackground 
@@ -47,41 +135,6 @@ export default function OfflineBookingScreen() {
             <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
 
             <View style={styles.formContainer}>
-              {/* Name Input */}
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Họ và tên*"
-                  placeholderTextColor="#FFFFFF80"
-                />
-              </View>
-              
-              {/* Phone Number */}
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={styles.input}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Số điện thoại*"
-                  keyboardType="phone-pad"
-                  placeholderTextColor="#FFFFFF80"
-                />
-              </View>
-              
-              {/* Email */}
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Email*"
-                  keyboardType="email-address"
-                  placeholderTextColor="#FFFFFF80"
-                />
-              </View>
-              
               {/* Description */}
               <View style={styles.formGroup}>
                 <TextInput
@@ -96,15 +149,22 @@ export default function OfflineBookingScreen() {
               </View>
 
               {/* Submit Button */}
-              <TouchableOpacity 
-                style={styles.submitButton}
-                onPress={() => {
-                  // Navigate to offline_package.jsx
-                  router.push('/(tabs)/offline_package');
-                }}
-              >
-                <Text style={styles.submitButtonText}>Chọn gói tư vấn</Text>
-              </TouchableOpacity>
+              {isSubmitting ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#8B0000" />
+                  <Text style={styles.loadingText}>Đang xử lý...</Text>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.submitButton}
+                  onPress={handleContinue}
+                  disabled={isSubmitting}
+                >
+                  <Text style={styles.submitButtonText}>
+                    {params.packageId ? 'Hoàn tất đặt lịch' : 'Chọn gói tư vấn'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollView>
         </TouchableWithoutFeedback>
@@ -201,4 +261,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  loadingContainer: {
+    alignItems: 'center',
+    marginTop: 20
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    marginTop: 10,
+    fontSize: 16
+  }
 });

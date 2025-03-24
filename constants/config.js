@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-//const DEV_API_URL = 'http://192.168.1.25:5261';
-const DEV_API_URL = 'http://192.168.31.148:5261';
+const DEV_API_URL = 'http://192.168.1.25:5261';
+//const DEV_API_URL = 'http://192.168.31.148:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
@@ -15,6 +15,8 @@ export const API_CONFIG = {
     // Booking endpoints
     createBooking: '/api/Booking/create',
     getBooking: '/api/Booking/{id}',
+    offlineTransactionComplete: '/api/Booking/offline-transaction-complete',
+    currentLoginBookingOffline: '/api/Booking/current-login-bookingOffline',
 
     // Pond endpoints
     allPonds: '/api/KoiPond/get-all',
@@ -67,6 +69,20 @@ export const API_CONFIG = {
 
     //Category endpoints
     getAllCategory: '/api/Category/get-all',
+
+    // consulting package endpoints
+    getAllConsultationPackages: '/api/ConsultationPackage/get-all',
+    getConsultingPackageDetails: '/api/ConsultationPackage/get-by/{id}',
+
+    // contract endpoints
+    getContractByBookingOffline: '/api/Contract/by-bookingOffline/{id}',
+
+    // chapter endpoints
+    getAllChaptersByCourseId: '/api/Chapter/get-all-chapters-by-courseId',
+    getChapterById: '/api/Chapter/get-chapter/{id}',
+
+    // registerCourse endpoints
+    updateProccessCourse: '/api/RegisterCourse/{chapterId}',
   },
-  timeoutDuration: 15000 // Tăng timeout lên 15 giây
+  timeoutDuration: 30000 // 30 seconds
 };
