@@ -13,13 +13,14 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
 export default function CourseChapterScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [expandedChapter, setExpandedChapter] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [completedLessons, setCompletedLessons] = useState({});
@@ -81,7 +82,11 @@ export default function CourseChapterScreen() {
   }, []);
 
   const handleBackNavigation = () => {
-    router.back();
+    if (params.source === 'your_paid_courses') {
+      router.push('/(tabs)/your_paid_courses');
+    } else {
+      router.back();
+    }
   };
 
   const toggleChapter = (chapterNumber) => {
@@ -145,7 +150,10 @@ export default function CourseChapterScreen() {
         
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBackNavigation} style={styles.backButton}>
+          <TouchableOpacity 
+            onPress={handleBackNavigation} 
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.cartButton}>
@@ -155,22 +163,27 @@ export default function CourseChapterScreen() {
 
         {/* Course Title and Rating */}
         <View style={styles.titleContainer}>
-          <Text style={styles.courseTitle}>Đại Đạo Chỉ Giản - Phong Thủy Cổ Học</Text>
+          <Text style={styles.courseTitle}>
+            {params.courseName || 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học'}
+          </Text>
           <View style={styles.ratingContainer}>
-            <Text style={styles.ratingText}>4.8</Text>
+            <Text style={styles.ratingText}>{params.courseRating || '4.8'}</Text>
             <Ionicons name="star" size={16} color="#FFD700" />
             <Ionicons name="star" size={16} color="#FFD700" />
             <Ionicons name="star" size={16} color="#FFD700" />
             <Ionicons name="star" size={16} color="#FFD700" />
             <Ionicons name="star-half" size={16} color="#FFD700" />
-            <Text style={styles.ratingCount}>(128 ratings)</Text>
           </View>
         </View>
 
         <ScrollView style={styles.content}>
-          {/* Main Fish Image */}
+          {/* Main Course Image */}
           <Image 
-            source={require('../../assets/images/koi_image.jpg')}
+            source={
+              params.courseImage 
+                ? { uri: params.courseImage }
+                : require('../../assets/images/koi_image.jpg')
+            }
             style={styles.fishImage}
             resizeMode="cover"
           />
@@ -179,7 +192,7 @@ export default function CourseChapterScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Description:</Text>
             <Text style={styles.descriptionText}>
-              Phong thủy là một trong những Phong Thủy Cổ Học Lượng đạo cho học viên có thể hiểu rõ về tất cả các khía cạnh thực hành trong phong thủy, giúp bạn vượt qua khó khăn và tận hưởng cuộc sống tốt đẹp hơn. Khóa học được giảng dạy bởi Thầy Sư Nguyễn Trung Mạnh, một trong những chuyên gia hàng đầu về phong thủy tại Việt Nam. Thầy đã có hơn 20 năm kinh nghiệm và đã giúp đỡ vô số người thông qua việc áp dụng các nguyên tắc phong thủy cổ học.
+              {params.courseDescription || 'Phong thủy là một trong những học thuyết cổ xưa của phương Đông, nghiên cứu về sự ảnh hưởng của hướng gió, dòng nước, địa hình và các yếu tố tự nhiên đến đời sống con người. Phong thủy không chỉ áp dụng trong xây dựng nhà cửa, bố trí nội thất mà còn trong kinh doanh, sức khỏe và vận mệnh cá nhân, giúp cân bằng năng lượng và thu hút tài lộc, may mắn.'}
             </Text>
           </View>
 
@@ -471,11 +484,6 @@ const styles = StyleSheet.create({
   ratingText: {
     color: '#fff',
     marginRight: 4,
-  },
-  ratingCount: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 12,
   },
   fishImage: {
     width: width,

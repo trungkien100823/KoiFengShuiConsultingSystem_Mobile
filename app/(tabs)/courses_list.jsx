@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,39 +9,71 @@ import {
   TextInput,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-
-// Sample data for category courses
-const categoryCourses = [
-  {
-    id: '1',
-    title: 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học',
-    image: require('../../assets/images/koi_image.jpg'),
-    price: 2400000,
-    rating: 4.5,
-    reviews: 50,
-    isBestSeller: true,
-  },
-  {
-    id: '2',
-    title: 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học',
-    image: require('../../assets/images/koi_image.jpg'),
-    price: 2400000,
-    rating: 4.5,
-    reviews: 50,
-    isBestSeller: true,
-  },
-  // Add more courses as needed
-];
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../../constants/config';
 
 export default function CoursesListScreen() {
   const { categoryId, categoryTitle } = useLocalSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [userName, setUserName] = useState('John Smith');
+  const [courses, setCourses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const loadCourses = async () => {
+      try {
+        setIsLoading(true);
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
+          console.log('Token không tồn tại');
+          router.push('/login');
+          return;
+        }
+
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        };
+
+        const response = await axios.get(
+          `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getCourseByCategory.replace('{id}', categoryId)}`,
+          config
+        );
+
+        console.log('API Response:', response.data);
+
+        if (response.data?.isSuccess) {
+          const processedCourses = response.data.data.map(course => ({
+            id: course.courseId,
+            title: course.courseName,
+            image: course.imageUrl 
+              ? { uri: course.imageUrl }
+              : require('../../assets/images/koi_image.jpg'),
+            price: course.price || 0,
+            rating: course.rating || 0,
+            reviews: course.enrolledStudents || 0
+          }));
+          setCourses(processedCourses);
+        }
+      } catch (error) {
+        console.error('Error loading courses:', error);
+        setCourses([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCourses();
+  }, [categoryId]);
 
   const renderCourseCard = ({ item }) => (
     <View style={styles.courseCardContainer}>
@@ -111,14 +143,18 @@ export default function CoursesListScreen() {
 
       {/* Scrollable Content */}
       <ScrollView style={styles.scrollContent}>
-        <Text style={styles.sectionTitle}>Top courses for {categoryTitle}</Text>
-        <View style={styles.coursesList}>
-          {categoryCourses.map((course) => (
-            <React.Fragment key={course.id}>
-              {renderCourseCard({ item: course })}
-            </React.Fragment>
-          ))}
-        </View>
+        <Text style={styles.sectionTitle}>{categoryTitle}</Text>
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#8B0000" />
+        ) : (
+          <View style={styles.coursesList}>
+            {courses.map((course) => (
+              <React.Fragment key={course.id}>
+                {renderCourseCard({ item: course })}
+              </React.Fragment>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       <CustomTabBar />

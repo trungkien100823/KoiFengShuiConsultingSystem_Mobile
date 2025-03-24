@@ -56,7 +56,17 @@ export const API_CONFIG = {
 
     // New endpoints
     koiVariety: '/api/KoiVariety',
-    pond: '/api/Pond'
+    pond: '/api/Pond',
+
+    //Course endpoints
+    bestSellerCourse: '/api/Course/best-seller',
+    sortByRating: '/api/Course/sort-by-rating',
+    getCourseById: '/api/Course/get-details-for-mobile/{id}',
+    getCourseByCategory: '/api/Course/get-by-category/{id}',
+    getPaidCourses: '/api/Course/get-paid-courses',
+
+    //Category endpoints
+    getAllCategory: '/api/Category/get-all',
   },
   timeoutDuration: 15000 // Tăng timeout lên 15 giây
 };
