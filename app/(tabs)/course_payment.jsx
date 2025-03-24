@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,16 +10,25 @@ import {
   StatusBar,
   TextInput,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { API_CONFIG } from '../../constants/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { paymentService } from '../../constants/paymentService';
 
 const { width } = Dimensions.get('window');
 
 export default function CoursePaymentScreen() {
+  const params = useLocalSearchParams();
   const router = useRouter();
-  const { courseId, courseTitle, coursePrice, courseImage } = useLocalSearchParams();
   
+  // Log để debug
+  console.log('Payment Screen Params:', params);
+
   // Payment method state
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('VietQR');
   
@@ -29,9 +38,72 @@ export default function CoursePaymentScreen() {
   const [userEmail, setUserEmail] = useState('johnsmith@gmail.com');
   const [couponCode, setCouponCode] = useState('');
   
+  // Thêm state để xử lý loading
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Thêm state cho loading user info
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  // Thêm useEffect để gọi API lấy thông tin user khi component mount
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
+  // Cập nhật hàm fetchCurrentUser
+  const fetchCurrentUser = async () => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+        router.push('login');
+        return;
+      }
+
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/Account/current-user`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      console.log('Current user response:', response.data);
+
+      if (response.data) {
+        setUserName(response.data.fullName || response.data.userName || '');
+        setUserPhone(response.data.phoneNumber || '');
+        setUserEmail(response.data.email || '');
+      } else {
+        Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng');
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy thông tin người dùng:', error);
+      Alert.alert('Lỗi', 'Không thể lấy thông tin người dùng');
+    } finally {
+      setIsLoadingUser(false);
+    }
+  };
+  
   // Handle back navigation
-  const handleBackNavigation = () => {
-    router.push("/(tabs)/course_details");
+  const handleBack = () => {
+    // Log trước khi điều hướng
+    console.log('CourseId when navigating back:', params.courseId);
+    
+    if (!params.courseId) {
+      console.log('Warning: courseId is undefined');
+      router.push('/(tabs)/courses'); // Fallback về courses nếu không có courseId
+      return;
+    }
+
+    router.replace({
+      pathname: '/(tabs)/course_details',
+      params: { 
+        courseId: params.courseId,
+        source: 'payment'
+      }
+    });
   };
   
   // Format price as VND
@@ -39,16 +111,94 @@ export default function CoursePaymentScreen() {
     return parseFloat(price).toLocaleString('vi-VN');
   };
   
-  // Inside CoursePaymentScreen component, add the navigation handler:
-  const handlePayment = () => {
-    router.push({
-      pathname: '/(tabs)/course_payment_success',
-      params: {
-        courseId: courseId,
-        courseTitle: courseTitle,
-        courseImage: courseImage
+  // Cập nhật hàm handlePayment
+  const handlePayment = async () => {
+    try {
+      setIsLoading(true);
+      
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+        router.push('/login');
+        return;
       }
-    });
+
+      console.log('Bắt đầu xử lý thanh toán khóa học:', {
+        courseId: params.courseId,
+        courseTitle: params.courseTitle,
+        coursePrice: params.coursePrice
+      });
+
+      // Sử dụng paymentService để xử lý thanh toán
+      const result = await paymentService.processPayment({
+        navigation: router,
+        serviceId: params.courseId,
+        serviceType: paymentService.SERVICE_TYPES.COURSE,
+        serviceInfo: {
+          title: params.courseTitle,
+          price: params.coursePrice,
+          customerName: userName,
+          phoneNumber: userPhone,
+          email: userEmail
+        },
+        onError: (error) => {
+          console.error('Lỗi thanh toán:', error);
+          Alert.alert(
+            'Lỗi thanh toán',
+            error.message || 'Không thể kết nối đến cổng thanh toán. Vui lòng thử lại.',
+            [
+              {
+                text: 'Thử lại',
+                onPress: () => handlePayment()
+              }
+            ],
+            { cancelable: false }
+          );
+        }
+      });
+
+      if (result.success) {
+        const { paymentUrl, orderId } = result;
+        console.log('Payment URL:', paymentUrl);
+        console.log('Order ID:', orderId);
+
+        router.push({
+          pathname: '/(tabs)/payment_webview',
+          params: {
+            paymentUrl: encodeURIComponent(paymentUrl),
+            orderId: orderId,
+            returnScreen: 'courses'
+          }
+        });
+      } else {
+        Alert.alert(
+          'Thông báo',
+          result.message || 'Không thể tạo liên kết thanh toán.',
+          [
+            {
+              text: 'Thử lại',
+              onPress: () => handlePayment()
+            }
+          ],
+          { cancelable: false }
+        );
+      }
+    } catch (error) {
+      console.error('Lỗi xử lý thanh toán:', error);
+      Alert.alert(
+        'Lỗi hệ thống',
+        'Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.',
+        [
+          {
+            text: 'Thử lại',
+            onPress: () => handlePayment()
+          }
+        ],
+        { cancelable: false }
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -57,8 +207,11 @@ export default function CoursePaymentScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBackNavigation} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#8B0000" />
+        <TouchableOpacity 
+          onPress={handleBack}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thanh toán</Text>
       </View>
@@ -73,15 +226,15 @@ export default function CoursePaymentScreen() {
             <View style={styles.courseCardContainer}>
               <View style={styles.courseCard}>
                 <Image 
-                  source={courseImage ? { uri: courseImage } : require('../../assets/images/koi_image.jpg')} 
+                  source={params.courseImage ? { uri: params.courseImage } : require('../../assets/images/koi_image.jpg')} 
                   style={styles.courseImage} 
                 />
                 <View style={styles.cardOverlay}>
                   <Text style={styles.courseTitle}>
-                    {courseTitle || 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học'}
+                    {params.courseTitle || 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học'}
                   </Text>
                   <Text style={styles.price}>
-                    {formatPrice(coursePrice || 2400000)} đ
+                    {formatPrice(params.coursePrice)} đ
                   </Text>
                 </View>
               </View>
@@ -92,104 +245,54 @@ export default function CoursePaymentScreen() {
             </View>
           </View>
           
-          {/* Customer Information - Updated */}
+          {/* Customer Information Section */}
           <View style={styles.infoSection}>
             <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
             <View style={styles.customerCard}>
-              <View style={styles.customerAvatarContainer}>
-                <Ionicons name="person-circle" size={40} color="#8B0000" />
-              </View>
-              <View style={styles.customerDetails}>
-                <Text style={styles.customerName}>{userName}</Text>
-                <View style={styles.contactRow}>
-                  <Ionicons name="call-outline" size={14} color="#666" />
-                  <Text style={styles.contactText}>{userPhone}</Text>
+              {isLoadingUser ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#8B0000" />
+                  <Text style={styles.loadingText}>Đang tải thông tin...</Text>
                 </View>
-                <View style={styles.contactRow}>
-                  <Ionicons name="mail-outline" size={14} color="#666" />
-                  <Text style={styles.contactText}>{userEmail}</Text>
-                </View>
-              </View>
-            </View>
-            
-            {/* Coupon Code Input */}
-            <View style={styles.couponContainer}>
-              <TextInput
-                style={styles.couponInput}
-                placeholder="Coupon code"
-                value={couponCode}
-                onChangeText={setCouponCode}
-              />
-              <TouchableOpacity style={styles.couponButton}>
-                <Text style={styles.couponButtonText}>Sử dụng</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {/* Payment Methods - Updated */}
-          <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
-            <View style={styles.paymentMethodsContainer}>
-              <TouchableOpacity 
-                style={[
-                  styles.paymentOption, 
-                  selectedPaymentMethod === 'VietQR' && styles.selectedPayment
-                ]}
-                onPress={() => setSelectedPaymentMethod('VietQR')}
-              >
-                <Image 
-                  source={require('../../assets/images/VietQR.png')} 
-                  style={styles.paymentLogo} 
-                />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.paymentOption, 
-                  selectedPaymentMethod === 'PayOS' && styles.selectedPayment
-                ]}
-                onPress={() => setSelectedPaymentMethod('PayOS')}
-              >
-                <Image 
-                  source={require('../../assets/images/PayOS.png')} 
-                  style={styles.paymentLogo} 
-                />
-              </TouchableOpacity>
+              ) : (
+                <>
+                  <View style={styles.customerAvatarContainer}>
+                    <Ionicons name="person-circle" size={40} color="#8B0000" />
+                  </View>
+                  <View style={styles.customerDetails}>
+                    <Text style={styles.customerName}>{userName}</Text>
+                    <View style={styles.contactRow}>
+                      <Ionicons name="call-outline" size={14} color="#666" />
+                      <Text style={styles.contactText}>{userPhone}</Text>
+                    </View>
+                    <View style={styles.contactRow}>
+                      <Ionicons name="mail-outline" size={14} color="#666" />
+                      <Text style={styles.contactText}>{userEmail}</Text>
+                    </View>
+                  </View>
+                </>
+              )}
             </View>
           </View>
-          
-          {/* Order Summary - Updated */}
-          <View style={styles.infoSection}>
-            <View style={styles.orderRow}>
-              <Text style={styles.orderLabel}>Tổng tiền</Text>
-              <Text style={styles.orderValue}>{formatPrice(coursePrice || 2400000)} VND</Text>
-            </View>
-            <View style={styles.orderRow}>
-              <Text style={styles.orderLabel}>Chiết khấu</Text>
-              <Text style={styles.orderValue}>0 VND</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.orderRow}>
-              <Text style={styles.totalLabel}>Tổng thanh toán</Text>
-              <Text style={styles.totalValue}>{formatPrice(coursePrice || 2400000)} VND</Text>
-            </View>
-          </View>
-          
-          {/* Add padding at bottom to ensure content doesn't get hidden behind checkout container */}
           <View style={{ height: 80 }} />
         </ScrollView>
         
-        {/* Payment Button - Updated to fill width */}
         <View style={styles.checkoutContainer}>
           <View style={styles.checkoutTotal}>
             <Text style={styles.checkoutTotalLabel}>Tổng thanh toán</Text>
-            <Text style={styles.checkoutTotalValue}>{formatPrice(coursePrice || 2400000)} VND</Text>
+            <Text style={styles.checkoutTotalValue}>{formatPrice(params.coursePrice)} VND</Text>
           </View>
           <TouchableOpacity 
-            style={styles.checkoutButton}
+            style={[
+              styles.checkoutButton,
+              isLoading && { opacity: 0.7 }  // Thêm effect khi loading
+            ]}
             onPress={handlePayment}
+            disabled={isLoading}
           >
-            <Text style={styles.checkoutButtonText}>Thanh toán</Text>
+            <Text style={styles.checkoutButtonText}>
+              {isLoading ? 'Đang xử lý...' : 'Thanh toán'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -203,8 +306,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   mainContainer: {
-    flex: 1, // This ensures the main container takes up all available space
-    position: 'relative', // This is needed for the absolute positioning of the checkout container
+    flex: 1, 
+    position: 'relative', 
   },
   header: {
     flexDirection: 'row',
@@ -244,11 +347,11 @@ const styles = StyleSheet.create({
   },
   courseCardWrapper: {
     paddingHorizontal: 16,
-    marginBottom: 40, // Space for the feng shui logo
+    marginBottom: 20,
   },
   courseCardContainer: {
     position: 'relative',
-    marginBottom: 60,
+    marginBottom: 40,
     paddingLeft: 8,
   },
   courseCard: {
@@ -291,7 +394,7 @@ const styles = StyleSheet.create({
   fengShuiLogo: {
     position: 'absolute',
     left: -5,
-    bottom: -45,
+    bottom: -35,
     width: 100,
     height: 100,
     resizeMode: 'contain',
@@ -301,7 +404,7 @@ const styles = StyleSheet.create({
   // New styles for updated sections
   infoSection: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#EEE',
   },
@@ -343,85 +446,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 6,
   },
-  couponContainer: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  couponInput: {
-    flex: 1,
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginRight: 8,
-  },
-  couponButton: {
-    backgroundColor: '#8B0000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  couponButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  paymentMethodsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginTop: 8,
-  },
-  paymentOption: {
-    width: 80,
-    height: 80,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-    padding: 8,
-  },
-  selectedPayment: {
-    borderColor: '#8B0000',
-    borderWidth: 2,
-  },
-  paymentLogo: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  orderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  orderLabel: {
-    fontSize: 16,
-    color: '#333',
-  },
-  orderValue: {
-    fontSize: 16,
-    color: '#8B0000',
-    fontWeight: '500',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#EEE',
-    marginVertical: 12,
-  },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8B0000',
-  },
   checkoutContainer: {
     position: 'absolute',
     bottom: -40,
@@ -433,9 +457,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
+    alignItems: 'center'
   },
   checkoutTotal: {
     flex: 1,
@@ -461,5 +483,16 @@ const styles = StyleSheet.create({
     color: '#8B0000',
     fontSize: 16,
     fontWeight: 'bold',
-  }
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 8,
+    color: '#666',
+    fontSize: 14,
+  },
 });

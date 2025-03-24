@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,93 +10,204 @@ import {
   StatusBar,
   ImageBackground,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import CustomTabBar from '../../components/ui/CustomTabBar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { API_CONFIG } from '../../constants/config';
 
 const { width } = Dimensions.get('window');
 
 export default function CourseDetailsScreen() {
   const navigation = useNavigation();
   const router = useRouter();
-  const { courseId, source } = useLocalSearchParams();
+  const { courseId, courseData, source } = useLocalSearchParams();
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [courseDetails, setCourseDetails] = useState(null);
+  const [masterInfo, setMasterInfo] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Handle back navigation based on source
-  const handleBackNavigation = () => {
-    console.log("Back navigation source:", source); // Debug
-    
-    if (source === 'courses_list') {
-      // Go back to courses_list
-      router.push({
-        pathname: '/(tabs)/courses_list',
-        params: { 
-          categoryId: '1',
-          categoryTitle: 'Feng Shui'
+  // Thêm hàm handleBack
+  const handleBack = () => {
+    router.push('/(tabs)/courses');
+  };
+
+  useEffect(() => {
+    const loadCourseDetails = async () => {
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        };
+
+        // Dòng 58-61: Thêm log URL trước khi gọi API
+        const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getCourseById.replace('{id}', courseId)}`;
+        console.log('Calling API URL:', url);
+        const response = await axios.get(url, config);
+
+        console.log('API Response:', {
+          url: url,
+          status: response.status,
+          isSuccess: response.data?.isSuccess,
+          rawData: response.data,
+          courseData: response.data?.data,
+          hasFields: {
+            rating: 'rating' in response.data?.data,
+            enrolledStudents: 'enrolledStudents' in response.data?.data,
+            totalChapters: 'totalChapters' in response.data?.data,
+            totalQuestions: 'totalQuestions' in response.data?.data,
+            totalDuration: 'totalDuration' in response.data?.data
+          }
+        });
+
+        if (response.data?.isSuccess) {
+          const courseData = response.data.data;
+          console.log('Raw API Response:', response.data);
+          console.log('Course Data:', courseData);
+          console.log('Processed Course Data:', {
+            enrolledStudents: courseData.enrolledStudents,
+            totalChapters: courseData.totalChapters,
+            totalQuestions: courseData.totalQuestions,
+            totalDuration: courseData.totalDuration
+          });
+          
+          // Xử lý dữ liệu khóa học từ API
+          const processedCourse = {
+            id: courseData.courseId,
+            title: courseData.courseName,
+            image: courseData.imageUrl 
+              ? { uri: courseData.imageUrl }
+              : require('../../assets/images/buddha.png'),
+            price: courseData.price,
+            rating: courseData.rating,
+            enrolledStudents: courseData.enrolledStudents,
+            includes: [
+              `Tổng thời lượng: ${courseData.totalDuration ? courseData.totalDuration : 'Chưa có'}`,
+              `${courseData.totalChapters || 0} Chapters`,
+              `${courseData.totalQuestions || 0} Questions`
+            ],
+            learning: [
+              'Kiến thức cơ bản về Koi',
+              'Kỹ thuật chăm sóc Koi',
+              'Nhận biết các loại Koi',
+              'Xây dựng và duy trì hồ Koi',
+              'Phòng và điều trị bệnh cho Koi'
+            ],
+            description: courseData.description || 'Thầy giáo là người truyền đạt tri thức và rèn luyện nhân cách cho học trò. Không chỉ giảng dạy, thầy còn truyền cảm hứng, khơi dậy đam mê và giúp học sinh phát huy tiềm năng. Với lòng tận tâm và nhiệt huyết, thầy giáo trở thành người hướng dẫn, đồng hành và là tấm gương sáng cho bao thế hệ.',
+            categoryName: courseData.categoryName || 'Chưa phân loại'
+          };
+
+          console.log('Dữ liệu số trước khi xử lý:', {
+            price: courseData.price,
+            rating: courseData.rating,
+            enrolledStudents: courseData.enrolledStudents,
+            totalChapters: courseData.totalChapters,
+            totalQuestions: courseData.totalQuestions,
+            totalDuration: courseData.totalDuration
+          });
+
+          console.log('Processed Course sau khi xử lý:', processedCourse);
+          setCourseDetails(processedCourse);
+
+          // Nếu có masterId thì mới gọi API lấy thông tin master
+          if (courseData.masterId) {
+            try {
+              // Thêm log để debug
+              console.log('Calling Master API for masterId:', courseData.masterId);
+              
+              const masterResponse = await axios.get(
+                `${API_CONFIG.baseURL}/api/Master/${courseData.masterId}`,
+                config
+              );
+
+              // Log response từ API master
+              console.log('Master API Response:', masterResponse.data);
+
+              if (masterResponse.data?.isSuccess) {
+                const masterData = masterResponse.data.data;
+                // Log masterData để kiểm tra
+                console.log('Processed Master Data:', masterData);
+                
+                setMasterInfo({
+                  name: masterData.masterName ?? 'Chưa có tên',
+                  title: masterData.title ?? 'Master',
+                  rating: masterData.rating ?? 4.0,
+                  bio: masterData.biography ?? 'Chưa có thông tin',
+                  experience: masterData.experience ?? 'Chưa cập nhật',
+                  expertise: masterData.expertise ?? 'Chưa cập nhật',
+                  image: masterData.imageUrl 
+                    ? { uri: masterData.imageUrl }
+                    : require('../../assets/images/buddha.png'),
+                  achievements: [
+                    masterData.experience ? `${masterData.experience} kinh nghiệm` : 'Chưa cập nhật kinh nghiệm',
+                    masterData.expertise ?? 'Chưa cập nhật chuyên môn',
+                    'Chuyên gia được đánh giá cao'
+                  ]
+                });
+              } else {
+                console.warn('Master API không trả về dữ liệu thành công');
+              }
+            } catch (masterError) {
+              console.error('Chi tiết lỗi khi lấy thông tin master:', masterError.response || masterError);
+            }
+          }
+        } else {
+          throw new Error('Không thể tải thông tin khóa học');
         }
-      });
-    } else {
-      // Go back to courses tab
-      router.push('/(tabs)/courses');
-    }
-  };
 
-  // Update the sample course data to include discounted price and more instructor details
-  const course = {
-    id: '1',
-    title: 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học',
-    image: require('../../assets/images/koi_image.jpg'),
-    price: 2400000,
-    originalPrice: 4800000, // Added original price for discount display
-    discount: 50, // Discount percentage
-    rating: 4.0,
-    reviews: 100,
-    includes: [
-      '1h45m5s',
-      '5 Videos',
-      '15 Question Patterns',
-      'Support files',
-      'Access on all Devices',
-      'Certificate of Completions'
-    ],
-    learning: [
-      'Philosophy of Simplicity: Understanding harmony through balance',
-      'Ancient Chinese Feng Shui principles for enhancing energy and prosperity',
-      'Five Elements (Ngũ Hành): Utilizing elemental interactions for health and wealth',
-      'Symbolic meanings of shapes and colors for balance and success',
-      'Practical Wisdom: Connecting with nature and implementing proven solutions'
-    ],
-    description: 'Khóa học Đại Đạo Chỉ Giản - Phong Thủy Cổ Học I mang đến triết lý cổ xưa về Đạo Phong Thủy. Bạn sẽ tìm hiểu về những nguyên tắc căn bản từ các văn bản truyền thống và ứng dụng trong đời sống hiện đại. Dưới sự hướng dẫn của Phong Thủy sư Nguyễn Trung Hiếu, hành trình khám phá nguồn năng lượng tự nhiên này sẽ mở ra một thế giới mới về sự cân bằng và hòa hợp. Lý tưởng cho người mới bắt đầu và những người sâu sắc hơn muốn mở rộng kiến thức.',
-    instructor: {
-      name: 'Master Nguyen Trong Manh',
-      title: 'Top Rated Master',
-      rating: 4.0,
-      bio: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit.',
-      image: require('../../assets/images/consultant1.jpg'),
-      achievements: [
-        '100 Courses Uploaded',
-        'Best Seller Adward',
-        '1+ Hundred Students Followed'
-      ]
-    }
-  };
+        console.log('Course API Response:', {
+          rawResponse: response.data,
+          courseData: response.data.data,
+          hasCalculatedFields: {
+            rating: response.data.data.rating,
+            enrolledStudents: response.data.data.enrolledStudents,
+            totalChapters: response.data.data.totalChapters,
+            totalDuration: response.data.data.totalDuration
+          }
+        });
+      } catch (error) {
+        console.error('Lỗi:', error);
+        Alert.alert('Lỗi', 'Không thể tải thông tin khóa học');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  return (
+    loadCourseDetails();
+  }, [courseId]);
+
+  // Render loading state
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8B0000" />
+      </View>
+    );
+  }
+
+  // Render main content only when course details are available
+  return courseDetails ? (
     <ImageBackground 
       source={require('../../assets/images/feng shui.png')} 
       style={styles.backgroundImage}
     >
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle="dark-content" />
         
         {/* Fixed Header with back button, title and cart */}
         <SafeAreaView style={styles.fixedHeader}>
           <View style={styles.topRow}>
             <TouchableOpacity 
               style={styles.backButton}
-              onPress={handleBackNavigation}
+              onPress={handleBack}
             >
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
@@ -105,20 +216,22 @@ export default function CourseDetailsScreen() {
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.courseTitle}>{course.title}</Text>
+          <Text style={styles.courseTitle}>{courseDetails.title}</Text>
           <View style={styles.ratingContainer}>
-            <Text style={styles.ratingScore}>{course.rating}</Text>
+            <Text style={styles.ratingScore}>
+              {courseDetails.rating ? courseDetails.rating.toFixed(1) : '0.0'}
+            </Text>
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <Ionicons
                   key={star}
-                  name={star <= course.rating ? "star" : "star-outline"}
+                  name={star <= Math.round(courseDetails.rating || 0) ? "star" : "star-outline"}
                   size={16}
                   color="#FFD700"
                 />
               ))}
             </View>
-            <Text style={styles.reviewCount}>• {course.reviews} enrolled Students</Text>
+            <Text style={styles.reviewCount}>• {courseDetails.enrolledStudents} enrolled Students</Text>
           </View>
         </SafeAreaView>
         
@@ -128,17 +241,19 @@ export default function CourseDetailsScreen() {
         {/* Scrollable Content */}
         <ScrollView style={styles.scrollContent}>
         <Image 
-          source={course.image} 
+          source={courseDetails.image} 
           style={styles.thumbnailImage}
         />
           {/* Course Includes Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>This course includes:</Text>
             <View style={styles.includesContainer}>
-              {course.includes.map((item, index) => (
+              {courseDetails.includes.map((item, index) => (
                 <View key={index} style={styles.includeItem}>
                   <Ionicons name="checkmark-circle" size={20} color="#FFD700" />
-                  <Text style={styles.includeText}>{item}</Text>
+                  <Text style={styles.includeText}>
+                    {item}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -147,7 +262,7 @@ export default function CourseDetailsScreen() {
           {/* What You'll Learn Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>What will you learn:</Text>
-            {course.learning.map((item, index) => (
+            {courseDetails.learning.map((item, index) => (
               <View key={index} style={styles.learningItem}>
                 <Ionicons name="checkmark" size={20} color="#fff" />
                 <Text style={styles.learningText}>{item}</Text>
@@ -160,8 +275,8 @@ export default function CourseDetailsScreen() {
             <Text style={styles.sectionTitle}>Description:</Text>
             <Text style={styles.descriptionText}>
               {showFullDescription 
-                ? course.description 
-                : course.description.substring(0, 150) + '...'}
+                ? courseDetails.description 
+                : courseDetails.description.substring(0, 150) + '...'}
             </Text>
             
             {showFullDescription ? (
@@ -170,28 +285,29 @@ export default function CourseDetailsScreen() {
                 <View style={styles.masterSection}>
                   <Text style={styles.subSectionTitle}>About Master:</Text>
                   <View style={styles.instructorContainer}>
-                    <Image source={course.instructor.image} style={styles.instructorImage} />
+                    <Image source={masterInfo?.image} style={styles.instructorImage} />
                     <View style={styles.instructorInfo}>
-                      <Text style={styles.instructorName}>{course.instructor.name}</Text>
-                      <Text style={styles.instructorTitle}>{course.instructor.title}</Text>
+                      <Text style={styles.instructorName}>{masterInfo?.name}</Text>
+                      <Text style={styles.instructorTitle}>{masterInfo?.title}</Text>
                       <View style={styles.instructorRating}>
-                        <Text style={{color: '#fff', marginRight: 5}}>{course.instructor.rating}</Text>
+                        <Text style={{color: '#fff', marginRight: 5}}>{masterInfo?.rating}</Text>
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Ionicons
                             key={star}
-                            name={star <= course.instructor.rating ? "star" : "star-outline"}
+                            name={star <= masterInfo?.rating ? "star" : "star-outline"}
                             size={14}
                             color="#FFD700"
                           />
                         ))}
                       </View>
-                      <Text style={styles.instructorBio}>{course.instructor.bio}</Text>
+                      <Text style={styles.instructorBio}>{masterInfo?.bio}</Text>
+                      <Text style={styles.instructorExpertise}>Chuyên môn: {masterInfo?.expertise}</Text>
                     </View>
                   </View>
                   
                   {/* Instructor Achievements */}
                   <View style={styles.achievementsContainer}>
-                    {course.instructor.achievements.map((achievement, index) => (
+                    {masterInfo?.achievements.map((achievement, index) => (
                       <View key={index} style={styles.achievementItem}>
                         <Ionicons 
                           name={index === 0 ? "videocam" : index === 1 ? "trophy" : "people"} 
@@ -227,17 +343,10 @@ export default function CourseDetailsScreen() {
           
           {/* Price and Buy Button */}
           <View style={styles.buySection}>
-            <View style={styles.bestDealContainer}>
-              <Text style={styles.bestDealText}>BEST DEAL</Text>
-            </View>
-            
             <View style={styles.priceContainer}>
-              <Text style={styles.discountedPrice}>2,400,000</Text>
               <View style={styles.priceRow}>
-                <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>-50%</Text>
-                </View>
-                <Text style={styles.originalPrice}>4,800,000</Text>
+                <Text style={styles.priceLabel}>Tổng cộng:</Text>
+                <Text style={styles.price}>{courseDetails.price.toLocaleString()} VND</Text>
               </View>
             </View>
             
@@ -247,18 +356,14 @@ export default function CourseDetailsScreen() {
                 onPress={() => router.push({
                   pathname: '/(tabs)/course_payment',
                   params: {
-                    courseId: course.id,
-                    courseTitle: course.title,
-                    coursePrice: course.price,
-                    courseImage: 'assets/images/koi_image.jpg' // You'll need to handle this path properly
+                    courseId: courseDetails.id,
+                    courseTitle: courseDetails.title,
+                    coursePrice: courseDetails.price,
+                    courseImage: courseDetails.image.uri
                   }
                 })}
               >
                 <Text style={styles.buyButtonText}>Buy now</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.addToCartButton}>
-                <Text style={styles.addToCartButtonText}>Add to cart</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -271,6 +376,10 @@ export default function CourseDetailsScreen() {
         <CustomTabBar />
       </View>
     </ImageBackground>
+  ) : (
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorText}>Không thể tải thông tin khóa học</Text>
+    </View>
   );
 }
 
@@ -391,63 +500,22 @@ const styles = StyleSheet.create({
   buySection: {
     padding: 16,
   },
-  bestDealContainer: {
-    position: 'absolute',
-    left: 16,
-    top: 16,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#8B0000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  bestDealText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    fontSize: 16,
-  },
   priceContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 16,
-    paddingRight: 0,
-  },
-  discountedPrice: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
-    textShadowColor: '#FFFFF0',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-    marginBottom: 4,
+    marginVertical: 10,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
-  discountBadge: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginRight: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  discountText: {
+  priceLabel: {
+    fontSize: 18,
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 13,
   },
-  originalPrice: {
-    color: '#aaaaaa',
+  price: {
     fontSize: 24,
-    textDecorationLine: 'line-through',
+    fontWeight: 'bold',
+    color: '#8B0000',
   },
   buttonsContainer: {
     flexDirection: 'row',
@@ -519,6 +587,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     lineHeight: 20,
   },
+  instructorExpertise: {
+    fontSize: 13,
+    color: '#fff',
+    lineHeight: 20,
+  },
   achievementsContainer: {
     marginTop: 12,
   },
@@ -534,7 +607,7 @@ const styles = StyleSheet.create({
   },
   thumbnailImage: {
     width: '100%',
-    height: 300, // Adjust height as needed
+    height: 300, 
     resizeMode: 'cover',
   },
   seeMoreButton: {
@@ -558,4 +631,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 16,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  errorText: {
+    color: '#8B0000',
+    fontSize: 16,
+    textAlign: 'center',
+  }
 });

@@ -123,6 +123,15 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
           
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => router.push('/(tabs)/your_paid_courses')}
+          >
+            <Ionicons name="book-outline" size={24} color="#333" />
+            <Text style={styles.menuItemText}>My Courses</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+          
           {user && (
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={24} color="#d9534f" />

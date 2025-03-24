@@ -9,96 +9,125 @@ import {
   TextInput,
   SafeAreaView,
   StatusBar,
-  FlatList
+  FlatList,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 import { useRouter } from 'expo-router';
-
-// Sample data for courses and categories
-const featuredCourses = [
-  {
-    id: '1',
-    title: 'Exploring the World of Koi Fish: The Art of Expert Care and Cultivation',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-  {
-    id: '2',
-    title: 'Exploring the World of Koi Fish: The Art of Expert Care and Cultivation',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-  {
-    id: '3',
-    title: 'Exploring the World of Koi Fish: The Art of Expert Care and Cultivation',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-  {
-    id: '4',
-    title: 'Exploring the World of Koi Fish: The Art of Expert Care and Cultivation',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-];
-
-const categories = [
-  {
-    id: '1',
-    title: 'Feng Shui',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-  {
-    id: '2',
-    title: 'Koi Care',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-  {
-    id: '3',
-    title: 'Koi Breeding',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-  {
-    id: '4',
-    title: 'Koi Diseases',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-];
-
-const topCourses = [
-  {
-    id: '1',
-    title: 'Exploring the World of Koi Fish: The Art of Expert Care and Cultivation',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-  {
-    id: '2',
-    title: 'Exploring the World of Koi Fish: The Art of Expert Care and Cultivation',
-    image: require('../../assets/images/koi_image.jpg'),
-  },
-];
+import { API_CONFIG } from '../../constants/config';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CoursesScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [userName, setUserName] = useState('John Smith');
+  const [featuredCourses, setFeaturedCourses] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [topCourses, setTopCourses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [courseDetails, setCourseDetails] = useState(null);
+  const [masterInfo, setMasterInfo] = useState(null);
 
-  // Load user data
+  const processApiResponse = (response, defaultValue = []) => {
+    if (response?.data?.isSuccess && Array.isArray(response.data?.data)) {
+      return response.data.data;
+    }
+    console.warn('Invalid response format:', response?.data);
+    return defaultValue;
+  };
+
+  const fetchWithRetry = async (url, config, maxRetries = 3, delay = 1000) => {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const response = await axios.get(url, config);
+        return response;
+      } catch (error) {
+        if (i === maxRetries - 1) throw error;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  };
+
+  const fetchData = async (url, config) => {
+    try {
+      const response = await fetchWithRetry(url, config);
+      console.log('API Response:', url, response.data);
+      return response;
+    } catch (error) {
+      console.error('API Error:', url, error.response?.data || error.message);
+      return { data: { isSuccess: false, data: [] } };
+    }
+  };
+
   useEffect(() => {
-    // Here you would fetch user data from your API
-    // For now we're using static data
-  }, []);
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
+          console.log('Token không tồn tại, chuyển hướng đến trang đăng nhập');
+          navigation.navigate('login');
+          return;
+        }
+
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        };
+
+        const [bestSellerRes, categoriesRes, topRatedRes] = await Promise.all([
+          fetchData(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.bestSellerCourse}`, config),
+          fetchData(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllCategory}`, config),
+          fetchData(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.sortByRating}`, config)
+        ]);
+
+        setFeaturedCourses(processApiResponse(bestSellerRes));
+        setCategories(processApiResponse(categoriesRes));
+        setTopCourses(processApiResponse(topRatedRes));
+
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setFeaturedCourses([]);
+        setCategories([]);
+        setTopCourses([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [navigation]);
 
   const renderFeaturedCourse = ({ item }) => (
     <TouchableOpacity 
       style={styles.featuredCard}
-      onPress={() => router.push({
-        pathname: '/(tabs)/course_details',
-        params: { courseId: item.id, source: 'courses' }
-      })}
+      onPress={() => {
+        router.push({
+          pathname: '/(tabs)/course_details',
+          params: { 
+            courseId: item.courseId,
+            source: 'courses' 
+          }
+        });
+      }}
     >
-      <Image source={item.image} style={styles.featuredImage} />
+      <Image 
+        source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/buddha.png')}
+        style={styles.featuredImage} 
+      />
       <View style={styles.cardOverlay}>
-        <Text style={styles.featuredTitle}>{item.title}</Text>
+        <Text style={styles.featuredTitle}>{item.courseName}</Text>
+        <Text style={styles.authorText}>{item.categoryName}</Text>
+        <Text style={styles.priceText}>
+          {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -106,18 +135,54 @@ export default function CoursesScreen() {
   const renderCategory = ({ item }) => (
     <TouchableOpacity 
       style={styles.categoryCard}
-      onPress={() => router.push({
-        pathname: '/(tabs)/courses_list',
-        params: { 
-          categoryId: item.id,
-          categoryTitle: item.title,
-          source: 'courses'
+      onPress={async () => {
+        try {
+          setIsLoading(true);
+          const token = await AsyncStorage.getItem('accessToken');
+          const config = {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          };
+          
+          const response = await fetchData(
+            `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getCourseByCategory.replace('{id}', item.categoryId)}`,
+            config
+          );
+          
+          if (response.data?.isSuccess) {
+            const categoryData = response.data.data;
+            if (Array.isArray(categoryData) && categoryData.length > 0) {
+              router.push({
+                pathname: '/(tabs)/courses_list',
+                params: { 
+                  categoryId: item.categoryId,
+                  categoryTitle: item.categoryName,
+                  coursesData: JSON.stringify(categoryData),
+                  source: 'courses'
+                }
+              });
+            } else {
+              Alert.alert('Thông báo', 'Không có khóa học nào trong danh mục này');
+            }
+          } else {
+            Alert.alert('Thông báo', 'Không thể tải danh sách khóa học');
+          }
+        } catch (error) {
+          console.error('Lỗi khi lấy danh sách khóa học theo danh mục:', error);
+          Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi tải danh sách khóa học');
+        } finally {
+          setIsLoading(false);
         }
-      })}
+      }}
     >
-      <Image source={item.image} style={styles.categoryImage} />
+      <Image 
+        source={require('../../assets/images/buddha.png')}
+        style={styles.categoryImage} 
+      />
       <View style={styles.categoryOverlay}>
-        <Text style={styles.categoryTitle}>{item.title}</Text>
+        <Text style={styles.categoryTitle}>{item.categoryName}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -125,17 +190,26 @@ export default function CoursesScreen() {
   const renderTopCourse = ({ item }) => (
     <TouchableOpacity 
       style={styles.topCourseCard}
-      onPress={() => router.push({
-        pathname: '/(tabs)/course_details',
-        params: { 
-          courseId: item.id,
-          source: 'courses'
-        }
-      })}
+      onPress={() => {
+        router.push({
+          pathname: '/(tabs)/course_details',
+          params: { 
+            courseId: item.courseId,
+            source: 'courses' 
+          }
+        });
+      }}
     >
-      <Image source={item.image} style={styles.topCourseImage} />
+      <Image 
+        source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/buddha.png')}
+        style={styles.topCourseImage} 
+      />
       <View style={styles.cardOverlay}>
-        <Text style={styles.topCourseTitle}>{item.title}</Text>
+        <Text style={styles.topCourseTitle}>{item.courseName}</Text>
+        <Text style={styles.authorText}>{item.categoryName}</Text>
+        <Text style={styles.priceText}>
+          {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -172,46 +246,58 @@ export default function CoursesScreen() {
         </View>
       </View>
 
-      {/* Scrollable Content */}
-      <ScrollView style={styles.scrollContent}>
-        {/* Featured Courses */}
-        <View style={styles.sectionContainer}>
-          <FlatList
-            data={featuredCourses}
-            renderItem={renderFeaturedCourse}
-            keyExtractor={item => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.featuredList}
-          />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B0000" />
         </View>
-        
-        {/* Categories */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Categories</Text>
-          <FlatList
-            data={categories}
-            renderItem={renderCategory}
-            keyExtractor={item => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesList}
-          />
-        </View>
-        
-        {/* Top Courses */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Top courses</Text>
-          <FlatList
-            data={topCourses}
-            renderItem={renderTopCourse}
-            keyExtractor={item => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.topCoursesList}
-          />
-        </View>
-      </ScrollView>
+      ) : (
+        <ScrollView style={styles.scrollContent}>
+          {/* Best Seller Courses - Luôn hiển thị đầu tiên */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Best Seller Courses</Text>
+            {featuredCourses.length > 0 && (
+              <FlatList
+                data={featuredCourses}
+                renderItem={renderFeaturedCourse}
+                keyExtractor={item => item.courseId?.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.featuredList}
+              />
+            )}
+          </View>
+          
+          {/* Categories - Luôn ở giữa */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Categories</Text>
+            {categories.length > 0 && (
+              <FlatList
+                data={categories}
+                renderItem={renderCategory}
+                keyExtractor={item => item.categoryId?.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesList}
+              />
+            )}
+          </View>
+          
+          {/* Top Rated Courses - Luôn ở cuối */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Top Rated Courses</Text>
+            {topCourses.length > 0 && (
+              <FlatList
+                data={topCourses}
+                renderItem={renderTopCourse}
+                keyExtractor={item => item.courseId?.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.topCoursesList}
+              />
+            )}
+          </View>
+        </ScrollView>
+      )}
 
       <CustomTabBar />
     </SafeAreaView>
@@ -380,5 +466,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  authorText: {
+    color: '#fff',
+    fontSize: 10,
+    marginTop: 4,
+  },
+  priceText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
