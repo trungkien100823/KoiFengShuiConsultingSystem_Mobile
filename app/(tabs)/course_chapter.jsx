@@ -252,19 +252,6 @@ export default function CourseChapterScreen() {
                     <Text style={styles.lessonTitle}>3. Âm dương và tứ tượng</Text>
                     <Ionicons name="play" size={24} color="#fff" />
                   </TouchableOpacity>
-                  
-                  {/* Chapter 1 Quiz */}
-                  <TouchableOpacity 
-                    style={[styles.lessonItem, styles.quizItem]}
-                    onPress={() => navigateToQuiz('section1-quiz')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>Kiểm tra kiến thức cơ bản phong thủy</Text>
-                    <Ionicons name="document-text" size={24} color="#fff" />
-                  </TouchableOpacity>
                 </View>
               )}
             </TouchableOpacity>
@@ -321,19 +308,6 @@ export default function CourseChapterScreen() {
                     <Text style={styles.lessonTitle}>3. Hướng tốt cho từng mệnh</Text>
                     <Ionicons name="play" size={24} color="#fff" />
                   </TouchableOpacity>
-                  
-                  {/* Chapter 2 Quiz */}
-                  <TouchableOpacity 
-                    style={[styles.lessonItem, styles.quizItem]}
-                    onPress={() => navigateToQuiz('section2-quiz')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>Kiểm tra hướng và bát quái</Text>
-                    <Ionicons name="document-text" size={24} color="#fff" />
-                  </TouchableOpacity>
                 </View>
               )}
             </TouchableOpacity>
@@ -379,47 +353,50 @@ export default function CourseChapterScreen() {
                     <Text style={styles.lessonTitle}>2. Hồ cá Koi và phong thủy</Text>
                     <Ionicons name="play" size={24} color="#fff" />
                   </TouchableOpacity>
-                  
-                  {/* Chapter 3 Quiz */}
-                  <TouchableOpacity 
-                    style={[styles.lessonItem, styles.quizItem]}
-                    onPress={() => navigateToQuiz('section3-quiz')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>Kiểm tra kiến thức về thủy mạch</Text>
-                    <Ionicons name="document-text" size={24} color="#fff" />
-                  </TouchableOpacity>
                 </View>
               )}
             </TouchableOpacity>
             
             {/* Final Exam */}
-            <TouchableOpacity 
-              style={styles.finalExamContainer}
-              onPress={() => navigateToQuiz('final-exam')}
-            >
-              <View style={styles.finalExamContent}>
+            <View style={styles.finalExamContainer}>
+              <TouchableOpacity 
+                style={styles.finalExamContent}
+                onPress={() => {
+                  if (isRegistered) {
+                    router.push({
+                      pathname: '/(tabs)/course_quiz_start',
+                      params: { 
+                        quizId: 'final-exam', 
+                        source: 'chapter',
+                        courseId: '0AA77A49-CAFF-4F01-B'  // Add the courseId parameter
+                      }
+                    });
+                  } else {
+                    // Show registration message if not registered
+                    Alert.alert(
+                      "Đăng ký khóa học",
+                      "Bạn cần đăng ký khóa học để làm bài kiểm tra cuối khóa.",
+                      [{ text: "OK" }]
+                    );
+                  }
+                }}
+              >
                 <View style={styles.finalExamIconContainer}>
-                  <Ionicons name="trophy-outline" size={24} color="#fff" />
+                  <Ionicons name="document-text-outline" size={20} color="#fff" />
                 </View>
                 <View style={styles.finalExamTextContainer}>
                   <Text style={styles.finalExamTitle}>Bài kiểm tra cuối khóa</Text>
-                  <Text style={styles.finalExamDescription}>
-                    Hoàn thành khóa học và nhận chứng chỉ
-                  </Text>
+                  <Text style={styles.finalExamDescription}>Kiểm tra toàn bộ kiến thức từ khóa học</Text>
                 </View>
                 <View style={styles.finalExamStatus}>
                   {completedQuizzes['final-exam'] ? (
                     <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
                   ) : (
-                    <Ionicons name="chevron-forward" size={24} color="#8B0000" />
+                    <Ionicons name="chevron-forward" size={24} color="#666" />
                   )}
                 </View>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </View>
           </View>
           
           {/* Register/Continue Button */}
@@ -568,9 +545,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  quizItem: {
-    backgroundColor: 'rgba(139, 0, 0, 0.7)', // Darker red for quiz items
   },
   finalExamContainer: {
     marginBottom: 15,

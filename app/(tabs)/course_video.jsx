@@ -497,26 +497,6 @@ export default function CourseVideoScreen() {
                   />
                 </View>
               </TouchableOpacity>
-              
-              {/* Chapter 1 Quiz */}
-              <TouchableOpacity 
-                style={[styles.lesson, styles.quizLesson]}
-                onPress={() => navigateToQuiz('section1-quiz')}
-              >
-                <View style={styles.lessonInfo}>
-                  <Text style={styles.lessonTitle}>
-                    <Ionicons name="document-text-outline" size={16} color="#8B0000" /> Kiểm tra Chapter 1
-                  </Text>
-                  <Text style={styles.lessonMeta}>Quiz • 10 questions</Text>
-                </View>
-                <View style={styles.checkboxContainer}>
-                  <Ionicons 
-                    name={completedQuizzes['section1-quiz'] ? "checkbox-outline" : "square-outline"}
-                    size={24} 
-                    color={completedQuizzes['section1-quiz'] ? "#4CAF50" : "#aaa"}
-                  />
-                </View>
-              </TouchableOpacity>
             </View>
             
             {/* Section 2 */}
@@ -618,26 +598,6 @@ export default function CourseVideoScreen() {
                       e.stopPropagation();
                       toggleCompletion('section2-lesson3');
                     }}
-                  />
-                </View>
-              </TouchableOpacity>
-              
-              {/* Chapter 2 Quiz */}
-              <TouchableOpacity 
-                style={[styles.lesson, styles.quizLesson]}
-                onPress={() => navigateToQuiz('section2-quiz')}
-              >
-                <View style={styles.lessonInfo}>
-                  <Text style={styles.lessonTitle}>
-                    <Ionicons name="document-text-outline" size={16} color="#8B0000" /> Kiểm tra Chapter 2
-                  </Text>
-                  <Text style={styles.lessonMeta}>Quiz • 15 questions</Text>
-                </View>
-                <View style={styles.checkboxContainer}>
-                  <Ionicons 
-                    name={completedQuizzes['section2-quiz'] ? "checkbox-outline" : "square-outline"}
-                    size={24} 
-                    color={completedQuizzes['section2-quiz'] ? "#4CAF50" : "#aaa"}
                   />
                 </View>
               </TouchableOpacity>
@@ -745,54 +705,48 @@ export default function CourseVideoScreen() {
                   />
                 </View>
               </TouchableOpacity>
-              
-              {/* Chapter 3 Quiz */}
-              <TouchableOpacity 
-                style={[styles.lesson, styles.quizLesson]}
-                onPress={() => navigateToQuiz('section3-quiz')}
-              >
-                <View style={styles.lessonInfo}>
-                  <Text style={styles.lessonTitle}>
-                    <Ionicons name="document-text-outline" size={16} color="#8B0000" /> Kiểm tra Chapter 3
-                  </Text>
-                  <Text style={styles.lessonMeta}>Quiz • 12 questions</Text>
-                </View>
-                <View style={styles.checkboxContainer}>
-                  <Ionicons 
-                    name={completedQuizzes['section3-quiz'] ? "checkbox-outline" : "square-outline"}
-                    size={24} 
-                    color={completedQuizzes['section3-quiz'] ? "#4CAF50" : "#aaa"}
-                  />
-                </View>
-              </TouchableOpacity>
             </View>
             
             {/* Final Exam */}
             <View style={styles.section}>
               <View style={[styles.sectionHeader, styles.finalExamHeader]}>
                 <View style={styles.sectionTitleContainer}>
-                  <Text style={styles.sectionHeaderText}>Final Examination</Text>
-                  <Text style={styles.sectionMeta}>Comprehensive • 30 questions</Text>
+                  <Text style={styles.sectionHeaderText}>Bài kiểm tra cuối khóa</Text>
+                  <Text style={styles.sectionMeta}>Kiểm tra tổng hợp</Text>
+                </View>
+                <View style={styles.completionIndicator}>
+                  {completedQuizzes['final-exam'] ? (
+                    <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
+                  ) : (
+                    <Ionicons name="ellipse-outline" size={22} color="#ddd" />
+                  )}
                 </View>
               </View>
               
               <TouchableOpacity 
                 style={[styles.lesson, styles.finalExamLesson]}
-                onPress={() => navigateToQuiz('final-exam')}
+                onPress={() => {
+                  router.push({
+                    pathname: '/(tabs)/course_quiz_start',
+                    params: { 
+                      quizId: 'final-exam', 
+                      source: 'video',
+                      courseId: '0AA77A49-CAFF-4F01-B'  // Add the courseId parameter
+                    }
+                  });
+                }}
               >
                 <View style={styles.lessonInfo}>
                   <Text style={[styles.lessonTitle, styles.finalExamTitle]}>
-                    <Ionicons name="trophy-outline" size={16} color="#8B0000" /> Bài kiểm tra cuối khóa
+                    Bài kiểm tra cuối khóa
                   </Text>
-                  <Text style={styles.lessonMeta}>30 minutes • Passing score: 80%</Text>
+                  <Text style={styles.lessonMeta}>30 phút • 30 câu hỏi</Text>
                 </View>
-                <View style={styles.checkboxContainer}>
-                  <Ionicons 
-                    name={completedQuizzes['final-exam'] ? "checkbox-outline" : "square-outline"}
-                    size={24} 
-                    color={completedQuizzes['final-exam'] ? "#4CAF50" : "#aaa"}
-                  />
-                </View>
+                <Ionicons 
+                  name={completedQuizzes['final-exam'] ? "checkmark-circle" : "chevron-forward"} 
+                  size={24} 
+                  color={completedQuizzes['final-exam'] ? "#4CAF50" : "#666"} 
+                />
               </TouchableOpacity>
             </View>
           </View>
