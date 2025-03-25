@@ -364,50 +364,54 @@ export default function CourseChapterScreen() {
               <ActivityIndicator size="large" color="#fff" />
             ) : chapters.length > 0 ? (
               chapters.map((chapter, index) => (
-            <TouchableOpacity 
+                <TouchableOpacity 
                   key={chapter.chapterId}
-              style={[
-                styles.chapterContainer,
+                  style={[
+                    styles.chapterContainer,
                     chapter.status === 'Done' && styles.completedChapter
-              ]}
+                  ]}
                   onPress={() => toggleChapter(chapter)}
-            >
-              <View style={styles.chapterHeader}>
-                <Text style={styles.chapterNumber}>Chapter 3</Text>
-                <Text style={styles.chapterTitle}>Thủy mạch trong phong thủy</Text>
-                <Ionicons 
-                  name={expandedChapter === 3 ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color="#fff" 
-                />
-              </View>
-              {expandedChapter === 3 && (
-                <View style={styles.lessonList}>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section3-lesson1')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
+                >
+                  <View style={styles.chapterHeader}>
+                    <Text style={styles.chapterNumber}>Chapter 3</Text>
+                    <Text style={styles.chapterTitle}>Thủy mạch trong phong thủy</Text>
+                    <Ionicons 
+                      name={expandedChapter === 3 ? "chevron-up" : "chevron-down"} 
+                      size={24} 
+                      color="#fff" 
                     />
-                    <Text style={styles.lessonTitle}>1. Vai trò của thủy trong phong thủy</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.lessonItem}
-                    onPress={() => navigateToLesson('section3-lesson2')}
-                  >
-                    <Image 
-                      source={require('../../assets/images/default-avatar.png')} 
-                      style={styles.lessonThumbnail}
-                    />
-                    <Text style={styles.lessonTitle}>2. Hồ cá Koi và phong thủy</Text>
-                    <Ionicons name="play" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
+                  </View>
+                  {expandedChapter === 3 && (
+                    <View style={styles.lessonList}>
+                      <TouchableOpacity 
+                        style={styles.lessonItem}
+                        onPress={() => navigateToLesson('section3-lesson1')}
+                      >
+                        <Image 
+                          source={require('../../assets/images/default-avatar.png')} 
+                          style={styles.lessonThumbnail}
+                        />
+                        <Text style={styles.lessonTitle}>1. Vai trò của thủy trong phong thủy</Text>
+                        <Ionicons name="play" size={24} color="#fff" />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.lessonItem}
+                        onPress={() => navigateToLesson('section3-lesson2')}
+                      >
+                        <Image 
+                          source={require('../../assets/images/default-avatar.png')} 
+                          style={styles.lessonThumbnail}
+                        />
+                        <Text style={styles.lessonTitle}>2. Hồ cá Koi và phong thủy</Text>
+                        <Ionicons name="play" size={24} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.noDataText}>Không có chương học nào</Text>
+            )}
             
             {/* Final Exam */}
             <View style={styles.finalExamContainer}>
