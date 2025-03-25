@@ -9,6 +9,7 @@ import {
   StatusBar,
   Dimensions,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,51 +19,19 @@ const { width } = Dimensions.get('window');
 
 export default function CourseQuizStartScreen() {
   const router = useRouter();
-  const { quizId = 'section1-quiz', source = 'chapter' } = useLocalSearchParams();
+  const { quizId = 'final-exam', source = 'chapter', courseId = '0AA77A49-CAFF-4F01-B' } = useLocalSearchParams();
   const [completedQuizzes, setCompletedQuizzes] = useState({});
-
-  // Quiz data mapping
-  const quizTitles = {
-    'section1-quiz': 'Kiểm tra kiến thức cơ bản phong thủy',
-    'section2-quiz': 'Kiểm tra hướng và bát quái',
-    'section3-quiz': 'Kiểm tra kiến thức về thủy mạch',
-    'final-exam': 'Bài kiểm tra cuối khóa',
-  };
+  const [quizData, setQuizData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Section titles
   const sectionTitles = {
-    'section1': 'Phong thủy cơ bản',
-    'section2': 'Cách xem hướng',
-    'section3': 'Thủy mạch trong phong thủy',
     'final': 'Kết thúc khóa học',
   };
 
-  // Quiz details mapping
-  const quizDetails = {
-    'section1-quiz': {
-      description: 'Bài kiểm tra này sẽ đánh giá kiến thức của bạn về các nguyên lý cơ bản của phong thủy, bao gồm ngũ hành, âm dương và tứ tượng.',
-      timeLimit: '10 phút',
-      questions: 10,
-      passingScore: '70%',
-      attempts: 'Không giới hạn',
-      requirements: 'Hoàn thành tất cả các bài học trong Chương 1'
-    },
-    'section2-quiz': {
-      description: 'Kiểm tra hiểu biết của bạn về hướng nhà, bát quái và cách xác định vị trí tốt cho đồ đạc trong nhà.',
-      timeLimit: '15 phút',
-      questions: 15,
-      passingScore: '75%',
-      attempts: 'Không giới hạn',
-      requirements: 'Hoàn thành tất cả các bài học trong Chương 2'
-    },
-    'section3-quiz': {
-      description: 'Đánh giá kiến thức của bạn về vai trò của nước trong phong thủy, thủy mạch và cách bố trí hồ cá trong nhà.',
-      timeLimit: '12 phút',
-      questions: 12,
-      passingScore: '80%',
-      attempts: 'Không giới hạn',
-      requirements: 'Hoàn thành tất cả các bài học trong Chương 3'
-    },
+  // Default quiz details (fallback if API fails)
+  const defaultQuizDetails = {
     'final-exam': {
       description: 'Bài kiểm tra cuối khóa sẽ đánh giá toàn bộ kiến thức bạn đã học trong khóa Phong thủy cổ học, bao gồm các kiến thức từ cả 3 chương.',
       timeLimit: '30 phút',
@@ -75,14 +44,36 @@ export default function CourseQuizStartScreen() {
 
   // Get current section from quizId
   const getCurrentSection = () => {
-    if (quizId === 'final-exam') {
-      return 'final';
-    }
-    const sectionMatch = quizId.match(/section(\d+)/);
-    return sectionMatch ? `section${sectionMatch[1]}` : 'section1';
+    return 'final';
   };
   
   const currentSection = getCurrentSection();
+
+  // Fetch quiz data from API
+  useEffect(() => {
+    const fetchQuizData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`http://192.168.31.148:5261/api/Quiz/by-course/${courseId}`);
+        const result = await response.json();
+        
+        if (result.isSuccess) {
+          console.log('Quiz data fetched successfully:', result.data);
+          setQuizData(result.data);
+        } else {
+          console.error('API returned error:', result.message);
+          setError(result.message || 'Failed to fetch quiz data');
+        }
+      } catch (err) {
+        console.error('Error fetching quiz data:', err);
+        setError('Failed to connect to server. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuizData();
+  }, [courseId]);
 
   // Load completed quizzes on mount
   useEffect(() => {
@@ -113,7 +104,42 @@ export default function CourseQuizStartScreen() {
     });
   };
 
-  const currentQuizDetails = quizDetails[quizId] || quizDetails['section1-quiz'];
+  // Get quiz title from API data or fallback
+  const getQuizTitle = () => {
+    if (quizData && quizData.title) {
+      return quizData.title;
+    }
+    return 'Bài kiểm tra cuối khóa';
+  };
+
+  // Get quiz details (combining API data with default structure)
+  const getQuizDetails = () => {
+    if (!quizData) return defaultQuizDetails['final-exam'];
+    
+    return {
+      description: quizData.description || defaultQuizDetails['final-exam'].description,
+      timeLimit: '30 phút', // Using default as API doesn't provide this
+      questions: 30, // Using default as API doesn't provide this
+      passingScore: '80%', // Using default as API doesn't provide this
+      attempts: '3 lần', // Using default as API doesn't provide this
+      requirements: 'Hoàn thành tất cả các bài học và bài kiểm tra trong khóa học'
+    };
+  };
+
+  const currentQuizDetails = getQuizDetails();
+
+  // Loading state
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B0000" />
+          <Text style={styles.loadingText}>Đang tải thông tin bài kiểm tra...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -135,7 +161,7 @@ export default function CourseQuizStartScreen() {
           <View style={styles.iconContainer}>
             <Ionicons name="document-text-outline" size={40} color="#8B0000" />
           </View>
-          <Text style={styles.quizTitle}>{quizTitles[quizId]}</Text>
+          <Text style={styles.quizTitle}>{getQuizTitle()}</Text>
           {completedQuizzes[quizId] && (
             <View style={styles.completedBadge}>
               <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
@@ -230,6 +256,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#8B0000',
   },
   header: {
     flexDirection: 'row',

@@ -245,12 +245,120 @@ export default function CourseChapterScreen() {
 
           {/* Course Chapters */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Danh sách chương</Text>
-              <Text style={styles.progressText}>
-                {calculateProgress()}% complete
-              </Text>
-            </View>
+            <Text style={styles.sectionTitle}>Course chapters</Text>
+            
+            {/* Chapter 1 */}
+            <TouchableOpacity 
+              style={[
+                styles.chapterContainer,
+                expandedChapter === 1 && styles.expandedChapter
+              ]}
+              onPress={() => toggleChapter(1)}
+            >
+              <View style={styles.chapterHeader}>
+                <Text style={styles.chapterNumber}>Chapter 1</Text>
+                <Text style={styles.chapterTitle}>Phong thủy cơ bản</Text>
+                <Ionicons 
+                  name={expandedChapter === 1 ? "chevron-up" : "chevron-down"} 
+                  size={24} 
+                  color="#fff" 
+                />
+              </View>
+              {expandedChapter === 1 && (
+                <View style={styles.lessonList}>
+                  <TouchableOpacity 
+                    style={styles.lessonItem}
+                    onPress={() => navigateToLesson('section1-lesson1')}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')} 
+                      style={styles.lessonThumbnail}
+                    />
+                    <Text style={styles.lessonTitle}>1. Giới thiệu về Phong thủy cổ học</Text>
+                    <Ionicons name="play" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.lessonItem}
+                    onPress={() => navigateToLesson('section1-lesson2')}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')} 
+                      style={styles.lessonThumbnail}
+                    />
+                    <Text style={styles.lessonTitle}>2. Ngũ hành: Kim, Mộc, Thủy, Hỏa, Thổ</Text>
+                    <Ionicons name="play" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.lessonItem}
+                    onPress={() => navigateToLesson('section1-lesson3')}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')} 
+                      style={styles.lessonThumbnail}
+                    />
+                    <Text style={styles.lessonTitle}>3. Âm dương và tứ tượng</Text>
+                    <Ionicons name="play" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Chapter 2 */}
+            <TouchableOpacity 
+              style={[
+                styles.chapterContainer,
+                expandedChapter === 2 && styles.expandedChapter
+              ]}
+              onPress={() => toggleChapter(2)}
+            >
+              <View style={styles.chapterHeader}>
+                <Text style={styles.chapterNumber}>Chapter 2</Text>
+                <Text style={styles.chapterTitle}>Cách xem hướng</Text>
+                <Ionicons 
+                  name={expandedChapter === 2 ? "chevron-up" : "chevron-down"} 
+                  size={24} 
+                  color="#fff" 
+                />
+              </View>
+              {expandedChapter === 2 && (
+                <View style={styles.lessonList}>
+                  <TouchableOpacity 
+                    style={styles.lessonItem}
+                    onPress={() => navigateToLesson('section2-lesson1')}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')} 
+                      style={styles.lessonThumbnail}
+                    />
+                    <Text style={styles.lessonTitle}>1. Bát quái và phương vị</Text>
+                    <Ionicons name="play" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.lessonItem}
+                    onPress={() => navigateToLesson('section2-lesson2')}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')} 
+                      style={styles.lessonThumbnail}
+                    />
+                    <Text style={styles.lessonTitle}>2. Xác định hướng nhà và phòng</Text>
+                    <Ionicons name="play" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.lessonItem}
+                    onPress={() => navigateToLesson('section2-lesson3')}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')} 
+                      style={styles.lessonThumbnail}
+                    />
+                    <Text style={styles.lessonTitle}>3. Hướng tốt cho từng mệnh</Text>
+                    <Ionicons name="play" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </TouchableOpacity>
+
             
             {isLoading ? (
               <ActivityIndicator size="large" color="#fff" />
@@ -265,21 +373,82 @@ export default function CourseChapterScreen() {
                   onPress={() => toggleChapter(chapter)}
             >
               <View style={styles.chapterHeader}>
-                    <Text style={styles.chapterNumber}>Chương {index + 1}</Text>
-                    <Text style={styles.chapterTitle}>{chapter.title}</Text>
-                    <View style={styles.chapterDuration}>
-                      <Ionicons name="time-outline" size={16} color="#fff" />
-                      <Text style={styles.durationText}>{chapter.duration}</Text>
-                      {chapter.status === 'Done' && (
-                        <Ionicons name="checkmark-circle" size={20} color="#4CAF50" style={styles.completedIcon} />
+                <Text style={styles.chapterNumber}>Chapter 3</Text>
+                <Text style={styles.chapterTitle}>Thủy mạch trong phong thủy</Text>
+                <Ionicons 
+                  name={expandedChapter === 3 ? "chevron-up" : "chevron-down"} 
+                  size={24} 
+                  color="#fff" 
+                />
+              </View>
+              {expandedChapter === 3 && (
+                <View style={styles.lessonList}>
+                  <TouchableOpacity 
+                    style={styles.lessonItem}
+                    onPress={() => navigateToLesson('section3-lesson1')}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')} 
+                      style={styles.lessonThumbnail}
+                    />
+                    <Text style={styles.lessonTitle}>1. Vai trò của thủy trong phong thủy</Text>
+                    <Ionicons name="play" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.lessonItem}
+                    onPress={() => navigateToLesson('section3-lesson2')}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')} 
+                      style={styles.lessonThumbnail}
+                    />
+                    <Text style={styles.lessonTitle}>2. Hồ cá Koi và phong thủy</Text>
+                    <Ionicons name="play" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            {/* Final Exam */}
+            <View style={styles.finalExamContainer}>
+              <TouchableOpacity 
+                style={styles.finalExamContent}
+                onPress={() => {
+                  if (isRegistered) {
+                    router.push({
+                      pathname: '/(tabs)/course_quiz_start',
+                      params: { 
+                        quizId: 'final-exam', 
+                        source: 'chapter',
+                        courseId: '0AA77A49-CAFF-4F01-B'  // Add the courseId parameter
+                      }
+                    });
+                  } else {
+                    // Show registration message if not registered
+                    Alert.alert(
+                      "Đăng ký khóa học",
+                      "Bạn cần đăng ký khóa học để làm bài kiểm tra cuối khóa.",
+                      [{ text: "OK" }]
+                    );
+                  }
+                }}
+              >
+                <View style={styles.finalExamIconContainer}>
+                  <Ionicons name="document-text-outline" size={20} color="#fff" />
+                </View>
+                <View style={styles.finalExamTextContainer}>
+                  <Text style={styles.finalExamTitle}>Bài kiểm tra cuối khóa</Text>
+                  <Text style={styles.finalExamDescription}>Kiểm tra toàn bộ kiến thức từ khóa học</Text>
+                </View>
+                <View style={styles.finalExamStatus}>
+                  {completedQuizzes['final-exam'] ? (
+                    <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={24} color="#666" />
                   )}
                 </View>
-              </View>
-            </TouchableOpacity>
-              ))
-            ) : (
-              <Text style={styles.noDataText}>Chưa có chương học nào</Text>
-            )}
+              </TouchableOpacity>
+            </View>
           </View>
           
           {/* Bottom padding */}
@@ -409,8 +578,21 @@ const styles = StyleSheet.create({
     marginRight: 12,
     fontSize: 14,
   },
-  quizItem: {
-    backgroundColor: 'rgba(139, 0, 0, 0.7)', // Darker red for quiz items
+
+  registerButton: {
+    backgroundColor: '#8B0000',
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  registerButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+
   },
   finalExamContainer: {
     marginBottom: 15,

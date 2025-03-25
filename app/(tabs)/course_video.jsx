@@ -214,12 +214,362 @@ export default function CourseVideoScreen() {
       
       {/* Content */}
       <ScrollView style={styles.contentSection}>
-        <View style={styles.chapterInfo}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.chapterTitle}>{chapterData?.title}</Text>
-            {isCompleted && (
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-            )}
+        {activeTab === 'course' ? (
+          <View style={styles.contentList}>
+            {/* Section 1 */}
+            <View style={styles.section}>
+              <View style={[styles.sectionHeader, styles.borderTop]}>
+                <View style={styles.sectionTitleContainer}>
+                  <Text style={styles.sectionHeaderText}>Chapter 1: {sectionTitles.section1}</Text>
+                  <Text style={styles.sectionMeta}>3 Videos • 25 min</Text>
+                </View>
+                <View style={styles.completionIndicator}>
+                  <Ionicons 
+                    name={completedLessons['section1-lesson1'] && 
+                          completedLessons['section1-lesson2'] && 
+                          completedLessons['section1-lesson3'] ? 
+                          "checkmark-circle" : "ellipse-outline"} 
+                    size={24} 
+                    color={completedLessons['section1-lesson1'] && 
+                          completedLessons['section1-lesson2'] && 
+                          completedLessons['section1-lesson3'] ? 
+                          "#4CAF50" : "#aaa"} 
+                  />
+                </View>
+              </View>
+              
+              {/* Lesson 1 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section1-lesson1')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section1-lesson1' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    1. {lessonTitles['section1-lesson1']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 8 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section1-lesson1'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section1-lesson1'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section1-lesson1');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+              
+              {/* Lesson 2 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section1-lesson2')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section1-lesson2' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    2. {lessonTitles['section1-lesson2']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 9 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section1-lesson2'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section1-lesson2'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section1-lesson2');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+              
+              {/* Lesson 3 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section1-lesson3')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section1-lesson3' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    3. {lessonTitles['section1-lesson3']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 8 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section1-lesson3'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section1-lesson3'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section1-lesson3');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Section 2 */}
+            <View style={styles.section}>
+              <View style={[styles.sectionHeader, styles.borderTop]}>
+                <View style={styles.sectionTitleContainer}>
+                  <Text style={styles.sectionHeaderText}>Chapter 2: {sectionTitles.section2}</Text>
+                  <Text style={styles.sectionMeta}>3 Videos • 22 min</Text>
+                </View>
+                <View style={styles.completionIndicator}>
+                  <Ionicons 
+                    name={completedLessons['section2-lesson1'] && 
+                          completedLessons['section2-lesson2'] && 
+                          completedLessons['section2-lesson3'] ? 
+                          "checkmark-circle" : "ellipse-outline"} 
+                    size={24} 
+                    color={completedLessons['section2-lesson1'] && 
+                          completedLessons['section2-lesson2'] && 
+                          completedLessons['section2-lesson3'] ? 
+                          "#4CAF50" : "#aaa"} 
+                  />
+                </View>
+              </View>
+              
+              {/* Lesson 1 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section2-lesson1')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section2-lesson1' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    1. {lessonTitles['section2-lesson1']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 8 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section2-lesson1'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section2-lesson1'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section2-lesson1');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+              
+              {/* Lesson 2 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section2-lesson2')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section2-lesson2' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    2. {lessonTitles['section2-lesson2']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 7 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section2-lesson2'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section2-lesson2'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section2-lesson2');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+              
+              {/* Lesson 3 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section2-lesson3')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section2-lesson3' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    3. {lessonTitles['section2-lesson3']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 7 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section2-lesson3'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section2-lesson3'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section2-lesson3');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Section 3 */}
+            <View style={styles.section}>
+              <View style={[styles.sectionHeader, styles.borderTop]}>
+                <View style={styles.sectionTitleContainer}>
+                  <Text style={styles.sectionHeaderText}>Chapter 3: {sectionTitles.section3}</Text>
+                  <Text style={styles.sectionMeta}>3 Videos • 29 min</Text>
+                </View>
+                <View style={styles.completionIndicator}>
+                  <Ionicons 
+                    name={completedLessons['section3-lesson1'] && 
+                          completedLessons['section3-lesson2'] && 
+                          completedLessons['section3-lesson3'] ? 
+                          "checkmark-circle" : "ellipse-outline"} 
+                    size={24} 
+                    color={completedLessons['section3-lesson1'] && 
+                          completedLessons['section3-lesson2'] && 
+                          completedLessons['section3-lesson3'] ? 
+                          "#4CAF50" : "#aaa"} 
+                  />
+                </View>
+              </View>
+              
+              {/* Lesson 1 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section3-lesson1')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section3-lesson1' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    1. {lessonTitles['section3-lesson1']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 10 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section3-lesson1'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section3-lesson1'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section3-lesson1');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+              
+              {/* Lesson 2 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section3-lesson2')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section3-lesson2' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    2. {lessonTitles['section3-lesson2']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 9 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section3-lesson2'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section3-lesson2'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section3-lesson2');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+              
+              {/* Lesson 3 */}
+              <TouchableOpacity 
+                style={styles.lesson}
+                onPress={() => navigateToLesson('section3-lesson3')}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[
+                    styles.lessonTitle,
+                    lessonId === 'section3-lesson3' ? {fontWeight: 'bold'} : {}
+                  ]}>
+                    3. {lessonTitles['section3-lesson3']}
+                  </Text>
+                  <Text style={styles.lessonMeta}>Video • 10 min</Text>
+                </View>
+                <View style={styles.checkboxContainer}>
+                  <Ionicons 
+                    name={completedLessons['section3-lesson3'] ? "checkbox-outline" : "square-outline"}
+                    size={24} 
+                    color={completedLessons['section3-lesson3'] ? "#4CAF50" : "#aaa"}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCompletion('section3-lesson3');
+                    }}
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Final Exam */}
+            <View style={styles.section}>
+              <View style={[styles.sectionHeader, styles.finalExamHeader]}>
+                <View style={styles.sectionTitleContainer}>
+                  <Text style={styles.sectionHeaderText}>Bài kiểm tra cuối khóa</Text>
+                  <Text style={styles.sectionMeta}>Kiểm tra tổng hợp</Text>
+                </View>
+                <View style={styles.completionIndicator}>
+                  {completedQuizzes['final-exam'] ? (
+                    <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
+                  ) : (
+                    <Ionicons name="ellipse-outline" size={22} color="#ddd" />
+                  )}
+                </View>
+              </View>
+              
+              <TouchableOpacity 
+                style={[styles.lesson, styles.finalExamLesson]}
+                onPress={() => {
+                  router.push({
+                    pathname: '/(tabs)/course_quiz_start',
+                    params: { 
+                      quizId: 'final-exam', 
+                      source: 'video',
+                      courseId: '0AA77A49-CAFF-4F01-B'  // Add the courseId parameter
+                    }
+                  });
+                }}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={[styles.lessonTitle, styles.finalExamTitle]}>
+                    Bài kiểm tra cuối khóa
+                  </Text>
+                  <Text style={styles.lessonMeta}>30 phút • 30 câu hỏi</Text>
+                </View>
+                <Ionicons 
+                  name={completedQuizzes['final-exam'] ? "checkmark-circle" : "chevron-forward"} 
+                  size={24} 
+                  color={completedQuizzes['final-exam'] ? "#4CAF50" : "#666"} 
+                />
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={styles.chapterDescription}>{chapterData?.description}</Text>
           <View style={styles.durationContainer}>

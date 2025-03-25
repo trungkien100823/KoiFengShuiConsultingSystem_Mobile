@@ -34,17 +34,11 @@ export default function CourseScoreScreen() {
 
   // Quiz data mapping
   const quizTitles = {
-    'section1-quiz': 'Kiểm tra kiến thức cơ bản phong thủy',
-    'section2-quiz': 'Kiểm tra hướng và bát quái',
-    'section3-quiz': 'Kiểm tra kiến thức về thủy mạch',
     'final-exam': 'Bài kiểm tra cuối khóa',
   };
 
   // Section titles
   const sectionTitles = {
-    'section1': 'Phong thủy cơ bản',
-    'section2': 'Cách xem hướng',
-    'section3': 'Thủy mạch trong phong thủy',
     'final': 'Kết thúc khóa học',
   };
   
@@ -80,11 +74,7 @@ export default function CourseScoreScreen() {
 
   // Get section title based on quiz ID
   const getCurrentSection = () => {
-    if (quizId === 'final-exam') {
-      return 'final';
-    }
-    const sectionMatch = quizId.match(/section(\d+)/);
-    return sectionMatch ? `section${sectionMatch[1]}` : 'section1';
+    return 'final';
   };
 
   // Handle return to course
@@ -94,9 +84,7 @@ export default function CourseScoreScreen() {
       router.replace({
         pathname: '/(tabs)/course_video',
         params: { 
-          // If quiz is section-specific, extract section and return to corresponding lesson
-          lessonId: quizId.includes('section') ? 
-            `${quizId.split('-')[0]}-lesson1` : 'section1-lesson1'
+          lessonId: 'section1-lesson1'
         }
       });
     } else {
