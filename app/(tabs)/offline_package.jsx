@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,40 +6,114 @@ import {
   ScrollView, 
   TouchableOpacity, 
   ImageBackground, 
-  SafeAreaView 
+  SafeAreaView,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../../constants/config';
 
 export default function OfflinePackageScreen() {
   const router = useRouter();
-  
-  const consultingPackages = [
-    {
-      id: '1',
-      title: 'CƠ BẢN',
-      label: 'Gói tư vấn',
-      image: require('../../assets/images/koi_image.jpg'),
-    },
-    {
-      id: '2',
-      title: 'NÂNG CAO',
-      label: 'Gói tư vấn',
-      image: require('../../assets/images/koi_image.jpg'),
-    },
-    {
-      id: '3',
-      title: 'CHUYÊN SÂU',
-      label: 'Gói tư vấn',
-      image: require('../../assets/images/koi_image.jpg'),
-    },
-    {
-      id: '4',
-      title: 'DOANH NGHIỆP',
-      label: 'Gói tư vấn',
-      image: require('../../assets/images/koi_image.jpg'),
-    },
-  ];
+  const [consultingPackages, setConsultingPackages] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchConsultingPackages();
+  }, []);
+
+  const fetchConsultingPackages = async () => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+        router.push('login');
+        return;
+      }
+
+      if (!API_CONFIG.endpoints.getAllConsultationPackages) {
+        throw new Error('API endpoint không được định nghĩa');
+      }
+
+      const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllConsultationPackages}`;
+      console.log('Calling API URL:', url);
+      console.log('Token:', token);
+
+      const response = await axios.get(
+        url,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000, // Tăng timeout lên 30 giây
+          validateStatus: function (status) {
+            return status >= 200 && status < 500; // Chấp nhận status code từ 200-499
+          }
+        }
+      );
+
+      // Log response để debug
+      console.log('API Response Status:', response.status);
+      console.log('API Response Headers:', response.headers);
+      console.log('API Response Data:', response.data);
+
+      if (response.data && response.data.isSuccess) {
+        setConsultingPackages(response.data.data);
+      } else {
+        throw new Error(response.data?.message || 'Không thể lấy danh sách gói tư vấn');
+      }
+    } catch (error) {
+      console.error('Chi tiết lỗi:', {
+        message: error.message,
+        code: error.code,
+        response: error.response,
+        request: error.request,
+        config: error.config
+      });
+
+      if (error.code === 'ECONNABORTED') {
+        Alert.alert('Lỗi', 'Kết nối tới server quá lâu, vui lòng thử lại sau');
+      } else if (error.code === 'ERR_NETWORK') {
+        Alert.alert(
+          'Lỗi Kết Nối',
+          'Không thể kết nối đến server. Vui lòng kiểm tra:\n' +
+          '- Kết nối mạng\n' +
+          '- Server có đang chạy không\n' +
+          '- IP của server có đúng không',
+          [
+            {
+              text: 'Thử lại',
+              onPress: () => fetchConsultingPackages()
+            },
+            {
+              text: 'OK',
+              style: 'cancel'
+            }
+          ]
+        );
+      } else if (error.response) {
+        // Có response từ server nhưng status code không hợp lệ
+        Alert.alert('Lỗi', `Lỗi từ server: ${error.response.status}`);
+      } else {
+        Alert.alert('Lỗi', 'Không thể tải danh sách gói tư vấn. Vui lòng thử lại sau.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8B0000" />
+      </View>
+    );
+  }
 
   return (
     <ImageBackground 
@@ -65,24 +139,26 @@ export default function OfflinePackageScreen() {
         >
           <Text style={styles.sectionTitle}>Các gói tư vấn phong thủy</Text>
 
-          {consultingPackages.map((pkg, index) => (
+          {consultingPackages.map((pkg) => (
             <TouchableOpacity 
-              key={pkg.id}
+              key={pkg.consultationPackageId}
               style={styles.packageCard}
-              onPress={() => {
-                // Handle package selection
-                console.log(`Selected package: ${pkg.title}`);
-                // You can add navigation or other actions here
-              }}
+              onPress={() => router.push({
+                pathname: '/(tabs)/package_details',
+                params: { 
+                  packageId: pkg.consultationPackageId,
+                  packageTitle: pkg.packageName
+                }
+              })}
             >
               <ImageBackground
-                source={pkg.image}
+                source={require('../../assets/images/koi_image.jpg')}
                 style={styles.packageImage}
                 imageStyle={styles.packageImageStyle}
               >
                 <View style={styles.packageContent}>
-                  <Text style={styles.packageLabel}>{pkg.label}</Text>
-                  <Text style={styles.packageTitle}>{pkg.title}</Text>
+                  <Text style={styles.packageLabel}>Gói tư vấn</Text>
+                  <Text style={styles.packageTitle}>{pkg.packageName}</Text>
                 </View>
               </ImageBackground>
             </TouchableOpacity>
@@ -188,5 +264,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 28,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1A0000',
   },
 });
