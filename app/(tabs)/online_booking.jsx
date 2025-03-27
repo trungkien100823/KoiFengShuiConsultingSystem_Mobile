@@ -26,6 +26,7 @@ export default function OnlineBookingScreen() {
   const params = useLocalSearchParams();
   const selectedMasterId = params.selectedMasterId;
   const selectedMasterName = params.selectedMasterName;
+  const fromMasterDetails = params.fromMasterDetails === 'true';
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -154,6 +155,10 @@ export default function OnlineBookingScreen() {
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   </View>
+                ) : fromMasterDetails ? (
+                  <View style={[styles.dropdown, {justifyContent: 'center'}]}>
+                    <Text style={styles.dropdownText}>{selectedMasterName}</Text>
+                  </View>
                 ) : (
                   <SelectList 
                     setSelected={setSelectedConsultant} 
@@ -239,12 +244,18 @@ export default function OnlineBookingScreen() {
                   let masterId = null;
                   let masterName = 'Chúng tôi sẽ chọn giúp';
                   
-                  // Chỉ cập nhật masterId và masterName nếu đã chọn consultant cụ thể
-                  if (selectedConsultant !== null) {
-                    const selectedMaster = consultants.find(c => c.key === selectedConsultant);
-                    if (selectedMaster) {
-                      masterId = selectedMaster.key;
-                      masterName = selectedMaster.value;
+                  // Nếu từ trang chi tiết Master, sử dụng thông tin Master đã chọn
+                  if (fromMasterDetails) {
+                    masterId = selectedMasterId;
+                    masterName = selectedMasterName;
+                  } else {
+                    // Nếu không, xác định thông tin từ lựa chọn trong dropdown
+                    if (selectedConsultant !== null) {
+                      const selectedMaster = consultants.find(c => c.key === selectedConsultant);
+                      if (selectedMaster) {
+                        masterId = selectedMaster.key;
+                        masterName = selectedMaster.value;
+                      }
                     }
                   }
 

@@ -11,6 +11,12 @@ export const API_CONFIG = {
     userKoi: '/api/KoiVariety/get-koi-current-login',
     detailKoi: '/api/KoiVariety/{id}',
     withColorBy: '/api/KoiVariety/with-color-by/{id}',
+    getAllElements: '/api/KoiVariety/get-all-elements',
+    getAllColors: '/api/KoiVariety/get-all-colors',
+    getKoiByName: '/api/KoiVariety/get-by-name',
+    filterKoi: '/api/KoiVariety/filter',
+    compatibleElements: '/api/KoiVariety/compatible-elements',
+    colorsByElement: '/api/KoiVariety/api/colors-by-element/{element}',
 
     // Booking endpoints
     createBooking: '/api/Booking/create',
