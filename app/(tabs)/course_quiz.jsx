@@ -15,12 +15,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../../constants/config';
 
 const { width, height } = Dimensions.get('window');
 
 export default function CourseQuizScreen() {
   const router = useRouter();
-  const { quizId = 'final-exam', source = 'chapter', courseId = '0AA77A49-CAFF-4F01-B' } = useLocalSearchParams();
+  const { 
+    quizId = '04205955-CACE-4F8C-8',
+    source = 'chapter', 
+    courseId = '0AA77A49-CAFF-4F01-B' 
+  } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -29,103 +34,30 @@ export default function CourseQuizScreen() {
   const [score, setScore] = useState(0);
   const [questions, setQuestions] = useState([]);
   const [error, setError] = useState(null);
+  const [chaptersCompleted, setChaptersCompleted] = useState(false);
   const timerRef = useRef(null);
   const scrollRef = useRef(null);
+  const [isTestMode, setIsTestMode] = useState(true);
+  const [completedQuizzes, setCompletedQuizzes] = useState({});
 
   // Quiz data mapping
   const quizTitles = {
-    'final-exam': 'Bài kiểm tra cuối khóa',
+    '04205955-CACE-4F8C-8': 'Bài kiểm tra cuối khóa',
+    'final-exam': 'Bài kiểm tra cuối khóa'
   };
 
   // Time limits in minutes
   const quizTimeLimits = {
-    'final-exam': 30,
+    '04205955-CACE-4F8C-8': 30,
+    'final-exam': 30
   };
 
-  // Fetch questions from API
-  useEffect(() => {
-    const fetchQuestions = async () => {
-      try {
-        setLoading(true);
-        // Fetch questions by quizId
-        const response = await fetch(`http://192.168.31.148:5261/api/Question/quiz/${quizId}`);
-        const result = await response.json();
-        
-        if (result.isSuccess && result.data) {
-          console.log('Questions fetched:', result.data);
-          
-          // Process each question and fetch its answers
-          const questionsWithAnswers = await Promise.all(result.data.map(async (question) => {
-            try {
-              // Fetch answers for this question
-              const answersResponse = await fetch(`http://192.168.31.148:5261/api/Answer/get-by/${question.questionId}/questionId`);
-              const answersResult = await answersResponse.json();
-              
-              if (answersResult.isSuccess && answersResult.data) {
-                // Sort answers to ensure they appear in the same order as database
-                const sortedAnswers = answersResult.data.sort((a, b) => {
-                  return new Date(a.create_At) - new Date(b.create_At);
-                });
-                
-                // Find the index of the correct answer
-                const correctAnswerIndex = sortedAnswers.findIndex(answer => answer.is_Correct === true);
-                
-                return {
-                  questionId: question.questionId,
-                  question: question.question_Text,
-                  questionType: question.question_Type,
-                  options: sortedAnswers.map(answer => answer.option_Text),
-                  optionTypes: sortedAnswers.map(answer => answer.option_Type),
-                  correctAnswer: correctAnswerIndex !== -1 ? correctAnswerIndex : 0,
-                  point: parseFloat(question.point) || 1,
-                  answers: sortedAnswers
-                };
-              } else {
-                // If no answers found, use default
-                return {
-                  questionId: question.questionId,
-                  question: question.question_Text,
-                  questionType: question.question_Type,
-                  options: ['Option A', 'Option B', 'Option C', 'Option D'],
-                  optionTypes: ['Text', 'Text', 'Text', 'Text'],
-                  correctAnswer: 0,
-                  point: parseFloat(question.point) || 1,
-                  answers: []
-                };
-              }
-            } catch (error) {
-              console.error('Error fetching answers for question', question.questionId, error);
-              return {
-                questionId: question.questionId,
-                question: question.question_Text,
-                questionType: question.question_Type,
-                options: ['Option A', 'Option B', 'Option C', 'Option D'],
-                optionTypes: ['Text', 'Text', 'Text', 'Text'],
-                correctAnswer: 0,
-                point: parseFloat(question.point) || 1,
-                answers: []
-              };
-            }
-          }));
-          
-          setQuestions(questionsWithAnswers);
-        } else {
-          // If API fails, use default questions
-          console.error('Error loading questions:', result.message);
-          setQuestions(getFallbackQuestions());
-        }
-      } catch (err) {
-        console.error('Failed to fetch questions:', err);
-        setQuestions(getFallbackQuestions());
-      } finally {
-        setLoading(false);
-      }
-    };
+  // At the top of your component, add this mapping
+  const quizIdMapping = {
+    'final-exam': '04205955-CACE-4F8C-8'
+  };
 
-    fetchQuestions();
-  }, [quizId]);
-
-  // Fallback questions if API fails
+  // Modify getFallbackQuestions to provide good quality questions
   const getFallbackQuestions = () => {
     return [
       {
@@ -153,32 +85,178 @@ export default function CourseQuizScreen() {
       },
       {
         questionId: 'fallback-3',
-        question: 'Trong Ngũ hành, yếu tố nào khắc chế Kim?',
+        question: 'Trong phong thủy, mệnh "Kim" thường hợp với màu gì nhất?',
         questionType: 'Multiple Choice',
-        options: ['Thủy', 'Hỏa', 'Mộc', 'Thổ'],
-        optionTypes: ['Text', 'Text', 'Text', 'Text'],
-        correctAnswer: 1,
-        point: 1
-      },
-      {
-        questionId: 'fallback-4',
-        question: 'Khi một căn phòng có quá nhiều năng lượng Hỏa, nên thêm yếu tố nào để cân bằng?',
-        questionType: 'Multiple Choice',
-        options: ['Kim', 'Mộc', 'Thủy', 'Thổ'],
+        options: ['Đỏ', 'Xanh lục', 'Trắng', 'Đen'],
         optionTypes: ['Text', 'Text', 'Text', 'Text'],
         correctAnswer: 2,
         point: 1
       },
       {
-        questionId: 'fallback-5',
-        question: 'Hướng Đông trong Bát quái tượng trưng cho điều gì?',
+        questionId: 'fallback-4',
+        question: 'Hiện tượng "Sát khí" trong phong thủy thường do đâu tạo ra?',
         questionType: 'Multiple Choice',
-        options: ['Sự nghiệp', 'Gia đình', 'Sức khỏe', 'Sự giàu có'],
+        options: [
+          'Góc nhọn chỉ thẳng vào cửa chính',
+          'Cây xanh quanh nhà',
+          'Hồ nước trước nhà',
+          'Đèn chiếu sáng'
+        ],
+        optionTypes: ['Text', 'Text', 'Text', 'Text'],
+        correctAnswer: 0,
+        point: 1
+      },
+      {
+        questionId: 'fallback-5',
+        question: 'Việc sắp xếp nội thất theo phong thủy có ý nghĩa gì?',
+        questionType: 'Multiple Choice',
+        options: [
+          'Chỉ để trang trí cho đẹp',
+          'Tạo sự cân bằng năng lượng trong không gian sống',
+          'Theo quy định xây dựng',
+          'Không có ý nghĩa đặc biệt'
+        ],
         optionTypes: ['Text', 'Text', 'Text', 'Text'],
         correctAnswer: 1,
         point: 1
       }
     ];
+  };
+
+  // Modify your useEffect to explicitly call fetchQuestions
+  useEffect(() => {
+    // Set chapters as completed without checking API
+    setChaptersCompleted(true);
+    
+    // Explicitly call fetchQuestions
+    fetchQuestions();
+  }, []);
+
+  // Add a timeout function to wrap fetch calls
+  const fetchWithTimeout = async (url, options, timeoutMs = API_CONFIG.timeout) => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    
+    // Create a timeout that aborts the fetch
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        controller.abort();
+        reject(new Error(`Request timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+    
+    try {
+      // Race between fetch and timeout
+      return await Promise.race([
+        fetch(url, { ...options, signal }),
+        timeoutPromise
+      ]);
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
+    }
+  };
+
+  // Add this function after the fetchQuestions function
+  const startTimer = () => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    // Start new timer that counts down every second
+    timerRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          // When time runs out, clear timer and submit the quiz
+          clearInterval(timerRef.current);
+          handleQuizSubmission();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Fix handleAnswerSelect to work with the API response format
+  const handleAnswerSelect = (answerId) => {
+    // Update selected answers with the new selection
+    setSelectedAnswers(prev => ({
+      ...prev,
+      [currentQuestionIndex]: answerId
+    }));
+  };
+
+  // Make sure we're correctly processing the questions from the API
+  const fetchQuestions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      if (!quizId) {
+        throw new Error('Quiz ID not provided');
+      }
+      
+      // Get auth token
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('User authentication required');
+      }
+      
+      console.log(`Fetching questions for quiz: ${quizId}`);
+      
+      // Make API request with the actual quizId
+      const response = await fetch(
+        `${API_CONFIG.baseURL}/api/Question/quiz/${quizId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch questions: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Questions API response:', result);
+      
+      if (result.isSuccess && Array.isArray(result.data)) {
+        // Initialize timer based on number of questions
+        const questionCount = result.data.length;
+        // Allow approximately 1 minute per question, minimum 10 minutes
+        const timeInMinutes = Math.max(10, Math.min(questionCount, 30));
+        setTimeRemaining(timeInMinutes * 60);
+        
+        // Process questions from API
+        setQuestions(result.data);
+        
+        // Start the timer
+        startTimer();
+      } else {
+        console.error('API returned invalid data format:', result);
+        throw new Error('Invalid quiz data received');
+      }
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      setError(error.message || 'Failed to load quiz questions');
+      
+      // Use fallback for development if needed
+      if (isTestMode) {
+        console.log('Using fallback questions due to error');
+        const fallbackQuestions = getFallbackQuestions();
+        setQuestions(fallbackQuestions);
+        setTimeRemaining(30 * 60); // 30 minutes
+        startTimer();
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Initialize timer and reset state when quizId changes
@@ -225,14 +303,6 @@ export default function CourseQuizScreen() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Handle answer selection
-  const handleAnswerSelection = (questionIndex, answerIndex) => {
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [questionIndex]: answerIndex
-    }));
-  };
-
   // Navigate to next question
   const handleNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
@@ -255,196 +325,133 @@ export default function CourseQuizScreen() {
     scrollRef.current?.scrollTo({ x: 0, y: 0, animated: true });
   };
 
-  // Handle quiz submission
+  // Update the handleQuizSubmission function
   const handleQuizSubmission = async () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-
-    // Prepare selected answer IDs for submission
-    const selectedAnswerIds = [];
-    
-    Object.keys(selectedAnswers).forEach(questionIndex => {
-      const qIndex = parseInt(questionIndex);
-      const question = questions[qIndex];
-      const userAnswerIndex = parseInt(selectedAnswers[qIndex]);
-      
-      // If answers are available from API
-      if (question.answers && question.answers.length > 0) {
-        // Get the answerId from the selected answer
-        const answerId = question.answers[userAnswerIndex]?.answerId;
-        if (answerId) {
-          selectedAnswerIds.push({
-            answerId: answerId
-          });
-        }
-      }
-    });
-    
-    // Calculate time spent in minutes
-    const timeSpentMinutes = quizTimeLimits[quizId] - Math.ceil(timeRemaining/60);
-    
     try {
-      setLoading(true);
+      // Stop timer
+      clearInterval(timerRef.current);
       
-      // Submit answers to API
-      const response = await fetch(`http://192.168.31.148:5261/api/RegisterCourse/submit-answers-by/${quizId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          answerIds: selectedAnswerIds
-        })
+      // Format answers for API submission - this is the key change
+      const answerIds = Object.entries(selectedAnswers).map(([index, answerId]) => {
+        return {
+          answerId: answerId
+        };
       });
       
-      const result = await response.json();
+      console.log('Submitting answers to API:', { answerIds });
       
-      if (response.ok && result) {
-        // Get score and other data from API response
-        const finalScore = result.score || calculateScore(); // Use API score if available, otherwise calculate locally
-        setScore(finalScore);
-        setQuizCompleted(true);
+      // Submit to API
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
+      const response = await fetch(
+        `${API_CONFIG.baseURL}/api/RegisterCourse/submit-answers-by/${quizId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ answerIds }) // Format API expects
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Quiz submission response:', result);
+      
+      if (result.isSuccess && result.data) {
+        // Use server provided results
+        const apiResult = result.data;
         
-        // Get count of correct answers from API or calculate locally
-        const correctAnswersCount = result.correctAnswers || countCorrectAnswers();
+        // Calculate percentage
+        const percentage = Math.round((apiResult.correctAnswers / apiResult.totalQuestions) * 100);
         
         // Save completion status
         try {
-          const savedQuizzes = await AsyncStorage.getItem('completedQuizzes');
-          const completedQuizzes = savedQuizzes ? JSON.parse(savedQuizzes) : {};
-          
+          const completedQuizzes = JSON.parse(await AsyncStorage.getItem('completedQuizzes')) || {};
           completedQuizzes[quizId] = {
             completed: true,
-            score: finalScore,
+            score: apiResult.totalScore,
+            percentage: percentage,
             date: new Date().toISOString()
           };
-          
           await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
-          
-          // Navigate to score screen
-          router.replace({
-            pathname: '/(tabs)/course_score',
-            params: {
-              quizId,
-              source,
-              score: finalScore.toString(),
-              totalQuestions: questions.length.toString(),
-              correctAnswers: correctAnswersCount.toString(),
-              timeSpent: timeSpentMinutes.toString()
-            }
-          });
-        } catch (error) {
-          console.log('Error saving quiz completion', error);
-          Alert.alert('Lỗi', 'Không thể lưu kết quả bài kiểm tra');
+        } catch (storageError) {
+          console.error('Error saving quiz completion:', storageError);
         }
-      } else {
-        console.error('Error submitting answers:', result);
-        Alert.alert('Lỗi', 'Không thể gửi câu trả lời. Vui lòng thử lại.');
         
-        // If API submission fails, still allow continuing with locally calculated score
-        handleLocalScoreSubmission(timeSpentMinutes);
+        // Navigate to score screen with results from API
+        router.push({
+          pathname: '/(tabs)/course_score',
+          params: {
+            courseId: courseId,
+            quizId: quizId,
+            score: apiResult.totalScore,
+            correctAnswers: apiResult.correctAnswers,
+            totalQuestions: apiResult.totalQuestions,
+            percentage: percentage
+          }
+        });
+      } else {
+        // If API doesn't return usable results, calculate locally
+        let totalScore = 0;
+        let correctAnswers = 0;
+        const totalQuestions = questions.length;
+        
+        // Calculate score locally as fallback
+        questions.forEach((question, index) => {
+          const selectedAnswer = selectedAnswers[index];
+          const correctAnswer = question.answers.find(answer => answer.isCorrect);
+          
+          if (selectedAnswer && correctAnswer && selectedAnswer === correctAnswer.answerId) {
+            totalScore += question.point || 1;
+            correctAnswers++;
+          }
+        });
+        
+        // Calculate percentage
+        const percentage = Math.round((correctAnswers / totalQuestions) * 100);
+        
+        // Save completion status
+        try {
+          const completedQuizzes = JSON.parse(await AsyncStorage.getItem('completedQuizzes')) || {};
+          completedQuizzes[quizId] = {
+            completed: true,
+            score: totalScore,
+            percentage: percentage,
+            date: new Date().toISOString()
+          };
+          await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
+        } catch (storageError) {
+          console.error('Error saving quiz completion:', storageError);
+        }
+        
+        // Navigate to score screen with locally calculated results
+        router.push({
+          pathname: '/(tabs)/course_score',
+          params: {
+            courseId: courseId,
+            quizId: quizId,
+            score: totalScore,
+            correctAnswers: correctAnswers, 
+            totalQuestions: totalQuestions,
+            percentage: percentage
+          }
+        });
       }
     } catch (error) {
-      console.error('Failed to submit answers:', error);
-      Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
-      
-      // If API submission fails, still allow continuing with locally calculated score
-      handleLocalScoreSubmission(timeSpentMinutes);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Calculate score locally (fallback if API fails)
-  const calculateScore = () => {
-    let totalPoints = 0;
-    
-    Object.keys(selectedAnswers).forEach(questionIndex => {
-      const qIndex = parseInt(questionIndex);
-      const question = questions[qIndex];
-      const userAnswerIndex = parseInt(selectedAnswers[qIndex]);
-      
-      // If there are answers from API and user selected the correct one
-      if (question.answers && question.answers.length > 0) {
-        if (question.answers[userAnswerIndex]?.is_Correct) {
-          totalPoints += question.point;
-        }
-      } else {
-        // Fallback using correctAnswer index
-        if (userAnswerIndex === question.correctAnswer) {
-          totalPoints += question.point;
-        }
-      }
-    });
-    
-    // Calculate score out of 10
-    const maxPossiblePoints = questions.reduce((total, q) => total + (q.point || 1), 0);
-    return (totalPoints / maxPossiblePoints) * 10;
-  };
-
-  // Count correct answers locally (fallback if API fails)
-  const countCorrectAnswers = () => {
-    let correctAnswersCount = 0;
-    
-    Object.keys(selectedAnswers).forEach(questionIndex => {
-      const qIndex = parseInt(questionIndex);
-      const question = questions[qIndex];
-      const userAnswerIndex = parseInt(selectedAnswers[qIndex]);
-      
-      // If there are answers from API and user selected the correct one
-      if (question.answers && question.answers.length > 0) {
-        if (question.answers[userAnswerIndex]?.is_Correct) {
-          correctAnswersCount++;
-        }
-      } else {
-        // Fallback using correctAnswer index
-        if (userAnswerIndex === question.correctAnswer) {
-          correctAnswersCount++;
-        }
-      }
-    });
-    
-    return correctAnswersCount;
-  };
-
-  // Handle local score submission (if API fails)
-  const handleLocalScoreSubmission = async (timeSpentMinutes) => {
-    const finalScore = calculateScore();
-    setScore(finalScore);
-    setQuizCompleted(true);
-    
-    // Calculate correct answers
-    const correctAnswersCount = countCorrectAnswers();
-    
-    // Save completion status
-    try {
-      const savedQuizzes = await AsyncStorage.getItem('completedQuizzes');
-      const completedQuizzes = savedQuizzes ? JSON.parse(savedQuizzes) : {};
-      
-      completedQuizzes[quizId] = {
-        completed: true,
-        score: finalScore,
-        date: new Date().toISOString()
-      };
-      
-      await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
-      
-      // Navigate to score screen
-      router.replace({
-        pathname: '/(tabs)/course_score',
-        params: {
-          quizId,
-          source,
-          score: finalScore.toString(),
-          totalQuestions: questions.length.toString(),
-          correctAnswers: correctAnswersCount.toString(),
-          timeSpent: timeSpentMinutes.toString()
-        }
-      });
-    } catch (error) {
-      console.log('Error saving quiz completion', error);
-      Alert.alert('Lỗi', 'Không thể lưu kết quả bài kiểm tra');
+      console.error('Error submitting quiz:', error);
+      Alert.alert(
+        'Submission Error',
+        'There was a problem submitting your quiz. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -469,13 +476,108 @@ export default function CourseQuizScreen() {
     );
   };
 
+  // Add this function to handle reloading the quiz
+  const handleReloadQuiz = () => {
+    // Reset all quiz state
+    setCurrentQuestionIndex(0);
+    setSelectedAnswers({});
+    setTimeRemaining(quizTimeLimits[quizId] * 60);
+    setQuizCompleted(false);
+    setScore(0);
+    setQuestions([]);
+    
+    // Clear timer if it's running
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // Show loading
+    setLoading(true);
+    
+    // Fetch questions again
+    fetchQuestions();
+    
+    // Scroll back to top if needed
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ x: 0, y: 0, animated: true });
+    }
+  };
+
+  // Add this function to reset all completion states
+  const resetAllProgress = async () => {
+    try {
+      // Show confirmation dialog
+      Alert.alert(
+        "Reset Progress",
+        "This will reset all course and quiz progress. Are you sure?",
+        [
+          { 
+            text: "Cancel", 
+            style: "cancel" 
+          },
+          { 
+            text: "Reset", 
+            style: "destructive",
+            onPress: async () => {
+              setLoading(true);
+              
+              // Clear completedLessons
+              await AsyncStorage.removeItem('completedLessons');
+              
+              // Clear completedQuizzes
+              await AsyncStorage.removeItem('completedQuizzes');
+              
+              // Reset local state
+              setCompletedQuizzes({});
+              
+              // Show success message
+              Alert.alert(
+                "Reset Complete",
+                "All course and quiz progress has been reset.",
+                [{ text: "OK" }]
+              );
+              
+              // If we're looking at completed quiz results, go back
+              if (quizCompleted) {
+                router.back();
+              } else {
+                // Otherwise refresh the current screen
+                handleReloadQuiz();
+              }
+            } 
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error resetting progress:', error);
+      Alert.alert("Error", "Failed to reset progress. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleComplete = () => {
+    router.push({
+      pathname: '/(tabs)/course_score',
+      params: {
+        courseId: courseId,
+        quizId: quizId,
+        score: score.outOfTen,
+        correctAnswers: score.correct,
+        totalQuestions: score.questions,
+        percentage: score.percentage,
+      }
+    });
+  };
+
   // Loading state
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B0000" />
+        <ActivityIndicator size="large" color="#8B0000" />
           <Text style={styles.loadingText}>Đang tải câu hỏi...</Text>
         </View>
       </SafeAreaView>
@@ -484,9 +586,9 @@ export default function CourseQuizScreen() {
 
   // Empty questions handling
   if (!loading && (!questions || questions.length === 0)) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack}>
             <Ionicons name="close" size={24} color="#333" />
@@ -506,59 +608,155 @@ export default function CourseQuizScreen() {
     );
   }
 
+  console.log('Quiz state:', {
+    questionsLength: questions.length,
+    loading,
+    error,
+    currentIndex: currentQuestionIndex
+  });
+
+  const renderQuestion = () => {
+    const currentQuestion = questions[currentQuestionIndex];
+    
+    if (!currentQuestion) {
+      return <Text style={styles.errorText}>Question not found</Text>;
+    }
+    
+    // Add debug log to see question structure
+    console.log('Current question structure:', JSON.stringify(currentQuestion));
+    
+    return (
+      <View style={styles.questionContainer}>
+        <Text style={styles.questionText}>
+          {currentQuestion.questionText || currentQuestion.question || "No question text"}
+        </Text>
+        
+        {/* Check if answers exists before mapping */}
+        {currentQuestion.answers && Array.isArray(currentQuestion.answers) ? (
+          <View style={styles.answerContainer}>
+            {currentQuestion.answers.map((answer, index) => (
+              <TouchableOpacity
+                key={answer.answerId}
+                style={[
+                  styles.answerOption,
+                  selectedAnswers[currentQuestionIndex] === answer.answerId && styles.selectedAnswer
+                ]}
+                onPress={() => handleAnswerSelect(answer.answerId)}
+              >
+                <Text style={styles.answerOptionLabel}>
+                  {String.fromCharCode(65 + index)}
+                </Text>
+                <Text style={styles.answerOptionText}>
+                  {answer.optionText}
+                </Text>
+                {selectedAnswers[currentQuestionIndex] === answer.answerId && (
+                  <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={styles.checkIcon} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          // Fallback for when answers array is missing or different format
+          <View style={styles.answerContainer}>
+            {currentQuestion.options && currentQuestion.options.map((option, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.answerOption,
+                  selectedAnswers[currentQuestionIndex] === index && styles.selectedAnswer
+                ]}
+                onPress={() => handleAnswerSelect(index)}
+              >
+                <Text style={styles.answerOptionLabel}>
+                  {String.fromCharCode(65 + index)}
+                </Text>
+                <Text style={styles.answerOptionText}>
+                  {option}
+                </Text>
+                {selectedAnswers[currentQuestionIndex] === index && (
+                  <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={styles.checkIcon} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack}>
-          <Ionicons name="close" size={24} color="#333" />
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{quizTitles[quizId]}</Text>
-        <View style={{ width: 24 }} />
+        
+        <View style={styles.titleContainer}>
+          <Text style={styles.headerTitle}>{quizTitles[quizId]}</Text>
+          
+          {isTestMode && (
+            <View style={styles.testControlsContainer}>
+              <TouchableOpacity 
+                style={styles.reloadButton}
+                onPress={handleReloadQuiz}
+              >
+                <Ionicons name="refresh" size={22} color="#fff" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.resetButton}
+                onPress={resetAllProgress}
+              >
+                <Ionicons name="trash-outline" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
       
       {/* Timer Bar */}
-      <View style={styles.timerContainer}>
+          <View style={styles.timerContainer}>
         <View style={styles.timerInfo}>
           <Ionicons name="time-outline" size={16} color="#666" />
-          <Text style={styles.timerText}>{formatTimeRemaining()}</Text>
-        </View>
-        <View style={styles.progressContainer}>
-          <View 
-            style={[
+            <Text style={styles.timerText}>{formatTimeRemaining()}</Text>
+          </View>
+          <View style={styles.progressContainer}>
+              <View 
+                style={[
               styles.progressBar, 
               { width: `${(currentQuestionIndex + 1) / questions.length * 100}%` }
-            ]} 
-          />
-        </View>
+                ]} 
+              />
+            </View>
         <Text style={styles.progressText}>
           {currentQuestionIndex + 1}/{questions.length}
         </Text>
-      </View>
-      
+          </View>
+          
       {/* Question Content */}
-      <ScrollView 
-        ref={scrollRef}
+          <ScrollView 
+            ref={scrollRef}
         style={styles.questionScrollView}
         contentContainerStyle={styles.questionContainer}
         showsVerticalScrollIndicator={false}
-      >
+          >
         <Text style={styles.questionNumber}>Câu hỏi {currentQuestionIndex + 1}</Text>
-        <Text style={styles.questionText}>{questions[currentQuestionIndex]?.question || "Không có câu hỏi"}</Text>
-        
+        {renderQuestion()}
+            
         {/* Options */}
-        <View style={styles.optionsContainer}>
-          {questions[currentQuestionIndex]?.options.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
+        {/* <View style={styles.optionsContainer}>
+          {questions[currentQuestionIndex]?.options?.map((option, index) => (
+              <TouchableOpacity 
+                key={index}
+                style={[
                 styles.optionButton,
                 selectedAnswers[currentQuestionIndex] === index && styles.selectedOption
-              ]}
-              onPress={() => handleAnswerSelection(currentQuestionIndex, index)}
-            >
+                ]}
+                onPress={() => handleAnswerSelect(index)}
+              >
               <View style={styles.optionContent}>
                 <View style={[
                   styles.optionDot,
@@ -578,11 +776,11 @@ export default function CourseQuizScreen() {
                   {option}
                 </Text>
               </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-      
+              </TouchableOpacity>
+            ))}
+        </View> */}
+          </ScrollView>
+          
       {/* Navigation Controls */}
       <View style={styles.navigationContainer}>
         <ScrollView 
@@ -591,33 +789,33 @@ export default function CourseQuizScreen() {
           contentContainerStyle={styles.indicatorsContent}
           style={styles.indicatorsContainer}
         >
-          {questions.map((_, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
+              {questions.map((_, index) => (
+                <TouchableOpacity 
+                  key={index}
+                  style={[
                 styles.indicatorDot,
                 currentQuestionIndex === index && styles.currentIndicator,
                 selectedAnswers[index] !== undefined && styles.answeredIndicator
-              ]}
-              onPress={() => goToQuestion(index)}
-            >
-              <Text style={[
+                  ]}
+                  onPress={() => goToQuestion(index)}
+                >
+                  <Text style={[
                 styles.indicatorText,
                 currentQuestionIndex === index && styles.currentIndicatorText,
                 selectedAnswers[index] !== undefined && styles.answeredIndicatorText
-              ]}>
-                {index + 1}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        
+                  ]}>
+                    {index + 1}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          
         <View style={styles.navigationControls}>
-          <TouchableOpacity
+            <TouchableOpacity 
             style={[styles.navButton, currentQuestionIndex === 0 && styles.disabledButton]}
-            onPress={handlePrevQuestion}
-            disabled={currentQuestionIndex === 0}
-          >
+              onPress={handlePrevQuestion}
+              disabled={currentQuestionIndex === 0}
+            >
             <Ionicons 
               name="chevron-back" 
               size={18} 
@@ -627,20 +825,20 @@ export default function CourseQuizScreen() {
               styles.navButtonText,
               currentQuestionIndex === 0 && styles.disabledButtonText
             ]}>
-              Câu trước
-            </Text>
-          </TouchableOpacity>
-          
+                Câu trước
+              </Text>
+            </TouchableOpacity>
+            
           {currentQuestionIndex < questions.length - 1 ? (
-            <TouchableOpacity
+              <TouchableOpacity 
               style={styles.navButton}
               onPress={handleNextQuestion}
-            >
+              >
               <Text style={styles.navButtonText}>Câu sau</Text>
               <Ionicons name="chevron-forward" size={18} color="#333" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
               style={[
                 styles.submitButton,
                 !areAllQuestionsAnswered() && styles.disabledSubmitButton
@@ -654,9 +852,9 @@ export default function CourseQuizScreen() {
               ]}>
                 Nộp bài
               </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+              </TouchableOpacity>
+            )}
+          </View>
       </View>
     </SafeAreaView>
   );
@@ -720,6 +918,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    marginRight: 8,
   },
   timerContainer: {
     flexDirection: 'row',
@@ -902,5 +1101,79 @@ const styles = StyleSheet.create({
   },
   answeredIndicatorText: {
     color: '#4CAF50',
+  },
+  reloadButton: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#8B0000',
+    marginLeft: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+  },
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  testControlsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  resetButton: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#444',
+    marginLeft: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+  },
+  errorText: {
+    color: '#8B0000',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  questionContainer: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  answerContainer: {
+    marginBottom: 16,
+  },
+  answerOption: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectedAnswer: {
+    backgroundColor: '#f8f0f0',
+    borderColor: '#8B0000',
+  },
+  answerOptionLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#666',
+    padding: 16,
+  },
+  answerOptionText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  checkIcon: {
+    marginLeft: 8,
   },
 });
