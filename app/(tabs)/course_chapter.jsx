@@ -31,6 +31,7 @@ export default function CourseChapterScreen() {
   const [chapters, setChapters] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentChapter, setCurrentChapter] = useState(null);
+  const navigation = useNavigation();
   const [isRegistered, setIsRegistered] = useState(true);
   const [courseInfo, setCourseInfo] = useState({
     courseName: '',
