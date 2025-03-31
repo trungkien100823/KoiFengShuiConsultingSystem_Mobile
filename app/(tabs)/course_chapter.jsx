@@ -18,6 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +31,7 @@ export default function CourseChapterScreen() {
   const [chapters, setChapters] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentChapter, setCurrentChapter] = useState(null);
+  const navigation = useNavigation();
 
   // Load user data on mount
   useEffect(() => {
@@ -106,6 +108,15 @@ export default function CourseChapterScreen() {
 
     fetchChapters();
   }, [params.courseId]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('Màn hình Chapter được focus - Tải lại dữ liệu');
+      fetchChapters();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const handleBackNavigation = () => {
     if (params.source === 'your_paid_courses') {

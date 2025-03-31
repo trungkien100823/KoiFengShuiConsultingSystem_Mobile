@@ -303,21 +303,7 @@ export default function OnlineScheduleScreen() {
     return true;
   };
   
-  const handleBooking = async () => {
-    if (!selectedDate) {
-      Alert.alert("Thông báo", "Vui lòng chọn ngày cho lịch hẹn");
-      return;
-    }
-    
-    if (!selectedStartTime || !selectedEndTime) {
-      Alert.alert("Thông báo", "Vui lòng chọn giờ bắt đầu và kết thúc cho lịch hẹn");
-      return;
-    }
-    
-    if (!validateTimes(selectedStartTime, selectedEndTime)) {
-      return;
-    }
-
+  const handleSubmit = async () => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
@@ -326,7 +312,14 @@ export default function OnlineScheduleScreen() {
         return;
       }
 
-      const customer = JSON.parse(params.customerInfo);
+      // Kiểm tra các trường bắt buộc
+      if (!selectedDateObj || !selectedStartTime || !selectedEndTime) {
+        Alert.alert(
+          "Thông báo",
+          "Vui lòng chọn đầy đủ ngày và giờ tư vấn"
+        );
+        return;
+      }
 
       // Format lại bookingDate để có dạng YYYY-MM-DD
       const bookingDate = formatDateString(new Date(selectedDateObj.year, selectedDateObj.month - 1, selectedDateObj.day));
@@ -337,14 +330,15 @@ export default function OnlineScheduleScreen() {
 
       // Chỉ gửi các trường cần thiết theo yêu cầu của API
       const bookingData = {
-        masterId: customer.MasterId ? customer.MasterId.trim() : null,
-        description: customer.Description,
+        masterId: customerInfo.masterId === 'null' ? null : customerInfo.masterId,
+        description: customerInfo.description,
         bookingDate: bookingDate,
         startTime: formattedStartTime,
         endTime: formattedEndTime
       };
 
-      console.log('Booking data:', bookingData);
+      console.log('Request data:', bookingData);
+      console.log('API URL:', `${API_CONFIG.baseURL}/api/Booking/create`);
 
       const response = await axios.post(
         `${API_CONFIG.baseURL}/api/Booking/create`,
@@ -357,12 +351,11 @@ export default function OnlineScheduleScreen() {
         }
       );
 
-      console.log('Booking response:', response.data);
+      console.log('Response status:', response.status);
+      console.log('Response data:', response.data);
 
       if (response.data.isSuccess) {
         const bookingId = response.data.data.bookingOnlineId;
-        console.log('BookingId to pass:', bookingId);
-        
         Alert.alert(
           "Thành công",
           "Đặt lịch tư vấn thành công!",
@@ -381,18 +374,23 @@ export default function OnlineScheduleScreen() {
           ]
         );
       } else {
-        throw new Error(response.data.message || 'Đặt lịch không thành công');
+        // Nếu có message từ response
+        Alert.alert(
+          "Thông báo",
+          response.data.message || "Không thể tạo booking"
+        );
       }
-
     } catch (error) {
-      console.error('Booking error:', error);
+      // Hiển thị message lỗi trong Alert
       Alert.alert(
-        "Lỗi",
-        error.response?.data?.message || 
-        error.response?.data?.title ||
-        error.message || 
-        "Đã có lỗi xảy ra khi đặt lịch"
+        "Thông báo",
+        error.response?.data?.message || error.message || "Đã có lỗi xảy ra. Vui lòng thử lại sau."
       );
+
+      // Nếu là lỗi pending payment, có thể chuyển hướng đến trang thanh toán
+      if (error.message?.includes("đang chờ thanh toán")) {
+        router.push('/(tabs)/your_booking');
+      }
     }
   };
 
@@ -538,7 +536,7 @@ export default function OnlineScheduleScreen() {
 
           <TouchableOpacity 
             style={styles.continueButton}
-            onPress={handleBooking}
+            onPress={handleSubmit}
           >
             <Text style={styles.continueButtonText}>Đặt lịch</Text>
           </TouchableOpacity>

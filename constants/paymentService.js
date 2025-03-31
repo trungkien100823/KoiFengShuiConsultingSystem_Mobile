@@ -51,14 +51,13 @@ export const paymentService = {
         return {
           success: true,
           paymentUrl: response.data.data.paymentUrl,
-          orderId: response.data.data.orderId // Thêm orderId vào response
+          orderId: response.data.data.orderId
         };
       }
 
       throw new Error(response.data?.message || 'Không thể tạo URL thanh toán');
 
     } catch (error) {
-      console.error('Lỗi khi tạo URL thanh toán:', error);
       return {
         success: false,
         message: error.message || 'Đã xảy ra lỗi khi tạo URL thanh toán',
@@ -115,26 +114,18 @@ export const paymentService = {
       navigation, 
       serviceId, 
       serviceType, 
-      serviceInfo = {}, 
-      onSuccess, 
-      onError 
+      serviceInfo = {}
     } = params;
     
     try {
-      // Tạo URL thanh toán
       const result = await paymentService.createPaymentUrl(serviceId, serviceType);
-      console.log('Kết quả tạo URL thanh toán:', result);
       
       if (result.success && result.paymentUrl) {
-        // Trả về kết quả trực tiếp thay vì chỉ trả về {success: true}
-        if (onSuccess) onSuccess(result);
-        return result; // Thay đổi ở đây
+        return result;
       } else {
         throw new Error(result.message || 'Không thể tạo liên kết thanh toán');
       }
     } catch (error) {
-      console.error('Lỗi xử lý thanh toán:', error);
-      if (onError) onError({ success: false, error });
       return { 
         success: false, 
         message: error.message || 'Đã xảy ra lỗi khi xử lý thanh toán',

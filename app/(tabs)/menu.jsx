@@ -51,6 +51,22 @@ const getOriginalColorEnum = (displayName) => {
   return displayName;
 };
 
+// Thêm vào phần đầu file, sau phần import
+const colorStyles = {
+  'Trắng': '#FFFFFF',
+  'Xám': '#808080',
+  'Ghi': '#A9A9A9',
+  'Vàng': '#FFD700',
+  'Nâu': '#8B4513',
+  'XanhLá': '#008000',
+  'XanhDương': '#0000FF',
+  'Đen': '#000000',
+  'Đỏ': '#FF0000',
+  'Hồng': '#FFC0CB',
+  'Cam': '#FFA500',
+  'Tím': '#800080'
+};
+
 export default function MenuScreen() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState('Koi');
@@ -83,6 +99,8 @@ export default function MenuScreen() {
   const [multipleColors, setMultipleColors] = useState([]);
   const [selectedCompatibleElements, setSelectedCompatibleElements] = useState([]);
   const [compatibleElementsMessage, setCompatibleElementsMessage] = useState('');
+
+  const navigation = useNavigation();
 
   // Hàm thử lại load dữ liệu bộ lọc
   const handleRetryFilterOptions = () => {
@@ -412,27 +430,27 @@ export default function MenuScreen() {
       [activeFilter]: filterValue
     }));
     
-    // Khi chọn một bản mệnh, gọi API để lấy các màu sắc phù hợp
+    // Thêm xử lý cho tab Hồ cá
+    if (selectedTab === 'Pond' && activeFilter === 'shape') {
+      fetchUserPonds('shape', filterValue);
+    }
+    
+    // Xử lý cho tab Koi giữ nguyên
     if (activeFilter === 'destiny') {
       if (filterValue !== 'Tất cả') {
-        // Nếu chọn bản mệnh cụ thể, lấy màu tương thích
         fetchColorsByElement(filterValue);
-        
-        // Đặt lại trạng thái màu đã chọn
         setMultipleColors([]);
         setFilterOptions(prev => ({
           ...prev,
           color: 'Tất cả'
         }));
       } else {
-        // Nếu chọn "Tất cả", tải lại tất cả các màu
         fetchColorOptions();
         setCompatibleElementsMessage('');
         setSelectedCompatibleElements([]);
       }
     }
     
-    // Chỉ đóng popup, không áp dụng bộ lọc ngay (sẽ áp dụng khi nhấn nút Lọc)
     setSortVisible(false);
   };
 
@@ -537,7 +555,6 @@ export default function MenuScreen() {
     try {
       setIsLoading(true);
       
-      // Thử sử dụng phương thức từ pondAPI thay vì gọi fetch trực tiếp
       let url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPonds}`;
       
       // Nếu đang lọc theo hình dạng và không phải "Tất cả"
@@ -545,84 +562,55 @@ export default function MenuScreen() {
           (filterOptions.shape !== 'Tất cả' && !filterType)) {
         const shapeValue = filterType === 'shape' ? filterValue : filterOptions.shape;
         
-        // Tìm shapeId từ shapeOptions
+        // Tìm shapeId từ API
         const shapeId = await getShapeIdByName(shapeValue);
         
         if (shapeId) {
-          url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.pondByShape.replace('{id}', shapeId)}`;
+          url = `${API_CONFIG.baseURL}/api/KoiPond/get-by-shape/${shapeId}`;
+          console.log('Gọi API lọc hồ cá theo hình dạng:', url);
         }
       }
       
       const response = await fetch(url);
-      
-      // Đọc dữ liệu phản hồi dù có lỗi hay không
       const responseText = await response.text();
-      let responseData;
+      console.log('Response từ API:', responseText);
       
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (jsonError) {
-        // Không in lỗi vào console, chỉ hiển thị thông báo
-        Alert.alert(
-          "Thông báo",
-          "Lỗi định dạng dữ liệu từ server",
-          [{ text: "OK" }]
-        );
-        setIsLoading(false);
-        return;
-      }
-      
-      // Nếu phản hồi không thành công, hiển thị thông báo từ backend
-      if (!response.ok) {
-        setDisplayData([]);
-        Alert.alert(
-          "Thông báo",
-          responseData.message || "Không tìm thấy hồ cá phù hợp",
-          [{ text: "OK" }]
-        );
-        setIsLoading(false);
-        return;
-      }
-      
-      // Xử lý dữ liệu theo cấu trúc ResultModel
+      const responseData = JSON.parse(responseText);
+
       if (responseData.isSuccess && Array.isArray(responseData.data)) {
-        // Kiểm tra nếu không có dữ liệu nào
         if (responseData.data.length === 0) {
           setDisplayData([]);
           Alert.alert(
             "Thông báo",
-            responseData.message || "Không tìm thấy hồ cá phù hợp",
+            "Không tìm thấy hồ cá phù hợp với hình dạng đã chọn",
             [{ text: "OK" }]
           );
         } else {
-          setDisplayData(responseData.data);
-        }
-      } else if (Array.isArray(responseData)) {
-        // Trường hợp API trả về mảng trực tiếp
-        if (responseData.length === 0) {
-          setDisplayData([]);
-          Alert.alert(
-            "Thông báo",
-            "Không tìm thấy hồ cá phù hợp",
-            [{ text: "OK" }]
-          );
-        } else {
-          setDisplayData(responseData);
+          const mappedData = responseData.data.map(pond => ({
+            koiPondId: pond.koiPondId,
+            pondName: pond.pondName,
+            shapeName: pond.shapeName,
+            element: pond.element,
+            introduction: pond.introduction,
+            description: pond.description,
+            imageName: 'buddha.png'
+          }));
+          setDisplayData(mappedData);
         }
       } else {
         setDisplayData([]);
-        if (responseData.message) {
-          Alert.alert("Thông báo", responseData.message, [{ text: "OK" }]);
-        } else {
-          Alert.alert("Thông báo", "Không tìm thấy hồ cá", [{ text: "OK" }]);
-        }
+        Alert.alert(
+          "Thông báo",
+          responseData.message || "Không thể tải danh sách hồ cá",
+          [{ text: "OK" }]
+        );
       }
     } catch (error) {
-      // Không in lỗi vào console, chỉ hiển thị Alert
+      console.error('Error fetching ponds:', error);
       setDisplayData([]);
       Alert.alert(
         "Thông báo",
-        "Không thể tải danh sách hồ cá",
+        "Đã xảy ra lỗi khi tải danh sách hồ cá",
         [{ text: "OK" }]
       );
     } finally {
@@ -630,41 +618,17 @@ export default function MenuScreen() {
     }
   };
 
-  // Hàm trợ giúp để lấy ID của shape từ tên
+  // Hàm hỗ trợ để lấy shapeId từ shapeName
   const getShapeIdByName = async (shapeName) => {
     try {
-      // Nếu chưa có dữ liệu shape, gọi API để lấy
-      if (shapeOptions.length <= 1) {
-        await fetchShapeOptions();
+      const response = await fetch(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPondShapes}`);
+      const responseData = await response.json();
+
+      if (responseData.isSuccess && Array.isArray(responseData.data)) {
+        const shape = responseData.data.find(s => s.shapeName === shapeName);
+        return shape ? shape.shapeId : null;
       }
-      
-      // Thêm timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
-      const response = await fetch(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPondShapes}`, {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`API responded with status ${response.status}`);
-      }
-      
-      const responseText = await response.text();
-      try {
-        const responseJson = JSON.parse(responseText);
-        
-        if (responseJson && responseJson.isSuccess && Array.isArray(responseJson.data)) {
-          const shape = responseJson.data.find(s => s.shapeName === shapeName);
-          return shape ? shape.shapeId : null;
-        }
-        return null;
-      } catch (jsonError) {
-        console.error('JSON parse error:', responseText.substring(0, 100) + '...');
-        throw jsonError;
-      }
+      return null;
     } catch (error) {
       console.error('Error getting shape ID:', error);
       return null;
@@ -717,65 +681,65 @@ export default function MenuScreen() {
   // Hàm tìm kiếm theo tên
   const handleSearch = async () => {
     try {
+      if (selectedTab === 'Other') return;
+      
       setIsLoading(true);
       
-      // Dù có text tìm kiếm hay không, chúng ta vẫn gửi request để lấy dữ liệu theo logic của backend
-      const apiUrl = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getKoiByName}?name=${encodeURIComponent(searchText.trim())}`;
+      const apiUrl = selectedTab === 'Koi' 
+        ? `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getKoiByName}?name=${encodeURIComponent(searchText.trim())}`
+        : `${API_CONFIG.baseURL}/api/KoiPond/get-by-name?name=${encodeURIComponent(searchText.trim())}`;
       
-      const response = await fetch(apiUrl);
+      console.log('Search API URL:', apiUrl);
       
-      // Đọc dữ liệu phản hồi
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
       const responseText = await response.text();
-      let responseData;
+      console.log('API Response:', responseText);
       
+      let responseData;
       try {
         responseData = JSON.parse(responseText);
       } catch (jsonError) {
-        Alert.alert(
-          "Thông báo",
-          "Lỗi định dạng dữ liệu từ server",
-          [{ text: "OK" }]
-        );
-        setIsLoading(false);
+        console.error('JSON Parse Error:', jsonError);
+        Alert.alert("Thông báo", "Lỗi định dạng dữ liệu từ server");
         return;
       }
       
-      // Nếu phản hồi không thành công
-      if (!response.ok) {
-        setDisplayData([]);
-        Alert.alert(
-          "Thông báo",
-          responseData.message || "Không tìm thấy cá Koi phù hợp",
-          [{ text: "OK" }]
-        );
-        setIsLoading(false);
-        return;
-      }
-      
-      // Xử lý dữ liệu thành công
-      if (responseData.isSuccess && Array.isArray(responseData.data)) {
-        setDisplayData(responseData.data);
-        
-        // Hiển thị thông báo nếu có, nhưng không hiển thị thông báo thông thường
-        if (responseData.message && responseData.message !== "KOIVARIETY_FOUND") {
-          Alert.alert("Thông báo", responseData.message, [{ text: "OK" }]);
+      // Xử lý dữ liệu theo cấu trúc mới
+      if (responseData.isSuccess) {
+        if (Array.isArray(responseData.data) && responseData.data.length > 0) {
+          setDisplayData(responseData.data);
+          if (responseData.message && 
+              responseData.message !== "KOIVARIETY_FOUND" && 
+              responseData.message !== "KOIPOND_FOUND") {
+            Alert.alert("Thông báo", responseData.message);
+          }
+        } else {
+          setDisplayData([]);
+          Alert.alert(
+            "Thông báo",
+            `Không tìm thấy ${selectedTab === 'Koi' ? 'cá Koi' : 'hồ cá'} phù hợp`
+          );
         }
-      } else if (Array.isArray(responseData)) {
-        setDisplayData(responseData);
       } else {
         setDisplayData([]);
         Alert.alert(
           "Thông báo",
-          responseData.message || "Không tìm thấy cá Koi phù hợp với từ khóa",
-          [{ text: "OK" }]
+          responseData.message || `Không tìm thấy ${selectedTab === 'Koi' ? 'cá Koi' : 'hồ cá'} phù hợp`
         );
       }
     } catch (error) {
+      console.error('Search Error:', error);
       setDisplayData([]);
       Alert.alert(
         "Thông báo",
-        error.message || "Không thể tìm kiếm cá Koi. Vui lòng thử lại sau.",
-        [{ text: "OK" }]
+        `Không thể tìm kiếm ${selectedTab === 'Koi' ? 'cá Koi' : 'hồ cá'}. Vui lòng thử lại sau.`
       );
     } finally {
       setIsLoading(false);
@@ -853,53 +817,55 @@ export default function MenuScreen() {
         params.append('nguHanh', filterOptions.destiny);
       }
       
-      // Thêm nhiều màu sắc nếu có (chuyển thành mảng colorIds)
+      // Xử lý màu sắc
       if (multipleColors.length > 0) {
-        // Chuyển đổi thành các tham số query riêng biệt
-        multipleColors.forEach(color => {
-          const colorEnum = getOriginalColorEnum(color);
-          params.append('colorIds', colorEnum);
+        // Chuyển đổi tên hiển thị thành enum và thêm vào params
+        multipleColors.forEach(displayColor => {
+          const colorEnum = getOriginalColorEnum(displayColor);
+          if (colorEnum) {
+            params.append('colors', colorEnum);
+          }
         });
-      } else if (filterOptions.color !== 'Tất cả' && filterOptions.color.indexOf(' màu') === -1) {
-        // Nếu không có nhiều màu được chọn, sử dụng màu đơn từ filterOptions
+      } else if (filterOptions.color !== 'Tất cả' && !filterOptions.color.includes(' màu')) {
+        // Xử lý trường hợp chọn một màu
         const colorEnum = getOriginalColorEnum(filterOptions.color);
-        params.append('colorIds', colorEnum);
+        if (colorEnum) {
+          params.append('colors', colorEnum);
+        }
       }
-      
+
       if (params.toString()) {
         url += '?' + params.toString();
       }
       
       console.log('Gọi API lọc cá Koi:', url);
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`API responded with status ${response.status}`);
       }
       
-      const responseText = await response.text();
-      try {
-        const data = JSON.parse(responseText);
-        
-        if (data.isSuccess && Array.isArray(data.data)) {
-          setDisplayData(data.data);
-          
-          // Hiển thị thông báo thành công nếu có
-          if (data.message && data.message !== "KOIVARIETY_FOUND") {
-            Alert.alert("Thông báo", data.message, [{ text: "OK" }]);
-          }
-        } else if (Array.isArray(data)) {
-          setDisplayData(data);
-        } else {
-          setDisplayData([]);
-          if (data.message) {
-            Alert.alert("Thông báo", data.message, [{ text: "OK" }]);
-          }
+      const data = await response.json();
+      
+      if (data.isSuccess && Array.isArray(data.data)) {
+        setDisplayData(data.data);
+        if (data.message && data.message !== "KOIVARIETY_FOUND") {
+          Alert.alert("Thông báo", data.message, [{ text: "OK" }]);
         }
-      } catch (jsonError) {
-        console.error('JSON parse error:', responseText.substring(0, 100) + '...');
-        throw jsonError;
+      } else if (Array.isArray(data)) {
+        setDisplayData(data);
+      } else {
+        setDisplayData([]);
+        Alert.alert(
+          "Thông báo",
+          data.message || "Không tìm thấy cá Koi phù hợp với bộ lọc",
+          [{ text: "OK" }]
+        );
       }
     } catch (error) {
       console.error('Error filtering Koi:', error);
@@ -1008,6 +974,15 @@ export default function MenuScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('Màn hình Menu được focus - Tải lại dữ liệu');
+      handleRetryFilterOptions();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -1044,12 +1019,6 @@ export default function MenuScreen() {
           onPress={() => handleTabChange('Pond')}
         >
           <Text style={[styles.tabText, selectedTab === 'Pond' && styles.selectedTabText]}>Hồ cá</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, selectedTab === 'Other' && styles.selectedTab]}
-          onPress={() => handleTabChange('Other')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'Other' && styles.selectedTabText]}>Khác</Text>
         </TouchableOpacity>
       </View>
 
@@ -1134,15 +1103,23 @@ export default function MenuScreen() {
                 <Image 
                   source={
                     selectedTab === 'Pond' 
-                      ? (item.imageUrl ? {uri: item.imageUrl} : images['buddha.png'])
-                      : (item.imageName && images[item.imageName] ? images[item.imageName] : images['buddha.png'])
+                      ? (item.imageName && images[item.imageName] 
+                          ? images[item.imageName] 
+                          : images['buddha.png'])
+                      : (item.imageName && images[item.imageName] 
+                          ? images[item.imageName] 
+                          : images['buddha.png'])
                   } 
-                  style={styles.image} 
+                  style={styles.image}
+                  resizeMode="cover"
+                  onError={(error) => {
+                    console.log('Image loading error:', error.nativeEvent.error);
+                  }}
                 />
                 <View style={styles.infoContainer}>
                   <View style={styles.nameContainer}>
                     <Text style={styles.name}>
-                      {selectedTab === 'Pond' ? item.pondName : item.name}
+                      {selectedTab === 'Pond' ? (item.pondName || 'Không có tên') : item.name}
                     </Text>
                   </View>
                   <MoreButton 
@@ -1174,6 +1151,7 @@ export default function MenuScreen() {
               ? colorOptions 
               : shapeOptions
         }
+        colorStyles={colorStyles}
         isLoading={fetchingFilterOptions}
         title={
           activeFilter === 'destiny' 

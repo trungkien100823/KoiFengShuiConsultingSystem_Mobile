@@ -40,91 +40,82 @@ const WorkshopDetailsScreen = () => {
       setLoading(true);
       setError(null);
       
-      // Log để debug
-      console.log('Đang lấy dữ liệu cho workshop ID:', workshopId);
-      
       // Gọi API lấy thông tin workshop
-      const workshopResponse = await workshopDetailsService.getWorkshopById(workshopId);
-      console.log('Đã nhận được dữ liệu workshop:', workshopResponse?.isSuccess);
+      const response = await workshopDetailsService.getWorkshopById(workshopId);
+      console.log('Workshop Response:', response);
       
-      if (workshopResponse && workshopResponse.data) {
-        const workshopDetails = workshopResponse.data;
-        
-        // Định dạng ngày
-        const startDate = new Date(workshopDetails.startDate);
-        const formattedDate = startDate.toLocaleDateString('vi-VN');
+      if (response?.data?.isSuccess) {
+        const workshopDetails = response.data.data;
+        console.log('Workshop Details:', workshopDetails);
         
         // Cập nhật state workshop
         const processedWorkshop = {
           id: workshopDetails.workshopId,
-          title: workshopDetails.workshopName || 'Chưa có tên',
-          date: formattedDate,
-          location: workshopDetails.location || 'Chưa có địa điểm',
-          description: workshopDetails.description || 'Chưa có mô tả',
+          title: workshopDetails.workshopName,
+          date: workshopDetails.startDate ? new Date(workshopDetails.startDate).toLocaleDateString('vi-VN') : '',
+          location: workshopDetails.location,
+          description: workshopDetails.description,
           status: workshopDetails.status,
           capacity: workshopDetails.capacity,
-          price: `${workshopDetails.price || 0}$`,
-          masterName: workshopDetails.masterName,
+          price: `${workshopDetails.price}$`,
           image: getImageForId(imageId)
         };
         
-        console.log('Đã xử lý dữ liệu workshop:', processedWorkshop.title);
         setWorkshopData(processedWorkshop);
-        
-        // Lấy masterId từ response hoặc tạo một API call để lấy masterId từ masterName
-        let masterId = null;
-        
-        // Kiểm tra nếu có masterId trong response
+
+        // Fetch thông tin master nếu có masterId
         if (workshopDetails.masterId) {
-          masterId = workshopDetails.masterId;
-        } else if (workshopDetails.masterName) {
-          // Nếu không có masterId nhưng có masterName, bạn có thể thêm logic tìm master ở đây
-          // Hoặc tạm thời sử dụng master mẫu
-          console.log('Không có masterId trong response, sử dụng ID mẫu');
-          masterId = "3BFE51B2-D79C-46D1-9"; // ID mẫu
-        }
-        
-        if (masterId) {
-          console.log('Đang lấy thông tin master ID:', masterId);
-          
           try {
-            // Gọi API lấy thông tin master
-            const masterResponse = await workshopDetailsService.getMasterById(masterId);
-            console.log('Đã nhận được dữ liệu master:', masterResponse?.isSuccess);
+            console.log('Fetching master with ID:', workshopDetails.masterId);
+            const masterResponse = await workshopDetailsService.getMasterById(workshopDetails.masterId);
+            console.log('Master API Response:', masterResponse);
             
-            if (masterResponse && masterResponse.data) {
-              const masterDetails = masterResponse.data;
+            if (masterResponse?.data?.isSuccess) {
+              const masterDetails = masterResponse.data.data;
+              console.log('Master Details:', masterDetails);
               
-              const processedMaster = {
+              setMasterInfo({
                 id: masterDetails.masterId,
-                name: masterDetails.masterName || 'Chưa có tên',
-                title: masterDetails.title || 'Master',
+                name: masterDetails.masterName,
+                title: masterDetails.title,
                 rating: masterDetails.rating,
-                experience: masterDetails.experience || '5+ năm',
+                experience: masterDetails.experience,
                 expertise: masterDetails.expertise,
-                description: masterDetails.biography || masterDetails.description || 'Không có thông tin',
-                image: require('../../assets/images/buddha.png') // Hình mặc định
-              };
-              
-              console.log('Đã xử lý dữ liệu master:', processedMaster.name);
-              setMasterInfo(processedMaster);
+                description: masterDetails.biography,
+                image: require('../../assets/images/buddha.png')
+              });
+            } else {
+              console.error('Master API response not successful:', masterResponse?.data);
+              throw new Error('Không thể lấy thông tin master');
             }
           } catch (masterError) {
-            console.error('Lỗi khi lấy thông tin master:', masterError);
-            // Không set error chính để vẫn hiển thị workshop data
+            console.error('Error fetching master:', masterError);
+            // Log thêm chi tiết lỗi
+            if (masterError.response) {
+              console.error('Error response:', masterError.response.data);
+            }
+            setMasterInfo({
+              name: workshopDetails.masterName || 'Chưa có thông tin',
+              title: 'Master',
+              image: require('../../assets/images/buddha.png')
+            });
           }
+        } else {
+          console.log('No masterId provided');
+          setMasterInfo({
+            name: workshopDetails.masterName,
+            title: 'Master',
+            image: require('../../assets/images/buddha.png')
+          });
         }
-      } else {
-        throw new Error('Dữ liệu workshop không hợp lệ');
+
+        return;
       }
-    } catch (error) {
-      console.error('Lỗi tổng quát khi lấy dữ liệu:', error);
-      setError(error.message || 'Không thể tải thông tin. Vui lòng thử lại sau.');
       
-      // Chỉ hiển thị Alert trong môi trường dev
-      if (__DEV__) {
-        Alert.alert('Lỗi', error.message);
-      }
+      setError('Không thể tải thông tin workshop');
+    } catch (error) {
+      console.error('Lỗi khi tải dữ liệu:', error);
+      setError('Không thể tải thông tin workshop. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
       setRetrying(false);
