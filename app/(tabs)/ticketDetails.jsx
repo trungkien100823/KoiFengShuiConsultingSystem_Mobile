@@ -1,117 +1,103 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function TicketDetails() {
-  const route = useRoute();
-  const navigation = useNavigation();
-  
-  // Lấy dữ liệu từ params
-  const { ticket, ticketId } = route.params || {};
+  const { groupId, totalPrice } = useLocalSearchParams();
+  const router = useRouter();
   
   const [isLoading, setIsLoading] = useState(false);
   const [ticketsList, setTicketsList] = useState([]);
-  
-  // Đảm bảo có dữ liệu mặc định
-  const ticketData = ticket || {
-    title: 'Không có thông tin',
-    date: 'N/A',
-    location: 'N/A',
-    customerName: 'N/A',
-    phoneNumber: 'N/A',
-    email: 'N/A',
-    ticketCount: 1,
-    totalFee: '0$',
-  };
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (ticketId) {
-      fetchTicketsGroup(ticketId);
-    }
-  }, [ticketId]);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (groupId) {
+        fetchTicketsGroup(groupId);
+      }
+    }, [groupId])
+  );
 
   const fetchTicketsGroup = async (id) => {
     try {
       setIsLoading(true);
+      setError(null);
       
-      // Lấy token từ AsyncStorage
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
-        Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem thông tin vé');
-        navigation.navigate('login');
+        router.replace('/(tabs)/Login');
         return;
       }
-      
-      console.log(`Đang gọi API lấy danh sách vé theo nhóm với ID: ${id}`);
-      
-      // Sửa URL API để dùng trực tiếp thay vì dùng API_CONFIG.endpoints.getRegistersByGroup
-      const url = `${API_CONFIG.baseURL}/api/RegisterAttend/register-by-group/${id}`;
-      console.log('URL gọi API:', url);
-      
+
+      console.log('Đang gọi API với groupId:', id);
       const response = await axios.get(
-        url,
+        `${API_CONFIG.baseURL}/api/RegisterAttend/register-by-group/${id}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         }
       );
-      
-      console.log('Kết quả lấy danh sách vé theo nhóm:', response.data);
-      
+
+      console.log('Kết quả API:', response.data);
+
       if (response.data && response.data.isSuccess) {
-        const tickets = response.data.data || [];
-        setTicketsList(tickets);
+        setTicketsList(response.data.data || []);
       } else {
-        console.log('Không thể lấy danh sách vé:', response.data?.message);
-        // Có thể hiển thị thông báo lỗi nếu cần
+        throw new Error(response.data?.message || 'Không thể tải thông tin vé');
       }
     } catch (error) {
-      console.error('Lỗi khi lấy danh sách vé theo nhóm:', error);
-      console.log('Chi tiết lỗi:', error.response?.data);
+      console.error('Lỗi khi lấy thông tin vé:', error);
+      setError(error.message || 'Đã có lỗi xảy ra khi tải thông tin vé');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Tạo mảng số vé dựa vào ticketCount
-  const ticketArray = Array.from({ length: ticketData.ticketCount || 1 }, (_, i) => i + 1);
-
-  // Thêm các hàm helper sau vào trước return
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
+      if (isNaN(date.getTime())) return 'N/A';
       
       return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
     } catch (error) {
       console.error('Lỗi định dạng ngày:', error);
-      return dateString;
+      return 'N/A';
     }
   };
 
   const translateStatus = (status) => {
-    const statusMap = {
-      'Pending': 'Đang chờ để check-in',
-      'Confirmed': 'Đã check-in thành công',
-    };
+    if (!status) return 'N/A';
     
-    return statusMap[status] || status;
+    // Chuyển đổi status thành chữ thường để so sánh
+    const statusLower = status.toLowerCase();
+    
+    // Trả về trạng thái tiếng Việt tương ứng
+    switch (statusLower) {
+      case 'pending':
+        return 'Đang chờ xử lý thanh toán';
+      case 'confirmed':
+        return 'Đã check-in';
+      case 'paid':
+        return 'Đã thanh toán';
+      case 'canceled':
+        return 'Đã hủy';
+      default:
+        return status; // Trả về status gốc nếu không match
+    }
   };
 
-  // Lấy thông tin workshop từ ticket đầu tiên trong danh sách nếu có
-  const workshopInfo = ticketsList.length > 0 ? {
-    workshopName: ticketsList[0].workshopName,
-    startDate: ticketsList[0].startDate,
-    location: ticketsList[0].location,
-    customerName: ticketsList[0].customerName,
-    phoneNumber: ticketsList[0].phoneNumber,
-    customerEmail: ticketsList[0].customerEmail
-  } : null;
+  const formatCurrency = (amount) => {
+    return amount?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " VNĐ" || 'N/A';
+  };
+
+  const workshopInfo = ticketsList[0] || null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -121,152 +107,139 @@ export default function TicketDetails() {
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Ticket detail</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.push('/(tabs)/your_registerAttend')}
+        >
+          <Ionicons name="chevron-back" size={28} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Chi tiết vé</Text>
+        </View>
       </LinearGradient>
 
       <ScrollView style={styles.content}>
-        {/* Nếu có thông tin từ API, hiển thị thông tin từ API */}
-        {workshopInfo ? (
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#AE1D1D" />
+            <Text style={styles.loadingText}>Đang tải thông tin vé...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => fetchTicketsGroup(groupId)}
+            >
+              <Text style={styles.retryButtonText}>Thử lại</Text>
+            </TouchableOpacity>
+          </View>
+        ) : workshopInfo ? (
           <>
-            <Text style={styles.eventTitle}>{workshopInfo.workshopName}</Text>
+            <Text style={styles.eventTitle}>
+              <Ionicons name="ticket-outline" size={24} color="#AE1D1D" />
+              {' '}{workshopInfo.workshopName}
+            </Text>
             
             <View style={styles.ticketInfo}>
               <View style={styles.infoRow}>
-                <Text style={styles.label}>Ngày sự kiện:</Text>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="calendar-outline" size={20} color="#666" />
+                  <Text style={styles.label}>Ngày sự kiện:</Text>
+                </View>
                 <Text style={styles.value}>{formatDate(workshopInfo.startDate)}</Text>
               </View>
               
               <View style={styles.infoRow}>
-                <Text style={styles.label}>Địa điểm:</Text>
-                <Text style={styles.value}>{workshopInfo.location}</Text>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="location-outline" size={20} color="#666" />
+                  <Text style={styles.label}>Địa điểm:</Text>
+                </View>
+                <Text style={styles.value}>{workshopInfo.location || 'N/A'}</Text>
               </View>
 
               <View style={styles.divider} />
               
               <View style={styles.infoRow}>
-                <Text style={styles.label}>Khách hàng:</Text>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="person-outline" size={20} color="#666" />
+                  <Text style={styles.label}>Khách hàng:</Text>
+                </View>
                 <Text style={styles.value}>{workshopInfo.customerName}</Text>
               </View>
               
               <View style={styles.infoRow}>
-                <Text style={styles.label}>Số điện thoại:</Text>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="call-outline" size={20} color="#666" />
+                  <Text style={styles.label}>Số điện thoại:</Text>
+                </View>
                 <Text style={styles.value}>{workshopInfo.phoneNumber}</Text>
               </View>
               
               <View style={styles.infoRow}>
-                <Text style={styles.label}>Email:</Text>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="mail-outline" size={20} color="#666" />
+                  <Text style={styles.label}>Email:</Text>
+                </View>
                 <Text style={styles.value}>{workshopInfo.customerEmail}</Text>
               </View>
               
               <View style={styles.divider} />
               
               <View style={styles.infoRow}>
-                <Text style={styles.label}>Số lượng vé:</Text>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="documents-outline" size={20} color="#666" />
+                  <Text style={styles.label}>Số lượng vé:</Text>
+                </View>
                 <Text style={styles.value}>{ticketsList.length}</Text>
               </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="wallet-outline" size={20} color="#666" />
+                  <Text style={styles.label}>Tổng tiền:</Text>
+                </View>
+                <Text style={[styles.value, { color: '#AE1D1D', fontWeight: 'bold' }]}>
+                  {formatCurrency(totalPrice)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.ticketsListContainer}>
+              <Text style={styles.ticketsListTitle}>
+                <Ionicons name="list-circle-outline" size={24} color="#333" />
+                {' '}Danh sách vé
+              </Text>
+              {ticketsList.map((item, index) => (
+                <View key={item.attendId || index} style={styles.ticketItem}>
+                  <Text style={styles.ticketItemTitle}>Vé #{index + 1}</Text>
+                  <View style={styles.ticketItemDetails}>
+                    <View style={styles.ticketInfoRow}>
+                      <Text style={styles.ticketInfoLabel}>Mã vé:</Text>
+                      <Text style={styles.ticketInfoValue}>{item.attendId || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.ticketInfoRow}>
+                      <Text style={styles.ticketInfoLabel}>Trạng thái:</Text>
+                      <Text style={[
+                        styles.ticketInfoValue, 
+                        { 
+                          color: item.status?.toLowerCase() === 'confirmed' ? '#4CAF50' : 
+                                item.status?.toLowerCase() === 'pending' ? '#FF9800' : 
+                                item.status?.toLowerCase() === 'cancelled' || 
+                                item.status?.toLowerCase() === 'canceled' ? '#d32f2f' : '#333' 
+                        }
+                      ]}>
+                        {translateStatus(item.status)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
             </View>
           </>
         ) : (
-          <>
-            {/* Nếu không có thông tin từ API, hiển thị thông tin từ params */}
-            <Text style={styles.eventTitle}>{ticketData.title}</Text>
-            
-            <View style={styles.ticketInfo}>
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Date:</Text>
-                <Text style={styles.value}>{ticketData.date}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Location:</Text>
-                <Text style={styles.value}>{ticketData.location}</Text>
-              </View>
-
-              <View style={styles.divider} />
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Customer:</Text>
-                <Text style={styles.value}>{ticketData.customerName}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Phone:</Text>
-                <Text style={styles.value}>{ticketData.phoneNumber}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Email:</Text>
-                <Text style={styles.value}>{ticketData.email}</Text>
-              </View>
-              
-              <View style={styles.divider} />
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Number of Tickets:</Text>
-                <Text style={styles.value}>{ticketData.ticketCount}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Total Fee:</Text>
-                <Text style={styles.value}>{ticketData.totalFee}</Text>
-              </View>
-            </View>
-          </>
+          <Text style={styles.noTicketsText}>Không có thông tin vé</Text>
         )}
-        
-        {/* Hiển thị danh sách các vé riêng lẻ */}
-        <View style={styles.ticketsListContainer}>
-          <Text style={styles.ticketsListTitle}>Danh sách vé</Text>
-          
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#AE1D1D" />
-              <Text style={styles.loadingText}>Đang tải danh sách vé...</Text>
-            </View>
-          ) : ticketsList.length > 0 ? (
-            ticketsList.map((item, index) => (
-              <View key={item.attendId || index} style={styles.ticketItem}>
-                <Text style={styles.ticketItemTitle}>Vé #{index + 1}</Text>
-                <View style={styles.ticketItemDetails}>
-                  <View style={styles.ticketInfoRow}>
-                    <Text style={styles.ticketInfoLabel}>Mã vé:</Text>
-                    <Text style={styles.ticketInfoValue}>{item.attendId || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.ticketInfoRow}>
-                    <Text style={styles.ticketInfoLabel}>Trạng thái:</Text>
-                    <Text style={[
-                      styles.ticketInfoValue, 
-                      { 
-                        color: item.status === 'Confirmed' ? '#4CAF50' : 
-                              item.status === 'Pending' ? '#FF9800' : '#333' 
-                      }
-                    ]}>
-                      {translateStatus(item.status) || 'Chưa xác nhận'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noTicketsText}>Không có thông tin vé</Text>
-          )}
-        </View>
-        
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={styles.buttonWrapper} 
-            onPress={() => navigation.navigate('ticket_confirmation')}
-          >
-            <LinearGradient
-              colors={['#AE1D1D', '#212121']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
-            >
-              <Text style={styles.buttonText}>Cancel</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -278,15 +251,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    height: 80,
-    justifyContent: 'center',
+    height: 90,
+    justifyContent: 'flex-end',
+    paddingBottom: 15,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 30,
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
   },
   content: {
@@ -294,14 +273,16 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   eventTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20,
+    color: '#333',
+    textAlign: 'center',
   },
   ticketInfo: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
+    borderRadius: 15,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -316,14 +297,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginVertical: 8,
   },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '40%',
+  },
   label: {
     color: '#666',
     fontSize: 14,
+    marginLeft: 8,
   },
   value: {
-    color: '#000',
+    color: '#333',
     fontSize: 14,
     fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
   },
   divider: {
     height: 1,
@@ -331,16 +320,17 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   ticketsListContainer: {
-    marginTop: 20,
-    padding: 15,
+    marginTop: 25,
+    padding: 20,
     backgroundColor: '#f9f9f9',
-    borderRadius: 10,
+    borderRadius: 15,
   },
   ticketsListTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 15,
     color: '#333',
+    textAlign: 'center',
   },
   ticketItem: {
     backgroundColor: 'white',
@@ -416,5 +406,29 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: 'red',
+    marginBottom: 10,
+  },
+  retryButton: {
+    padding: 10,
+    backgroundColor: '#AE1D1D',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  backButton: {
+    position: 'absolute',
+    bottom: 12,
+    left: 20,
+    padding: 5,
   },
 });

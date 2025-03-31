@@ -20,6 +20,7 @@ import { consultingAPI } from '../../constants/consulting';
 import { API_CONFIG } from '../../constants/config';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function OnlineBookingScreen() {
   const router = useRouter();
@@ -37,91 +38,117 @@ export default function OnlineBookingScreen() {
     { key: 'null', value: 'Chúng tôi sẽ chọn giúp' }
   ]);
 
-  // Cập nhật selectedConsultant khi có master được chọn từ trang chi tiết
+  // Thêm hàm refresh để gọi lại các API
+  const refreshScreen = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch thông tin user
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+        router.push('login');
+        return;
+      }
+
+      const userResponse = await axios.get(
+        `${API_CONFIG.baseURL}/api/Account/current-user`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (userResponse.data) {
+        setName(userResponse.data.fullName || userResponse.data.userName || '');
+        setPhone(userResponse.data.phoneNumber || '');
+        setEmail(userResponse.data.email || '');
+      }
+
+      // Fetch danh sách consultants
+      const consultantData = await consultingAPI.getAllConsultants();
+      const formattedConsultants = [
+        { key: null, value: 'Chúng tôi sẽ chọn giúp' },
+        ...consultantData.map(consultant => ({
+          key: consultant.id,
+          value: consultant.name
+        }))
+      ];
+      
+      setConsultants(formattedConsultants);
+
+      // Reset các state khác
+      setDescription('');
+      if (!selectedMasterId) {
+        setSelectedConsultant('');
+      }
+
+    } catch (error) {
+      console.error('Lỗi khi refresh màn hình:', error);
+      Alert.alert(
+        "Thông báo",
+        "Không thể tải lại thông tin. Vui lòng thử lại sau."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Thêm useFocusEffect để refresh khi quay lại màn hình
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshScreen();
+      return () => {
+        // Cleanup nếu cần
+      };
+    }, [])
+  );
+
+  // Xóa các useEffect cũ vì đã được gộp vào refreshScreen
+  // Chỉ giữ lại useEffect cho selectedMasterId
   useEffect(() => {
     if (selectedMasterId && selectedMasterName) {
       setSelectedConsultant(selectedMasterId);
     }
   }, [selectedMasterId, selectedMasterName]);
 
-  // Sửa lại phần fetch consultants
-  useEffect(() => {
-    const fetchConsultants = async () => {
-      try {
-        const consultantData = await consultingAPI.getAllConsultants();
-        
-        // Format consultants for the dropdown
-        const formattedConsultants = [
-          { key: null, value: 'Chúng tôi sẽ chọn giúp' },
-          ...consultantData.map(consultant => ({
-            key: consultant.id,
-            value: consultant.name
-          }))
-        ];
-        
-        setConsultants(formattedConsultants);
+  // Cập nhật hàm để tạo booking online
+  const handleSubmit = async () => {
+    if (!name || !phone || !email || !description) {
+      Alert.alert("Thông báo", "Vui lòng điền đầy đủ thông tin");
+      return;
+    }
 
-        // Nếu có master được chọn, tìm và chọn trong dropdown
-        if (selectedMasterId) {
-          const selectedMaster = formattedConsultants.find(c => c.key === selectedMasterId);
-          if (selectedMaster) {
-            setSelectedConsultant(selectedMasterId);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching consultants:', error);
-        Alert.alert(
-          "Thông báo",
-          "Không thể tải danh sách master. Vui lòng thử lại sau."
-        );
-      } finally {
-        setIsLoading(false);
+    // Lấy thông tin master đã chọn
+    let masterId = null;
+    let masterName = 'Chúng tôi sẽ chọn giúp';
+
+    if (fromMasterDetails) {
+      masterId = selectedMasterId;
+      masterName = selectedMasterName;
+    } else if (selectedConsultant !== 'null') {
+      const selectedMaster = consultants.find(c => c.key === selectedConsultant);
+      if (selectedMaster) {
+        masterId = selectedMaster.key;
+        masterName = selectedMaster.value;
       }
-    };
+    }
 
-    fetchConsultants();
-  }, [selectedMasterId]);
-
-  // Thêm useEffect để lấy thông tin người dùng hiện tại
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const token = await AsyncStorage.getItem('accessToken');
-        
-        if (!token) {
-          Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
-          router.push('login');
-          return;
-        }
-
-        const response = await axios.get(
-          `${API_CONFIG.baseURL}/api/Account/current-user`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        );
-
-        console.log('Current user response:', response.data);
-
-        if (response.data) {
-          setName(response.data.fullName || response.data.userName || '');
-          setPhone(response.data.phoneNumber || '');
-          setEmail(response.data.email || '');
-        } else {
-          Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng');
-        }
-      } catch (error) {
-        console.error('Lỗi khi lấy thông tin người dùng:', error);
-        Alert.alert('Lỗi', 'Không thể lấy thông tin người dùng');
-      } finally {
-        setIsLoading(false);
+    // Chuyển đến trang chọn lịch với thông tin đã nhập
+    router.push({
+      pathname: '/(tabs)/online_schedule',
+      params: {
+        customerInfo: JSON.stringify({
+          name,
+          phone,
+          email,
+          description: description.trim(),
+          masterId,
+          masterName
+        })
       }
-    };
-
-    fetchCurrentUser();
-  }, []);
+    });
+  };
 
   return (
     <ImageBackground 
@@ -182,11 +209,12 @@ export default function OnlineBookingScreen() {
               {/* Name Input */}
               <View style={styles.formGroup}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, {opacity: 0.7}]}
                   value={name}
                   onChangeText={setName}
                   placeholder="Họ và tên"
                   placeholderTextColor="#FFFFFF"
+                  editable={false}
                 />
                 <Text style={styles.asterisk}>*</Text>
               </View>
@@ -194,12 +222,13 @@ export default function OnlineBookingScreen() {
               {/* Phone Number */}
               <View style={styles.formGroup}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, {opacity: 0.7}]}
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="Số điện thoại"
                   keyboardType="phone-pad"
                   placeholderTextColor="#FFFFFF"
+                  editable={false}
                 />
                 <Text style={styles.asterisk}>*</Text>
               </View>
@@ -207,12 +236,13 @@ export default function OnlineBookingScreen() {
               {/* Email */}
               <View style={styles.formGroup}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, {opacity: 0.7}]}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="Email"
                   keyboardType="email-address"
                   placeholderTextColor="#FFFFFF"
+                  editable={false}
                 />
                 <Text style={styles.asterisk}>*</Text>
               </View>
@@ -234,47 +264,7 @@ export default function OnlineBookingScreen() {
               {/* Submit Button */}
               <TouchableOpacity 
                 style={styles.submitButton}
-                onPress={() => {
-                  if (!name || !phone || !email) {
-                    Alert.alert("Thông báo", "Vui lòng điền đầy đủ thông tin");
-                    return;
-                  }
-                  
-                  // Lấy thông tin master đã chọn
-                  let masterId = null;
-                  let masterName = 'Chúng tôi sẽ chọn giúp';
-                  
-                  // Nếu từ trang chi tiết Master, sử dụng thông tin Master đã chọn
-                  if (fromMasterDetails) {
-                    masterId = selectedMasterId;
-                    masterName = selectedMasterName;
-                  } else {
-                    // Nếu không, xác định thông tin từ lựa chọn trong dropdown
-                    if (selectedConsultant !== null) {
-                      const selectedMaster = consultants.find(c => c.key === selectedConsultant);
-                      if (selectedMaster) {
-                        masterId = selectedMaster.key;
-                        masterName = selectedMaster.value;
-                      }
-                    }
-                  }
-
-                  console.log('Selected consultant info:', { masterId, masterName });
-                  
-                  router.push({
-                    pathname: '/(tabs)/online_schedule',
-                    params: {
-                      customerInfo: JSON.stringify({
-                        Name: name,
-                        Phone: phone,
-                        Email: email,
-                        Description: description,
-                        MasterId: masterId,
-                        MasterName: masterName
-                      })
-                    }
-                  });
-                }}
+                onPress={handleSubmit}
               >
                 <Text style={styles.submitButtonText}>Chọn lịch tư vấn</Text>
               </TouchableOpacity>

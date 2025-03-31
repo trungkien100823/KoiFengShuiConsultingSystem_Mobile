@@ -102,7 +102,12 @@ export default function CoursesScreen() {
       }
     };
 
-    loadData();
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('Màn hình Courses được focus - Tải lại dữ liệu');
+      loadData();
+    });
+
+    return unsubscribe;
   }, [navigation]);
 
   const renderFeaturedCourse = ({ item }) => (

@@ -17,16 +17,25 @@ export default function UserInfo() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadUserInfo();
-  }, []);
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadUserInfo();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const loadUserInfo = async () => {
     try {
+      setLoading(true);
       const result = await authAPI.currentCustomerElement();
       if (result.success) {
         setUserInfo(result.data);
+      } else {
+        setUserInfo(null);
       }
     } catch (error) {
+      console.error('Error loading user info:', error);
+      setUserInfo(null);
       Alert.alert('Lỗi', error.toString());
     } finally {
       setLoading(false);

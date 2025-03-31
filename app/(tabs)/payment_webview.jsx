@@ -79,7 +79,6 @@ export default function PaymentWebView() {
 
       } catch (error) {
         console.error('Chi tiết lỗi khi cập nhật trạng thái đơn hàng:', error.response?.data || error);
-        // Chỉ hiện Alert khi có lỗi
         Alert.alert(
           'Thông báo',
           'Đã xảy ra lỗi khi cập nhật trạng thái đơn hàng. Vui lòng liên hệ hỗ trợ.',
@@ -171,7 +170,7 @@ export default function PaymentWebView() {
         style={styles.header}
       >
         <TouchableOpacity 
-          onPress={() => navigation.goBack()} 
+          onPress={() => navigation.navigate('workshop')} 
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color="white" />
