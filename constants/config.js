@@ -23,6 +23,10 @@ export const API_CONFIG = {
     getBooking: '/api/Booking/{id}',
     offlineTransactionComplete: '/api/Booking/offline-transaction-complete',
     currentLoginBookingOffline: '/api/Booking/current-login-bookingOffline',
+    getAllBookingTypeEnums: '/api/Booking/get-all-bookingTypeEnums',
+    getAllBookingOnlineEnums: '/api/Booking/get-all-bookingOnlineEnums',
+    getAllBookingOfflineEnums: '/api/Booking/get-all-bookingOfflineEnums',
+    getBookingsByTypeAndStatus: '/api/Booking/get-bookings-by-type-and-status',
 
     // Pond endpoints
     allPonds: '/api/KoiPond/get-all',
@@ -30,11 +34,13 @@ export const API_CONFIG = {
     allPondShapes: '/api/KoiPond/get-all-shape',
     pondByShape: '/api/KoiPond/get-by-shape/{id}',
     pondRecommendations: '/api/KoiPond/recommend',
+    pondByName: '/api/KoiPond/get-by-name',
     
     // Auth endpoints
     register: '/api/Account/register',
     login: '/api/Account/login',
     currentUser: '/api/Account/current-user',
+    logout: '/api/Account/logout',
 
     // Customer endpoints
     currentCustomerElement: '/api/Customer/current-customer-element-palace',
@@ -49,6 +55,8 @@ export const API_CONFIG = {
     createRegisterAttend: '/api/RegisterAttend/create',
     ticketDetails: '/api/RegisterAttend/{registerAttendId}',
     getRegistersByGroup: '/api/RegisterAttend/register-by-group/{id}',
+    getRegisterByStatus: '/api/RegisterAttend/get-by-status-for-current-user',
+    getAllRegisterAttendEnums: '/api/RegisterAttend/get-all-registerAttendEnums',
 
     // master endpoints
     masterDetails: '/api/Master/{id}',

@@ -14,6 +14,21 @@ import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { getAuthHeaders } from '../../services/authService';
 
+const colorCodeMap = {
+  'Trắng': '#FFFFFF',
+  'Xám': '#808080',
+  'Ghi': '#A9A9A9',
+  'Vàng': '#FFD700',
+  'Nâu': '#8B4513',
+  'XanhLá': '#008000',
+  'XanhDương': '#0000FF',
+  'Đen': '#000000',
+  'Đỏ': '#FF0000',
+  'Hồng': '#FFC0CB',
+  'Cam': '#FFA500',
+  'Tím': '#800080'
+};
+
 export default function FishDetails() {
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -392,9 +407,9 @@ export default function FishDetails() {
                         maximumValue={100}
                         value={color.percentage}
                         enabled={true}
-                        minimumTrackTintColor={color.colorCode}
-                        maximumTrackTintColor="#D3D3D3"
-                        thumbTintColor={color.colorCode}
+                        minimumTrackTintColor={colorCodeMap[color.colorName] || '#D3D3D3'}
+                        maximumTrackTintColor="#EEEEEE"
+                        thumbTintColor={colorCodeMap[color.colorName] || '#8B0000'}
                         onValueChange={(value) => {
                           const newColors = [...koiDetails.colors];
                           newColors[index] = {
@@ -407,7 +422,12 @@ export default function FishDetails() {
                           });
                         }}
                       />
-                      <Text style={styles.percentageText}>{Math.round(color.percentage)}%</Text>
+                      <Text style={[
+                        styles.percentageText,
+                        { color: colorCodeMap[color.colorName] || '#333' }
+                      ]}>
+                        {Math.round(color.percentage)}%
+                      </Text>
                     </View>
                   ))}
                 </View>
@@ -645,11 +665,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 15,
+    backgroundColor: '#F5F5F5',
+    padding: 10,
+    borderRadius: 8,
   },
   sliderLabel: {
-    width: 80, // Tăng width để hiển thị tên màu dài hơn
+    width: 100,
     fontSize: 16,
     color: '#333',
+    fontWeight: '500',
   },
   slider: {
     flex: 1,
@@ -661,7 +685,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
   },
   compatibilityContainer: {
     flexDirection: 'row',

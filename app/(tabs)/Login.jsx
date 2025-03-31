@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -20,6 +20,16 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      setEmail('');
+      setPassword('');
+      setShowPassword(false);
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   const handleLogin = async () => {
     try {
       if (!email || !password) {
@@ -32,7 +42,11 @@ export default function LoginScreen() {
       const result = await authAPI.login(email, password);
 
       if (result.success) {
-        router.push('/UserInfo');
+        setEmail('');
+        setPassword('');
+        setShowPassword(false);
+        
+        router.replace('/UserInfo');
       }
     } catch (error) {
       Alert.alert(
