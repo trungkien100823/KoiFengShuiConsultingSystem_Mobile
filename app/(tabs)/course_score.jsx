@@ -26,11 +26,15 @@ export default function CourseScoreScreen() {
     source = 'chapter',
     totalQuestions = '10',
     correctAnswers = '0',
-    timeSpent = '0'
+    timeSpent = '0',
+    percentage = '0'
   } = useLocalSearchParams();
   
   const [quizDetails, setQuizDetails] = useState(null);
   const [hasSharedResult, setHasSharedResult] = useState(false);
+  const [scoreData, setScoreData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Quiz data mapping
   const quizTitles = {
@@ -49,28 +53,65 @@ export default function CourseScoreScreen() {
   const numericTimeSpent = parseInt(timeSpent);
 
   useEffect(() => {
-    // Load quiz data from AsyncStorage
-    const loadQuizData = async () => {
+    const loadScoreData = async () => {
       try {
-        const savedQuizzes = await AsyncStorage.getItem('completedQuizzes');
-        if (savedQuizzes) {
-          const quizzes = JSON.parse(savedQuizzes);
-          setQuizDetails(quizzes[quizId]);
+        // Use the score data directly from navigation params
+        if (score && correctAnswers && totalQuestions) {
+          setScoreData({
+            score: parseFloat(score),
+            correctAnswers: parseInt(correctAnswers),
+            totalQuestions: parseInt(totalQuestions),
+            percentage: parseInt(percentage) || 
+              Math.round((parseInt(correctAnswers) / parseInt(totalQuestions)) * 100)
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        // Fallback to API call if params don't contain the data
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
+          throw new Error('Authentication required');
+        }
+        
+        const response = await fetch(
+          `${API_CONFIG.baseURL}/api/Quiz/result/${quizId}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch score: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.isSuccess && result.data) {
+          const apiResult = result.data;
+          setScoreData({
+            score: apiResult.totalScore,
+            correctAnswers: apiResult.correctAnswers,
+            totalQuestions: apiResult.totalQuestions,
+            percentage: Math.round((apiResult.correctAnswers / apiResult.totalQuestions) * 100)
+          });
+        } else {
+          throw new Error('Invalid score data received');
         }
       } catch (error) {
-        console.log('Error loading quiz data:', error);
+        console.error('Error loading score:', error);
+        setError('Failed to load your quiz results. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
     };
     
-    loadQuizData();
-    
-    // Haptic feedback for achievement
-    if (numericScore >= 7) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [quizId]);
+    loadScoreData();
+  }, [score, correctAnswers, totalQuestions, percentage]);
 
   // Get section title based on quiz ID
   const getCurrentSection = () => {
@@ -96,8 +137,12 @@ export default function CourseScoreScreen() {
   // Handle sharing result
   const handleShareResult = async () => {
     try {
+      const scoreToShare = scoreData?.score 
+        ? scoreData.score.toFixed(1) 
+        : parseFloat(score).toFixed(1);
+        
       const result = await Share.share({
-        message: `Tôi vừa hoàn thành ${quizTitles[quizId]} với điểm số ${numericScore.toFixed(1)}/10 trong ứng dụng Phong Thủy Cổ Học!`,
+        message: `Tôi vừa hoàn thành ${quizTitles[quizId]} với điểm số ${scoreToShare}/10 trong ứng dụng Phong Thủy Cổ Học!`,
       });
       
       if (result.action === Share.sharedAction) {
@@ -110,7 +155,7 @@ export default function CourseScoreScreen() {
 
   // Check if quiz was passed
   const passThreshold = quizId === 'final-exam' ? 8.0 : 7.0;
-  const isPassed = numericScore >= passThreshold;
+  const isPassed = scoreData?.score >= passThreshold;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -131,7 +176,11 @@ export default function CourseScoreScreen() {
         {/* Score Display */}
         <View style={styles.scoreContainer}>
           <View style={[styles.scoreCircle, isPassed ? styles.scoreCirclePassed : styles.scoreCircleFailed]}>
-            <Text style={styles.scoreText}>{numericScore.toFixed(1)}</Text>
+            <Text style={styles.scoreText}>
+              {scoreData && typeof scoreData.score === 'number' 
+                ? scoreData.score.toFixed(1) 
+                : parseFloat(score).toFixed(1)}
+            </Text>
             <Text style={styles.scoreMax}>/10</Text>
           </View>
           
@@ -151,7 +200,9 @@ export default function CourseScoreScreen() {
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Ionicons name="checkmark-circle" size={24} color="#4CAF50" style={styles.statIcon} />
-            <Text style={styles.statValue}>{numericCorrectAnswers}/{numericTotalQuestions}</Text>
+            <Text style={styles.statValue}>
+              {scoreData ? `${scoreData.correctAnswers}/${scoreData.totalQuestions}` : `${correctAnswers}/${totalQuestions}`}
+            </Text>
             <Text style={styles.statLabel}>Câu trả lời đúng</Text>
           </View>
           

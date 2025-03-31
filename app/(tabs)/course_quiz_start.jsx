@@ -14,16 +14,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../../constants/config';
 
 const { width } = Dimensions.get('window');
 
 export default function CourseQuizStartScreen() {
   const router = useRouter();
-  const { quizId = 'final-exam', source = 'chapter', courseId = '0AA77A49-CAFF-4F01-B' } = useLocalSearchParams();
+  const { courseId, source } = useLocalSearchParams();
   const [completedQuizzes, setCompletedQuizzes] = useState({});
   const [quizData, setQuizData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [quizId, setQuizId] = useState(null);
+  const [quizTitle, setQuizTitle] = useState('');
 
   // Section titles
   const sectionTitles = {
@@ -32,14 +35,12 @@ export default function CourseQuizStartScreen() {
 
   // Default quiz details (fallback if API fails)
   const defaultQuizDetails = {
-    'final-exam': {
-      description: 'Bài kiểm tra cuối khóa sẽ đánh giá toàn bộ kiến thức bạn đã học trong khóa Phong thủy cổ học, bao gồm các kiến thức từ cả 3 chương.',
-      timeLimit: '30 phút',
-      questions: 30,
-      passingScore: '80%',
-      attempts: '3 lần',
-      requirements: 'Hoàn thành tất cả các bài học và bài kiểm tra trong khóa học'
-    }
+    description: 'Bài kiểm tra cuối khóa sẽ đánh giá toàn bộ kiến thức bạn đã học trong khóa học.',
+    timeLimit: '30 phút',
+    questions: 30,
+    passingScore: '80%',
+    attempts: '3 lần',
+    requirements: 'Hoàn thành tất cả các bài học trong khóa học'
   };
 
   // Get current section from quizId
@@ -54,12 +55,43 @@ export default function CourseQuizStartScreen() {
     const fetchQuizData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`http://192.168.31.148:5261/api/Quiz/by-course/${courseId}`);
-        const result = await response.json();
         
-        if (result.isSuccess) {
-          console.log('Quiz data fetched successfully:', result.data);
+        // Get the auth token
+        const token = await AsyncStorage.getItem('accessToken');
+        
+        if (!token) {
+          throw new Error('Vui lòng đăng nhập để xem bài kiểm tra');
+        }
+        
+        console.log(`Fetching quiz for course: ${courseId}`);
+        
+        const response = await fetch(
+          `${API_CONFIG.baseURL}/api/Quiz/by-course/${courseId}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        const result = await response.json();
+        console.log('Quiz API response:', result);
+        
+        if (result.isSuccess && result.data) {
           setQuizData(result.data);
+          
+          // Extract quizId and title
+          if (result.data.quizId) {
+            setQuizId(result.data.quizId);
+            console.log('Found quiz ID:', result.data.quizId);
+          }
+          
+          if (result.data.title) {
+            setQuizTitle(result.data.title);
+            console.log('Quiz title:', result.data.title);
+          }
         } else {
           console.error('API returned error:', result.message);
           setError(result.message || 'Failed to fetch quiz data');
@@ -72,7 +104,13 @@ export default function CourseQuizStartScreen() {
       }
     };
 
-    fetchQuizData();
+    if (courseId) {
+      fetchQuizData();
+    } else {
+      console.error('No courseId provided');
+      setError('Missing course information');
+      setLoading(false);
+    }
   }, [courseId]);
 
   // Load completed quizzes on mount
@@ -93,36 +131,45 @@ export default function CourseQuizStartScreen() {
 
   // Handle back button
   const handleBack = () => {
-    router.push("/(tabs)/course_chapter");
+    router.push({
+      pathname: "/(tabs)/course_chapter",
+      params: { courseId }
+    });
   };
 
   // Start the quiz
   const handleStartQuiz = () => {
+    if (!quizId) {
+      console.error('No quiz ID available');
+      return;
+    }
+    
     router.push({
       pathname: '/(tabs)/course_quiz',
-      params: { quizId, source }
+      params: { 
+        quizId: quizId,
+        courseId: courseId 
+      }
     });
   };
 
   // Get quiz title from API data or fallback
   const getQuizTitle = () => {
-    if (quizData && quizData.title) {
-      return quizData.title;
+    if (quizTitle) {
+      return quizTitle;
     }
     return 'Bài kiểm tra cuối khóa';
   };
 
   // Get quiz details (combining API data with default structure)
   const getQuizDetails = () => {
-    if (!quizData) return defaultQuizDetails['final-exam'];
-    
     return {
-      description: quizData.description || defaultQuizDetails['final-exam'].description,
-      timeLimit: '30 phút', // Using default as API doesn't provide this
-      questions: 30, // Using default as API doesn't provide this
-      passingScore: '80%', // Using default as API doesn't provide this
-      attempts: '3 lần', // Using default as API doesn't provide this
-      requirements: 'Hoàn thành tất cả các bài học và bài kiểm tra trong khóa học'
+      description: quizData?.description || defaultQuizDetails.description,
+      timeLimit: defaultQuizDetails.timeLimit,
+      questions: defaultQuizDetails.questions,
+      passingScore: defaultQuizDetails.passingScore,
+      attempts: defaultQuizDetails.attempts,
+      requirements: defaultQuizDetails.requirements
     };
   };
 
@@ -145,7 +192,7 @@ export default function CourseQuizStartScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header - Same style as course_video.jsx */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#333" />
@@ -162,7 +209,7 @@ export default function CourseQuizStartScreen() {
             <Ionicons name="document-text-outline" size={40} color="#8B0000" />
           </View>
           <Text style={styles.quizTitle}>{getQuizTitle()}</Text>
-          {completedQuizzes[quizId] && (
+          {quizId && completedQuizzes[quizId] && (
             <View style={styles.completedBadge}>
               <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
               <Text style={styles.completedText}>Đã hoàn thành</Text>
@@ -242,9 +289,10 @@ export default function CourseQuizStartScreen() {
         <TouchableOpacity 
           style={styles.startButton}
           onPress={handleStartQuiz}
+          disabled={!quizId}
         >
           <Text style={styles.startButtonText}>
-            {completedQuizzes[quizId] ? 'Làm lại bài kiểm tra' : 'Bắt đầu bài kiểm tra'}
+            {quizId && completedQuizzes[quizId] ? 'Làm lại bài kiểm tra' : 'Bắt đầu bài kiểm tra'}
           </Text>
         </TouchableOpacity>
       </View>
