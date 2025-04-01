@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -19,6 +20,7 @@ import { Video, Audio, ResizeMode } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +45,16 @@ export default function CourseVideoScreen() {
   const [videoErrorMessage, setVideoErrorMessage] = useState('');
   const [retryCount, setRetryCount] = useState(0);
 
+  // Add a useRef to store the processed video URL to prevent unnecessary recalculations
+  const processedVideoUrlRef = useRef(null);
+
+  // Add these refs at the top of your component
+  const hasLoggedVideoUrl = useRef(false);
+  const currentVideoUrl = useRef('');
+
+  // Add this state to track if video should auto-play
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(true);
+
   // Load completion data from storage
   useEffect(() => {
     const loadCompletionData = async () => {
@@ -66,7 +78,7 @@ export default function CourseVideoScreen() {
     loadCompletionData();
   }, []);
 
-  // Set up audio
+  // Modify the audio setup useEffect to properly handle navigation
   useEffect(() => {
     const setupAudio = async () => {
       try {
@@ -82,12 +94,62 @@ export default function CourseVideoScreen() {
     };
     
     setupAudio();
+    
+    // This cleanup function runs when navigating away from the page
     return () => {
+      console.log('Navigating away - stopping video playback');
       if (videoRef.current) {
-        videoRef.current.unloadAsync();
+        try {
+          // Stop playback when leaving the screen
+          videoRef.current.pauseAsync().catch(err => console.log('Error pausing video:', err));
+          videoRef.current.setPositionAsync(0).catch(err => console.log('Error resetting position:', err));
+        } catch (err) {
+          console.log('Error in video cleanup:', err);
+        }
       }
     };
   }, []);
+
+  // Add this useFocusEffect to handle focus/blur events
+  useFocusEffect(
+    useCallback(() => {
+      // This runs when the screen comes into focus
+      console.log('Screen focused - preparing video');
+      
+      // Prepare for playback when screen is focused
+      if (videoRef.current) {
+        try {
+          // After a delay to ensure everything is ready
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.setPositionAsync(0)
+                .then(() => {
+                  if (shouldAutoPlay) {
+                    videoRef.current.playAsync();
+                  }
+                })
+                .catch(err => console.log('Error preparing video on focus:', err));
+            }
+          }, 500);
+        } catch (err) {
+          console.log('Error in focus effect:', err);
+        }
+      }
+      
+      // This runs when the screen loses focus (navigating away)
+      return () => {
+        console.log('Screen blurred - stopping video');
+        if (videoRef.current) {
+          try {
+            videoRef.current.pauseAsync()
+              .catch(err => console.log('Error pausing on blur:', err));
+          } catch (err) {
+            console.log('Error in blur cleanup:', err);
+          }
+        }
+      };
+    }, [shouldAutoPlay])
+  );
 
   // Fetch chapter data and course content
   useEffect(() => {
@@ -118,6 +180,16 @@ export default function CourseVideoScreen() {
         );
 
         console.log('Chapter response:', response.data);
+
+        // Add detailed logging about the video URL
+        if (response.data?.isSuccess && response.data.data) {
+          const videoUrl = response.data.data.video;
+          console.log('Raw video URL from API:', videoUrl, 'Type:', typeof videoUrl);
+          
+          if (videoUrl === 'string' || !videoUrl || typeof videoUrl !== 'string') {
+            console.warn('Backend returned invalid video URL. This is likely a backend issue.');
+          }
+          }
 
         if (response.data?.isSuccess) {
           setChapterData(response.data.data);
@@ -164,6 +236,22 @@ export default function CourseVideoScreen() {
     fetchChapterData();
   }, [params.chapterId]);
 
+  // Add this to useEffect for chapter data to trigger auto-play when data loads
+  useEffect(() => {
+    if (chapterData && videoRef.current) {
+      // Auto-play when chapter data is loaded
+      try {
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.playAsync();
+          }
+        }, 1000); // Small delay to ensure video is ready
+      } catch (err) {
+        console.log('Error auto-playing video:', err);
+      }
+    }
+  }, [chapterData]);
+
   const handleBack = async () => {
     if (isCompleted) {
       await updateProgress();
@@ -175,108 +263,215 @@ export default function CourseVideoScreen() {
   };
 
   const handlePlaybackStatusUpdate = (playbackStatus) => {
+    // Only update status if it's substantially different to prevent re-render loops
+    if (
+      playbackStatus.isLoaded && 
+      (!status.isLoaded || 
+       Math.abs(playbackStatus.positionMillis - status.positionMillis) > 1000 ||
+       playbackStatus.isPlaying !== status.isPlaying)
+    ) {
     setStatus(playbackStatus);
+    }
+    
+    // Set loading state only once
     if (playbackStatus.isLoaded && loading) {
       setLoading(false);
     }
     
+    // Check completion only when we're near the end to prevent multiple triggers
     if (playbackStatus.isLoaded && 
         playbackStatus.positionMillis > 0 && 
-        playbackStatus.positionMillis === playbackStatus.durationMillis &&
-        !isCompleted) {
+        !isCompleted &&
+        playbackStatus.durationMillis > 0 &&
+        playbackStatus.positionMillis >= playbackStatus.durationMillis * 0.95) {
       setIsCompleted(true);
+      updateProgress().catch(err => console.error("Error updating progress:", err));
     }
   };
 
   const updateProgress = async () => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const response = await axios.put(
-        `${API_CONFIG.baseURL}/api/RegisterCourse/${params.chapterId}`,
-        {},
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      
+      // Check if we have a valid chapterId
+      if (!params.chapterId) {
+        console.error('Missing chapterId for progress update');
+        return;
+      }
+      
+      console.log('Updating progress for chapter:', params.chapterId);
+      
+      // Try to update on backend
+      try {
+        const response = await axios.put(
+          `${API_CONFIG.baseURL}/api/RegisterCourse/${params.chapterId}`,
+          {},
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        console.log('Progress update API Response:', response.data);
+
+        if (response.data?.isSuccess) {
+          console.log('Cập nhật tiến độ thành công:', response.data.message);
+        } else {
+          console.warn('Backend returned error but we will save locally:', response.data?.message);
+        }
+      } catch (apiError) {
+        console.warn('API error but continuing with local save:', apiError.message);
+      }
+      
+      // Save progress locally regardless of API success/failure
+      console.log('Saving progress locally for chapter:', params.chapterId);
+      const updatedLessons = { 
+        ...completedLessons, 
+        [params.chapterId]: true 
+      };
+      setCompletedLessons(updatedLessons);
+      
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('completedLessons', JSON.stringify(updatedLessons));
+      
+      // Check if this is the last chapter in the course
+      if (courseContent.length > 0) {
+        const isLastChapter = currentChapterIndex === courseContent.length - 1;
+        
+        // If this is the last chapter, check if all chapters are completed
+        if (isLastChapter) {
+          const allChaptersCompleted = checkAllChaptersCompleted(updatedLessons);
+          
+          if (allChaptersCompleted) {
+            // If all chapters are completed, navigate to quiz start
+            console.log('All chapters completed! Navigating to quiz start...');
+            
+            // Add a small delay to ensure the UI updates are complete
+            setTimeout(() => {
+              Alert.alert(
+                "Khóa học hoàn thành!",
+                "Bạn đã hoàn thành tất cả các bài học. Bạn có muốn làm bài kiểm tra cuối khóa không?",
+                [
+                  {
+                    text: "Để sau",
+                    style: "cancel"
+                  },
+                  { 
+                    text: "Làm ngay", 
+                    onPress: () => navigateToQuiz()
+                  }
+                ]
+              );
+            }, 1000);
+          }
+        } else {
+          // If not the last chapter, automatically navigate to the next chapter
+          const nextChapter = courseContent[currentChapterIndex + 1];
+          if (nextChapter) {
+            console.log('Chapter completed! Navigating to next chapter:', nextChapter.title);
+            
+            // Add a small delay to ensure the UI updates are complete
+            setTimeout(() => {
+              Alert.alert(
+                "Chương học hoàn thành!",
+                "Bạn có muốn tiếp tục với chương tiếp theo không?",
+                [
+                  {
+                    text: "Để sau",
+                    style: "cancel"
+                  },
+                  { 
+                    text: "Tiếp tục", 
+                    onPress: () => navigateToChapter(nextChapter)
+                  }
+                ]
+              );
+            }, 1000);
           }
         }
-      );
-
-      console.log('API Response:', response.data);
-
-      if (response.data?.isSuccess) {
-        console.log('Cập nhật tiến độ thành công:', response.data.message);
-        
-        // Update completedLessons
+      }
+    } catch (error) {
+      console.error('Error in updateProgress function:', error);
+      
+      // Always try to update local storage even if there's an error
+      try {
         const updatedLessons = { 
           ...completedLessons, 
           [params.chapterId]: true 
         };
         setCompletedLessons(updatedLessons);
-        
-        // Save to AsyncStorage
         await AsyncStorage.setItem('completedLessons', JSON.stringify(updatedLessons));
-      } else {
-        console.error('Lỗi cập nhật tiến độ:', response.data?.message);
+      } catch (storageError) {
+        console.error('Failed to save local progress:', storageError);
       }
-    } catch (error) {
-      console.error('Lỗi khi gọi API cập nhật tiến độ:', error.response?.data || error);
     }
   };
 
+  // Add a function to check if all chapters are completed
+  const checkAllChaptersCompleted = (currentCompletedLessons) => {
+    if (!courseContent || courseContent.length === 0) return false;
+    
+    return courseContent.every(chapter => 
+      currentCompletedLessons[chapter.chapterId] === true
+    );
+  };
+
   const navigateToChapter = (chapter) => {
+    // Set auto-play for the next chapter
+    setShouldAutoPlay(true);
+    
     router.push({
       pathname: '/(tabs)/course_video',
       params: {
         chapterId: chapter.chapterId,
-        courseId: courseId
+        courseId: courseId,
+        autoPlay: 'true' // Add this to signal auto-play
       }
     });
   };
 
   const navigateToQuiz = () => {
-    // Navigate to quiz start screen first
+    // Save quiz start time to track time spent
+    const startTime = new Date().getTime();
+    AsyncStorage.setItem('quizStartTime', startTime.toString())
+      .catch(err => console.error('Error saving quiz start time:', err));
+    
+    // Navigate to quiz start screen
     router.push({
       pathname: '/(tabs)/course_quiz_start',
       params: { 
-        courseId: courseId
+        courseId: courseId,
+        source: 'video_completion'
       }
     });
   };
 
   // Function to retry loading the video
   const retryVideo = () => {
-    if (retryCount < 3) {
-      setVideoError(false);
-      setVideoErrorMessage('');
-      setLoading(true);
-      setRetryCount(retryCount + 1);
-      
-      // Unload and reload the video
+    setVideoError(false);
+    setVideoErrorMessage('');
+    setRetryCount(prev => prev + 1);
+    
+    // Re-mount the video component
+    setLoading(true);
+    setTimeout(() => {
       if (videoRef.current) {
-        videoRef.current.unloadAsync().then(() => {
-          // Force reload by creating a new video URL with cache buster
-          if (chapterData && chapterData.video) {
-            const cacheBuster = Date.now();
-            const videoUrl = chapterData.video.includes('?') 
-              ? `${chapterData.video}&cb=${cacheBuster}`
-              : `${chapterData.video}?cb=${cacheBuster}`;
-              
-            // Update chapter data with new URL
-            setChapterData({
-              ...chapterData,
-              videoWithCacheBuster: videoUrl
-            });
+        videoRef.current.loadAsync({
+          uri: chapterData?.videoWithCacheBuster || chapterData?.video || 
+          'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
           }
+        }).catch(err => {
+          console.error('Error reloading video:', err);
+          setVideoError(true);
+          setVideoErrorMessage('Không thể tải lại video. Vui lòng thử lại sau.');
         });
       }
-    } else {
-      Alert.alert(
-        'Không thể phát video',
-        'Đã thử lại nhiều lần nhưng không thành công. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.',
-        [{ text: 'OK' }]
-      );
-    }
+    }, 500);
   };
 
   // Function to render the video player or error message
@@ -288,6 +483,9 @@ export default function CourseVideoScreen() {
           <Text style={styles.videoErrorText}>
             {videoErrorMessage || 'Không thể phát video. Vui lòng thử lại.'}
           </Text>
+          <Text style={styles.videoErrorSubtext}>
+            Đang sử dụng video thay thế. Chúng tôi sẽ sớm khắc phục lỗi này.
+          </Text>
           <TouchableOpacity style={styles.retryButton} onPress={retryVideo}>
             <Ionicons name="refresh" size={24} color="#fff" />
             <Text style={styles.retryButtonText}>Thử lại</Text>
@@ -296,33 +494,202 @@ export default function CourseVideoScreen() {
       );
     }
 
+    // If we already processed the URL and it hasn't changed, use the cached version
+    if (processedVideoUrlRef.current && 
+        processedVideoUrlRef.current.originalUrl === (chapterData?.video || "")) {
+      
+      // Only log if the URL has changed
+      if (currentVideoUrl.current !== processedVideoUrlRef.current.processedUrl) {
+        console.log('Using cached video URL:', processedVideoUrlRef.current.processedUrl);
+        currentVideoUrl.current = processedVideoUrlRef.current.processedUrl;
+        hasLoggedVideoUrl.current = true;
+      }
+      
+      // For iOS, make sure we use an HTTPS URL if possible
+      let videoUrl = processedVideoUrlRef.current.processedUrl;
+      if (Platform.OS === 'ios' && videoUrl.startsWith('http:')) {
+        videoUrl = videoUrl.replace('http:', 'https:');
+      }
+      
+      return (
+        <View style={{width: '100%', height: '100%'}}>
+          <Video
+            ref={videoRef}
+            style={[styles.video, {position: 'absolute', top: 0, left: 0, bottom: 0, right: 0}]}
+            source={{
+              uri: videoUrl,
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              },
+              cache: false,
+              overrideFileExtensionAndroid: 'mp4'
+            }}
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
+            shouldPlay={shouldAutoPlay}
+            isLooping={false}
+            volume={1.0}
+            isMuted={false}
+            rate={1.0}
+            playsInSilentLockedModeIOS={true}
+            ignoreSilentSwitch="ignore"
+            onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+            onLoadStart={() => {
+              if (!loading) setLoading(true);
+            }}
+            onLoad={(status) => {
+              setLoading(false);
+              // Only log once when the video is loaded
+              if (!hasLoggedVideoUrl.current) {
+                console.log(`[${Platform.OS}] Video loaded:`, status);
+                hasLoggedVideoUrl.current = true;
+              }
+              
+              // Reset position to beginning and then auto-play if needed
+              if (videoRef.current) {
+                try {
+                  videoRef.current.setPositionAsync(0)
+                    .then(() => {
+                      // After resetting position, start playing if autoplay is enabled
+                      if (shouldAutoPlay) {
+                        videoRef.current.playAsync();
+                      }
+                    })
+                    .catch(err => console.log('Error resetting video position on load:', err));
+                } catch (err) {
+                  console.log('Error when setting video position on load:', err);
+                }
+              }
+            }}
+            onError={(error) => {
+              console.error(`[${Platform.OS}] Video error:`, error);
+              setLoading(false);
+              setVideoError(true);
+              setVideoErrorMessage('Không thể tải lại video. Vui lòng thử lại sau.');
+            }}
+          />
+        </View>
+      );
+    }
+
+    // Reset logged state when processing a new URL
+    hasLoggedVideoUrl.current = false;
+
+    // Get the video URL with better validation
+    let videoUrl = chapterData?.videoWithCacheBuster || chapterData?.video;
+    const originalUrl = videoUrl;
+    
+    // Check if URL is valid (not just "string" or other invalid format)
+    const isValidUrl = (url) => {
+      if (!url) return false;
+      
+      // Check if it's just the string "string" or other common placeholder
+      if (url === "string" || url === "url" || url === "null" || url === "undefined") {
+        return false;
+      }
+      
+      // Check for basic URL pattern
+      try {
+        // Allow relative URLs by adding base if needed
+        if (url.startsWith('/')) {
+          url = API_CONFIG.baseURL + url;
+        }
+        
+        return /^(http|https):\/\/[^ "]+$/.test(url);
+      } catch (e) {
+        return false;
+      }
+    };
+    
+    // Fallback to a default video if URL is invalid
+    if (!isValidUrl(videoUrl)) {
+      console.error('Invalid video URL:', videoUrl);
+      // Use specific formats that work well on iOS
+      videoUrl = Platform.OS === 'ios'
+        ? 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4'
+        : 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    }
+    
+    // For iOS, make sure we use an HTTPS URL
+    if (Platform.OS === 'ios' && videoUrl.startsWith('http:')) {
+      videoUrl = videoUrl.replace('http:', 'https:');
+    }
+    
+    // Try to add cache buster to avoid caching issues 
+    try {
+      // Add a cache buster parameter to the URL
+      const separator = videoUrl.includes('?') ? '&' : '?';
+      videoUrl = `${videoUrl}${separator}cb=${Date.now()}`;
+    } catch (e) {
+      console.error('Error adding cache buster:', e);
+    }
+    
+    // Log the URL only once when it's first processed
+    console.log(`[${Platform.OS}] Using video URL:`, videoUrl);
+    currentVideoUrl.current = videoUrl;
+    
+    // Cache the processed URL to prevent unnecessary recalculations
+    processedVideoUrlRef.current = {
+      originalUrl: originalUrl,
+      processedUrl: videoUrl
+    };
+
     return (
-      <Video
-        ref={videoRef}
-        style={styles.video}
-        source={{
-          uri: chapterData?.videoWithCacheBuster || chapterData?.video || 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', // Fallback to a known working video
-        }}
-        useNativeControls
-        resizeMode={ResizeMode.CONTAIN}
-        shouldPlay={false}
-        isLooping={false}
-        onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-        onLoadStart={() => {
-          setLoading(true);
-          console.log('Bắt đầu tải video từ:', chapterData?.videoWithCacheBuster || chapterData?.video);
-        }}
-        onLoad={(status) => {
-          setLoading(false);
-          console.log('Video đã tải xong, thông tin:', status);
-        }}
-        onError={(error) => {
-          console.error('Lỗi phát video:', error);
-          setLoading(false);
-          setVideoError(true);
-          setVideoErrorMessage(`Không thể phát video. Lỗi: ${error}`);
-        }}
-      />
+      <View style={{width: '100%', height: '100%', backgroundColor: '#000'}}>
+        <Video
+          ref={videoRef}
+          style={[styles.video, {position: 'absolute', top: 0, left: 0, bottom: 0, right: 0}]}
+          source={{
+            uri: videoUrl,
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            },
+            cache: false,
+            overrideFileExtensionAndroid: 'mp4'
+          }}
+          useNativeControls
+          resizeMode={ResizeMode.CONTAIN}
+          shouldPlay={shouldAutoPlay}
+          isLooping={false}
+          volume={1.0}
+          isMuted={false}
+          rate={1.0}
+          playsInSilentLockedModeIOS={true}
+          ignoreSilentSwitch="ignore"
+          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+          onLoadStart={() => {
+            if (!loading) setLoading(true);
+          }}
+          onLoad={(status) => {
+            setLoading(false);
+            console.log(`[${Platform.OS}] Video loaded:`, status);
+            
+            // Reset position to beginning and then auto-play if needed
+            if (videoRef.current) {
+              try {
+                videoRef.current.setPositionAsync(0)
+                  .then(() => {
+                    // After resetting position, start playing if autoplay is enabled
+                    if (shouldAutoPlay) {
+                      videoRef.current.playAsync();
+                    }
+                  })
+                  .catch(err => console.log('Error resetting video position on load:', err));
+              } catch (err) {
+                console.log('Error when setting video position on load:', err);
+              }
+            }
+          }}
+          onError={(error) => {
+            console.error(`[${Platform.OS}] Video error:`, error);
+            setLoading(false);
+            setVideoError(true);
+            setVideoErrorMessage('Không thể tải lại video. Vui lòng thử lại sau.');
+          }}
+        />
+      </View>
     );
   };
 
@@ -392,24 +759,24 @@ export default function CourseVideoScreen() {
       
       {/* Tabs */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
+              <TouchableOpacity 
           style={[styles.tab, activeTab === 'content' && styles.activeTab]}
           onPress={() => setActiveTab('content')}
         >
           <Text style={[styles.tabText, activeTab === 'content' && styles.activeTabText]}>
             Course content
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
+                  </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
           style={[styles.tab, activeTab === 'discussion' && styles.activeTab]}
           onPress={() => setActiveTab('discussion')}
         >
           <Text style={[styles.tabText, activeTab === 'discussion' && styles.activeTabText]}>
             Discussion
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
+                  </Text>
+              </TouchableOpacity>
+            </View>
+            
       {/* Content */}
       {activeTab === 'content' ? (
         <View style={styles.contentContainer}>
@@ -432,38 +799,38 @@ export default function CourseVideoScreen() {
                 </View>
               )}
               ListFooterComponent={() => (
-                <TouchableOpacity
+              <TouchableOpacity 
                   style={styles.quizItem}
                   onPress={navigateToQuiz}
                 >
                   <View style={styles.contentItemInfo}>
                     <Text style={styles.contentItemTitle}>
                       Final Quiz
-                    </Text>
+                  </Text>
                     <Text style={styles.contentItemMeta}>
                       20 questions • 30 min
-                    </Text>
-                  </View>
+                  </Text>
+                </View>
                   <View style={styles.contentItemStatus}>
                     {completedQuizzes['final-exam'] ? (
                       <View style={styles.completedCircle}>
                         <Ionicons name="checkmark" size={18} color="#fff" />
-                      </View>
+                </View>
                     ) : (
                       <View style={styles.incompleteCircle}>
                         <Ionicons name="help" size={16} color="#999" />
-                      </View>
+                </View>
                     )}
-                  </View>
-                </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
               )}
             />
           ) : (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#007bff" />
             </View>
-          )}
-        </View>
+                  )}
+                </View>
       ) : (
         <View style={styles.discussionContainer}>
           <Text style={styles.discussionText}>Discussion feature coming soon</Text>
@@ -498,22 +865,23 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     width: '100%',
-    aspectRatio: 16/9,
+    aspectRatio: 16 / 9,
     backgroundColor: '#000',
+    position: 'relative',
+    overflow: 'hidden',
+    zIndex: 1,
   },
   video: {
+    flex: 1,
     width: '100%',
     height: '100%',
+    backgroundColor: '#000',
   },
   loaderContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -649,6 +1017,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     marginBottom: 20,
+  },
+  videoErrorSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
   },
   retryButton: {
     flexDirection: 'row',

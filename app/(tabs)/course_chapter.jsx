@@ -37,6 +37,7 @@ export default function CourseChapterScreen() {
     author: '',
     description: ''
   });
+  const [quizId, setQuizId] = useState(null);
 
   // Load user data on mount
   useEffect(() => {
@@ -108,6 +109,9 @@ export default function CourseChapterScreen() {
               author: courseData.author || 'Sensei Tanaka',
               description: courseData.description || 'Khóa học cơ bản về phong thủy và ứng dụng trong đời sống hàng ngày.'
             });
+            
+            // Set quizId from course data or use a default
+            setQuizId(courseData.quizId || `${courseId}-final-quiz`);
           }
         } catch (courseError) {
           console.error('Error fetching course details:', courseError);
@@ -127,6 +131,26 @@ export default function CourseChapterScreen() {
     fetchData();
   }, [courseId]);
 
+<<<<<<< Updated upstream
+=======
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('Màn hình Chapter được focus - Tải lại dữ liệu');
+      fetchChapters();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  // If you need a temporary solution before API updates, you can set a default value
+  useEffect(() => {
+    // Default quiz ID if not available from API
+    if (!quizId) {
+      setQuizId(`${courseId}-final-quiz`);
+    }
+  }, [courseId, quizId]);
+
+>>>>>>> Stashed changes
   const handleBackNavigation = () => {
     if (source === 'your_paid_courses') {
       router.push('/(tabs)/your_paid_courses');
@@ -222,27 +246,54 @@ export default function CourseChapterScreen() {
     ];
   };
 
+  // Add this function to check if all chapters are completed
+  const checkAllChaptersCompleted = () => {
+    if (!chapters || chapters.length === 0) return false;
+    
+    // Check if every chapter has been completed
+    const allCompleted = chapters.every(chapter => 
+      completedLessons[chapter.chapterId] === true
+    );
+    
+    return allCompleted;
+  };
+
+  // Then update the renderFinalExamButton function to use this check
   const renderFinalExamButton = () => {
+    const allChaptersCompleted = checkAllChaptersCompleted();
+    
     return (
       <TouchableOpacity 
-        style={styles.finalExamContainer}
+        style={[
+          styles.finalExamContainer,
+          !allChaptersCompleted && styles.disabledExamContainer
+        ]}
         onPress={() => {
-          if (isRegistered) {
-            // Navigate to quiz start screen first, not directly to quiz
-            router.push({
-              pathname: '/(tabs)/course_quiz_start',
-              params: { 
-                courseId: courseId
-              }
-            });
-          } else {
-            // Show registration message if not registered
+          if (!isRegistered) {
             Alert.alert(
               "Đăng ký khóa học",
               "Bạn cần đăng ký khóa học để làm bài kiểm tra cuối khóa.",
               [{ text: "OK" }]
             );
+            return;
           }
+          
+          if (!allChaptersCompleted) {
+            Alert.alert(
+              "Hoàn thành khóa học",
+              "Bạn cần hoàn thành tất cả các bài học trước khi làm bài kiểm tra cuối khóa.",
+              [{ text: "OK" }]
+            );
+            return;
+          }
+          
+          // If registered and all chapters completed, navigate to quiz
+          router.push({
+            pathname: '/(tabs)/course_quiz_start',
+            params: { 
+              courseId: courseId
+            }
+          });
         }}
       >
         <View style={styles.finalExamContent}>
@@ -251,13 +302,19 @@ export default function CourseChapterScreen() {
           </View>
           <View style={styles.finalExamTextContainer}>
             <Text style={styles.finalExamTitle}>Bài kiểm tra cuối khóa</Text>
-            <Text style={styles.finalExamDescription}>Kiểm tra kiến thức của bạn</Text>
+            <Text style={styles.finalExamDescription}>
+              {allChaptersCompleted 
+                ? "Kiểm tra kiến thức của bạn"
+                : "Hoàn thành tất cả bài học để mở khóa"}
+            </Text>
           </View>
           <View style={styles.finalExamStatus}>
-            {completedQuizzes['04205955-CACE-4F8C-8'] ? (
+            {completedQuizzes[quizId] ? (
               <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
-            ) : (
+            ) : allChaptersCompleted ? (
               <Ionicons name="chevron-forward-circle" size={28} color="#fff" />
+            ) : (
+              <Ionicons name="lock-closed" size={24} color="#aaa" />
             )}
           </View>
         </View>
@@ -801,5 +858,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 12,
+  },
+  disabledExamContainer: {
+    opacity: 0.7,
   },
 });
