@@ -137,12 +137,12 @@ export default function CourseScoreScreen() {
   // Handle sharing result
   const handleShareResult = async () => {
     try {
-      const scoreToShare = scoreData?.score 
-        ? scoreData.score.toFixed(1) 
-        : parseFloat(score).toFixed(1);
+      const scoreText = scoreData
+        ? `${scoreData.correctAnswers}/${scoreData.totalQuestions}`
+        : `${correctAnswers}/${totalQuestions}`;
         
       const result = await Share.share({
-        message: `Tôi vừa hoàn thành ${quizTitles[quizId]} với điểm số ${scoreToShare}/10 trong ứng dụng Phong Thủy Cổ Học!`,
+        message: `Tôi vừa hoàn thành ${quizTitles[quizId]} với kết quả ${scoreText} trong ứng dụng Phong Thủy Cổ Học!`,
       });
       
       if (result.action === Share.sharedAction) {
@@ -154,8 +154,10 @@ export default function CourseScoreScreen() {
   };
 
   // Check if quiz was passed
-  const passThreshold = quizId === 'final-exam' ? 8.0 : 7.0;
-  const isPassed = scoreData?.score >= passThreshold;
+  const passThreshold = 80; // 80% threshold for passing
+  const isPassed = scoreData 
+    ? (scoreData.correctAnswers / scoreData.totalQuestions) >= 0.8
+    : (parseInt(correctAnswers) / parseInt(totalQuestions)) >= 0.8;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -177,11 +179,11 @@ export default function CourseScoreScreen() {
         <View style={styles.scoreContainer}>
           <View style={[styles.scoreCircle, isPassed ? styles.scoreCirclePassed : styles.scoreCircleFailed]}>
             <Text style={styles.scoreText}>
-              {scoreData && typeof scoreData.score === 'number' 
-                ? scoreData.score.toFixed(1) 
-                : parseFloat(score).toFixed(1)}
+              {scoreData 
+                ? `${scoreData.correctAnswers}/${scoreData.totalQuestions}`
+                : `${correctAnswers}/${totalQuestions}`
+              }
             </Text>
-            <Text style={styles.scoreMax}>/10</Text>
           </View>
           
           <View style={styles.resultSummary}>
@@ -191,7 +193,7 @@ export default function CourseScoreScreen() {
             <Text style={styles.resultDescription}>
               {isPassed 
                 ? 'Chúc mừng! Bạn đã hoàn thành bài kiểm tra thành công.' 
-                : `Bạn cần đạt tối thiểu ${passThreshold} điểm để vượt qua bài kiểm tra này.`}
+                : `Bạn cần đạt tối thiểu 80% câu đúng để vượt qua bài kiểm tra này.`}
             </Text>
           </View>
         </View>
@@ -319,10 +321,6 @@ const styles = StyleSheet.create({
     fontSize: 42,
     fontWeight: 'bold',
     color: '#333',
-  },
-  scoreMax: {
-    fontSize: 20,
-    color: '#555',
   },
   resultSummary: {
     alignItems: 'center',
