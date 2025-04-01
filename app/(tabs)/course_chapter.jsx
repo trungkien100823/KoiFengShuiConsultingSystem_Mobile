@@ -150,14 +150,14 @@ export default function CourseChapterScreen() {
     }
   }, [courseId, quizId]);
 
-
-  //const handleBackNavigation = () => {
-  //  if (source === 'your_paid_courses') {
-  //    router.push('/(tabs)/your_paid_courses');
-  //  } else {
-  //    router.back();
-  //  }
- // };
+  // Fix the handleBackNavigation function error
+  const handleBackNavigation = () => {
+    if (source === 'your_paid_courses') {
+      router.push('/(tabs)/your_paid_courses');
+    } else {
+      router.back();
+    }
+  };
 
   const toggleChapter = async (chapter) => {
     try {
