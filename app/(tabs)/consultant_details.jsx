@@ -105,7 +105,8 @@ export default function ConsultantDetailsScreen() {
               pathname: '/(tabs)/online_booking',
               params: { 
                 selectedMasterId: consultant.id,
-                selectedMasterName: consultant.name
+                selectedMasterName: consultant.name,
+                fromMasterDetails: 'true'
               }
             })}
           >

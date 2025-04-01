@@ -15,15 +15,26 @@ import { useRouter } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
+import { useNavigation } from '@react-navigation/native';
 
 export default function OfflinePackageScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [consultingPackages, setConsultingPackages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchConsultingPackages();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('Màn hình Offline Package được focus - Tải lại dữ liệu');
+      fetchConsultingPackages();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const fetchConsultingPackages = async () => {
     try {

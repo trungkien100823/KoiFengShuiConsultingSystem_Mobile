@@ -25,6 +25,101 @@ export default function OfflineBookingScreen() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [shouldCompleteBooking, setShouldCompleteBooking] = useState(false);
+  
+  // Thêm state cho calendar
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [selectedDate, setSelectedDate] = useState(params.startDate || null);
+
+  const months = [
+    "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+    "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+  ];
+
+  const getDaysInMonth = (month, year) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (month, year) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(currentYear - 1);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(currentYear + 1);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
+  };
+
+  const generateCalendarDates = () => {
+    const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+    const firstDay = getFirstDayOfMonth(currentMonth, currentYear);
+    const dates = [];
+    
+    for (let i = 0; i < firstDay; i++) {
+      dates.push(null);
+    }
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      dates.push(i);
+    }
+    
+    return dates;
+  };
+
+  const selectDate = (date) => {
+    if (!date) return;
+    const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+    setSelectedDate(dateString);
+  };
+
+  const getDateStyle = (date) => {
+    if (!date) return [styles.dateCell];
+    
+    const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+    const isSelected = selectedDate === dateString;
+    
+    return [
+      styles.dateCircle,
+      isSelected && styles.selected
+    ];
+  };
+
+  const handleContinue = () => {
+    // Kiểm tra cả 2 điều kiện
+    if (!selectedDate && !description.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng chọn ngày và nhập mô tả nhu cầu tư vấn');
+      return;
+    }
+
+    // Kiểm tra riêng từng điều kiện để hiển thị thông báo cụ thể
+    if (!selectedDate) {
+      Alert.alert('Thông báo', 'Vui lòng chọn ngày tư vấn');
+      return;
+    }
+
+    if (!description.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập mô tả nhu cầu tư vấn');
+      return;
+    }
+
+    // Nếu đã có đủ thông tin thì mới cho phép tiếp tục
+    AsyncStorage.setItem('offlineBookingDescription', description);
+    AsyncStorage.setItem('offlineBookingDate', selectedDate);
+    
+    router.push('/(tabs)/offline_package');
+  };
 
   useEffect(() => {
     const completeBooking = async () => {
@@ -96,19 +191,6 @@ export default function OfflineBookingScreen() {
     }
   }, [params.packageId, params.selectedPrice, params.shouldCompleteBooking]);
 
-  const handleContinue = () => {
-    if (!description.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập mô tả nhu cầu tư vấn');
-      return;
-    }
-
-    // Lưu description vào AsyncStorage
-    AsyncStorage.setItem('offlineBookingDescription', description);
-    
-    // Chuyển đến trang chọn gói
-    router.push('/(tabs)/offline_package');
-  };
-
   return (
     <ImageBackground 
       source={require('../../assets/images/feng shui.png')}
@@ -134,8 +216,49 @@ export default function OfflineBookingScreen() {
             
             <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
 
+            {/* Thêm calendar vào đây */}
+            <View style={styles.calendar}>
+              <View style={styles.monthSelector}>
+                <TouchableOpacity onPress={handlePrevMonth}>
+                  <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+                <Text style={styles.monthText}>
+                  {months[currentMonth]} {currentYear}
+                </Text>
+                <TouchableOpacity onPress={handleNextMonth}>
+                  <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.calendarGrid}>
+                <View style={styles.weekDays}>
+                  <Text style={styles.weekDay}>CN</Text>
+                  <Text style={styles.weekDay}>T2</Text>
+                  <Text style={styles.weekDay}>T3</Text>
+                  <Text style={styles.weekDay}>T4</Text>
+                  <Text style={styles.weekDay}>T5</Text>
+                  <Text style={styles.weekDay}>T6</Text>
+                  <Text style={styles.weekDay}>T7</Text>
+                </View>
+
+                <View style={styles.dates}>
+                  {generateCalendarDates().map((date, index) => (
+                    <View key={index} style={styles.dateCell}>
+                      {date && (
+                        <TouchableOpacity
+                          style={getDateStyle(date)}
+                          onPress={() => selectDate(date)}
+                        >
+                          <Text style={styles.dateText}>{date}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+
             <View style={styles.formContainer}>
-              {/* Description */}
               <View style={styles.formGroup}>
                 <TextInput
                   style={styles.textArea}
@@ -148,7 +271,6 @@ export default function OfflineBookingScreen() {
                 />
               </View>
 
-              {/* Submit Button */}
               {isSubmitting ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#8B0000" />
@@ -269,5 +391,71 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 10,
     fontSize: 16
+  },
+  calendar: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 20,
+    marginBottom: 20,
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginBottom: 15,
+  },
+  monthText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  calendarGrid: {
+    width: '100%',
+    marginTop: 10,
+  },
+  weekDays: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    marginLeft: -10,
+    marginBottom: 15,
+  },
+  weekDay: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    opacity: 0.8,
+    width: 43,
+    textAlign: 'center',
+    marginLeft: -1,
+  },
+  dates: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  dateCell: {
+    width: '14.28%',
+    aspectRatio: 1,
+    marginBottom: 5,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateCircle: {
+    width: '100%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 100,
+  },
+  dateText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    textAlign: 'center',
+    width: 40,
+  },
+  selected: {
+    backgroundColor: '#FF0008',
   }
 });

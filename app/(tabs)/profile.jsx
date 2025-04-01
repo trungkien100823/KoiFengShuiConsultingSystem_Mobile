@@ -60,14 +60,66 @@ export default function ProfileScreen() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await AsyncStorage.removeItem('accessToken');
-      setUser(null);
-      Alert.alert('Success', 'You have been logged out');
-      router.push('/(tabs)/login');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
+    Alert.alert(
+      'Xác nhận',
+      'Bạn có chắc chắn muốn đăng xuất?',
+      [
+        {
+          text: 'Hủy',
+          style: 'cancel'
+        },
+        {
+          text: 'Đăng xuất',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const token = await getAuthToken();
+              if (!token) {
+                console.log('No token found');
+                return;
+              }
+
+              const response = await axios.get(
+                `${API_CONFIG.baseURL}/api/Account/logout`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+
+              if (response.data && response.data.isSuccess) {
+                await AsyncStorage.removeItem('accessToken');
+                setUser(null);
+                
+                Alert.alert(
+                  'Thành công',
+                  'Đăng xuất thành công',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        router.replace('/(tabs)/Login');
+                      }
+                    }
+                  ]
+                );
+              } else {
+                throw new Error('Logout failed');
+              }
+            } catch (error) {
+              console.error('Error logging out:', error);
+              Alert.alert(
+                'Lỗi',
+                'Không thể đăng xuất. Vui lòng thử lại sau.',
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (loading) {
@@ -100,12 +152,11 @@ export default function ProfileScreen() {
           />
         ) : (
           <View style={styles.loginPrompt}>
-            <Text style={styles.loginText}>Please log in to view your profile</Text>
             <TouchableOpacity 
               style={styles.loginButton}
-              onPress={() => router.push('/(tabs)/login')}
+              onPress={() => router.push('/(tabs)/Login')}
             >
-              <Text style={styles.loginButtonText}>Login</Text>
+              <Text style={styles.loginButtonText}>Log out</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -137,7 +188,16 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(tabs)/your_booking')}
           >
             <Ionicons name="calendar-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>Your Bookings</Text>
+            <Text style={styles.menuItemText}>My Bookings</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/(tabs)/your_registerAttend')}
+          >
+            <Ionicons name="ticket-outline" size={24} color="#333" />
+            <Text style={styles.menuItemText}>My Tickets</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
           
@@ -189,15 +249,27 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#eee',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   menuItemText: {
-    flex: 1,
-    marginLeft: 15,
     fontSize: 16,
+    marginLeft: 10,
     color: '#333',
   },
   loadingContainer: {
@@ -215,11 +287,6 @@ const styles = StyleSheet.create({
     marginTop: 50,
     alignItems: 'center',
     paddingHorizontal: 20,
-  },
-  loginText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
   },
   loginButton: {
     backgroundColor: '#8B0000',

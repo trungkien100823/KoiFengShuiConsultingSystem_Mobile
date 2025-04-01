@@ -29,13 +29,6 @@ export default function OnlinePaymentNotificationScreen() {
     router.push('/(tabs)/consulting');
   };
   
-  // Handle opening the meeting link
-  const openMeetingLink = () => {
-    if (bookingData?.linkMeet) {
-      Linking.openURL(bookingData.linkMeet);
-    }
-  };
-  
   if (!bookingData) {
     return (
       <View style={[styles.container, {justifyContent: 'center', alignItems: 'center'}]}>
@@ -76,24 +69,6 @@ export default function OnlinePaymentNotificationScreen() {
             style={styles.consultantImage}
           />
           <Text style={styles.consultantName}>{bookingData.masterName}</Text>
-        </View>
-        
-        {/* Meeting Link */}
-        <TouchableOpacity style={styles.meetingLink} onPress={openMeetingLink}>
-          <Ionicons name="videocam-outline" size={22} color="#fff" />
-          <Text style={styles.meetingLinkText} numberOfLines={1} ellipsizeMode="tail">
-            {bookingData.linkMeet || "https://meet.google.com/mru-twqp-srj"}
-          </Text>
-        </TouchableOpacity>
-        
-        {/* QR Code */}
-        <View style={styles.qrCodeContainer}>
-          <QRCode
-            value={bookingData.linkMeet || "https://meet.google.com/mru-twqp-srj"}
-            size={120}
-            backgroundColor="transparent"
-            color="#000"
-          />
         </View>
       </View>
       

@@ -17,6 +17,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
 import { paymentService } from '../../constants/paymentService';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function OnlineCheckoutScreen() {
   const router = useRouter();
@@ -44,85 +45,85 @@ export default function OnlineCheckoutScreen() {
   
   console.log('BookingId received:', bookingId);
   
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = await AsyncStorage.getItem('accessToken');
-        
-        if (!token) {
-          Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
-          router.push('/(tabs)/login');
-          return;
-        }
-
-        if (!bookingId) {
-          console.log('No bookingId found in params');
-          Alert.alert('Thông báo', 'Không tìm thấy thông tin đặt lịch');
-          return;
-        }
-
-        // Lấy thông tin user hiện tại
-        const userResponse = await axios.get(
-          `${API_CONFIG.baseURL}/api/Account/current-user`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchData = async () => {
+        try {
+          const token = await AsyncStorage.getItem('accessToken');
+          if (!token) {
+            Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+            router.push('/(tabs)/login');
+            return;
           }
-        );
 
-        // Lấy thông tin booking theo ID
-        const bookingResponse = await axios.get(
-          `${API_CONFIG.baseURL}/api/Booking/${bookingId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
+          if (!bookingId) {
+            console.log('No bookingId found in params');
+            Alert.alert('Thông báo', 'Không tìm thấy thông tin đặt lịch');
+            return;
           }
-        );
 
-        console.log('User Response:', userResponse.data);
-        console.log('Booking Response:', bookingResponse.data);
+          // Lấy thông tin user hiện tại
+          const userResponse = await axios.get(
+            `${API_CONFIG.baseURL}/api/Account/current-user`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          );
 
-        if (bookingResponse.data.isSuccess && bookingResponse.data.data) {
-          const bookingData = bookingResponse.data.data;
-          
-          // Cập nhật schedule info
-          setScheduleInfo({
-            date: bookingData.bookingDate,
-            startTime: bookingData.startTime?.slice(0, 5),
-            endTime: bookingData.endTime?.slice(0, 5),
-            price: bookingData.price || 0
-          });
+          // Lấy thông tin booking theo ID
+          const bookingResponse = await axios.get(
+            `${API_CONFIG.baseURL}/api/Booking/${bookingId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          );
 
-          // Cập nhật customer info với thông tin từ booking
-          setCustomerInfo({
-            name: bookingData.customerName,
-            phone: userResponse.data.phoneNumber,
-            email: bookingData.customerEmail,
-            masterName: bookingData.masterName,
-            description: bookingData.description,
-            bookingId: bookingData.bookingOnlineId,
-            status: bookingData.status,
-            type: bookingData.type,
-            linkMeet: bookingData.linkMeet
-          });
+          console.log('User Response:', userResponse.data);
+          console.log('Booking Response:', bookingResponse.data);
+
+          if (bookingResponse.data.isSuccess && bookingResponse.data.data) {
+            const bookingData = bookingResponse.data.data;
+            
+            // Cập nhật schedule info
+            setScheduleInfo({
+              date: bookingData.bookingDate,
+              startTime: bookingData.startTime?.slice(0, 5),
+              endTime: bookingData.endTime?.slice(0, 5),
+              price: bookingData.price || 0
+            });
+
+            // Cập nhật customer info với thông tin từ booking
+            setCustomerInfo({
+              name: bookingData.customerName,
+              phone: userResponse.data.phoneNumber,
+              email: bookingData.customerEmail,
+              masterName: bookingData.masterName,
+              description: bookingData.description,
+              bookingId: bookingData.bookingOnlineId,
+              status: bookingData.status,
+              type: bookingData.type,
+            });
+          }
+
+        } catch (error) {
+          console.error('Error fetching data:', error);
+          console.log('Error details:', error.response?.data);
+          Alert.alert(
+            'Lỗi',
+            'Không thể tải thông tin. Vui lòng thử lại sau.'
+          );
+        } finally {
+          setIsLoading(false);
         }
+      };
 
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        console.log('Error details:', error.response?.data);
-        Alert.alert(
-          'Lỗi',
-          'Không thể tải thông tin. Vui lòng thử lại sau.'
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [bookingId]);
+      fetchData();
+    }, [bookingId])
+  );
   
   const generateMeetingId = () => {
     return Math.random().toString(36).substring(2, 10);
