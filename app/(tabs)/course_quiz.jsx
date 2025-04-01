@@ -325,13 +325,13 @@ export default function CourseQuizScreen() {
     scrollRef.current?.scrollTo({ x: 0, y: 0, animated: true });
   };
 
-  // Update the handleQuizSubmission function
+  // Update the handleQuizSubmission function to use raw correct/total counts
   const handleQuizSubmission = async () => {
     try {
       // Stop timer
       clearInterval(timerRef.current);
       
-      // Format answers for API submission - this is the key change
+      // Format answers for API submission
       const answerIds = Object.entries(selectedAnswers).map(([index, answerId]) => {
         return {
           answerId: answerId
@@ -354,7 +354,7 @@ export default function CourseQuizScreen() {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ answerIds }) // Format API expects
+          body: JSON.stringify({ answerIds })
         }
       );
       
@@ -377,7 +377,8 @@ export default function CourseQuizScreen() {
           const completedQuizzes = JSON.parse(await AsyncStorage.getItem('completedQuizzes')) || {};
           completedQuizzes[quizId] = {
             completed: true,
-            score: apiResult.totalScore,
+            correctAnswers: apiResult.correctAnswers,
+            totalQuestions: apiResult.totalQuestions,
             percentage: percentage,
             date: new Date().toISOString()
           };
@@ -392,25 +393,23 @@ export default function CourseQuizScreen() {
           params: {
             courseId: courseId,
             quizId: quizId,
-            score: apiResult.totalScore,
-            correctAnswers: apiResult.correctAnswers,
-            totalQuestions: apiResult.totalQuestions,
-            percentage: percentage
+            score: apiResult.correctAnswers.toString(),
+            correctAnswers: apiResult.correctAnswers.toString(),
+            totalQuestions: apiResult.totalQuestions.toString(),
+            percentage: percentage.toString()
           }
         });
       } else {
         // If API doesn't return usable results, calculate locally
-        let totalScore = 0;
         let correctAnswers = 0;
         const totalQuestions = questions.length;
         
         // Calculate score locally as fallback
         questions.forEach((question, index) => {
           const selectedAnswer = selectedAnswers[index];
-          const correctAnswer = question.answers.find(answer => answer.isCorrect);
+          const correctAnswer = question.answers?.find(answer => answer.isCorrect);
           
           if (selectedAnswer && correctAnswer && selectedAnswer === correctAnswer.answerId) {
-            totalScore += question.point || 1;
             correctAnswers++;
           }
         });
@@ -423,7 +422,8 @@ export default function CourseQuizScreen() {
           const completedQuizzes = JSON.parse(await AsyncStorage.getItem('completedQuizzes')) || {};
           completedQuizzes[quizId] = {
             completed: true,
-            score: totalScore,
+            correctAnswers: correctAnswers,
+            totalQuestions: totalQuestions,
             percentage: percentage,
             date: new Date().toISOString()
           };
@@ -438,10 +438,10 @@ export default function CourseQuizScreen() {
           params: {
             courseId: courseId,
             quizId: quizId,
-            score: totalScore,
-            correctAnswers: correctAnswers, 
-            totalQuestions: totalQuestions,
-            percentage: percentage
+            score: correctAnswers.toString(),
+            correctAnswers: correctAnswers.toString(),
+            totalQuestions: totalQuestions.toString(),
+            percentage: percentage.toString()
           }
         });
       }

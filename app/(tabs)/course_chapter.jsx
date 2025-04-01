@@ -39,6 +39,7 @@ export default function CourseChapterScreen() {
     author: '',
     description: ''
   });
+  const [quizId, setQuizId] = useState(null);
 
   // Load user data on mount
   useEffect(() => {
@@ -110,38 +111,19 @@ export default function CourseChapterScreen() {
               author: courseData.author || 'Sensei Tanaka',
               description: courseData.description || 'Khóa học cơ bản về phong thủy và ứng dụng trong đời sống hàng ngày.'
             });
+            
+            // Set quizId from course data or use a default
+            setQuizId(courseData.quizId || `${courseId}-final-quiz`);
           }
         } catch (courseError) {
           console.error('Error fetching course details:', courseError);
-          // Continue with default course info if this fails
         }
 
-        // 2. Fetch chapters (your existing code)
-        const response = await axios.get(
-          `${API_CONFIG.baseURL}/api/Chapter/get-all-chapters-by-courseId`, 
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            params: {
-              id: courseId
-            }
-          }
-        );
-
-        console.log('Chapters API Response:', response.data);
-
-        if (response.data?.isSuccess) {
-          setChapters(response.data.data);
-        } else {
-          console.warn('API returned unsuccessful result, using fallback data');
-          setChapters(getFallbackChapters());
-        }
+        // 2. Fetch chapters
+        await fetchChapters();
         
       } catch (error) {
         console.error('Error fetching data:', error);
-        console.log('Using fallback data');
         setChapters(getFallbackChapters());
       } finally {
         setIsLoading(false);
@@ -160,6 +142,15 @@ export default function CourseChapterScreen() {
     return unsubscribe;
   }, [navigation]);
 
+  // If you need a temporary solution before API updates, you can set a default value
+  useEffect(() => {
+    // Default quiz ID if not available from API
+    if (!quizId) {
+      setQuizId(`${courseId}-final-quiz`);
+    }
+  }, [courseId, quizId]);
+
+  // Fix the handleBackNavigation function error
   const handleBackNavigation = () => {
     if (source === 'your_paid_courses') {
       router.push('/(tabs)/your_paid_courses');
@@ -255,27 +246,54 @@ export default function CourseChapterScreen() {
     ];
   };
 
+  // Add this function to check if all chapters are completed
+  const checkAllChaptersCompleted = () => {
+    if (!chapters || chapters.length === 0) return false;
+    
+    // Check if every chapter has been completed
+    const allCompleted = chapters.every(chapter => 
+      completedLessons[chapter.chapterId] === true
+    );
+    
+    return allCompleted;
+  };
+
+  // Then update the renderFinalExamButton function to use this check
   const renderFinalExamButton = () => {
+    const allChaptersCompleted = checkAllChaptersCompleted();
+    
     return (
       <TouchableOpacity 
-        style={styles.finalExamContainer}
+        style={[
+          styles.finalExamContainer,
+          !allChaptersCompleted && styles.disabledExamContainer
+        ]}
         onPress={() => {
-          if (isRegistered) {
-            // Navigate to quiz start screen first, not directly to quiz
-            router.push({
-              pathname: '/(tabs)/course_quiz_start',
-              params: { 
-                courseId: courseId
-              }
-            });
-          } else {
-            // Show registration message if not registered
+          if (!isRegistered) {
             Alert.alert(
               "Đăng ký khóa học",
               "Bạn cần đăng ký khóa học để làm bài kiểm tra cuối khóa.",
               [{ text: "OK" }]
             );
+            return;
           }
+          
+          if (!allChaptersCompleted) {
+            Alert.alert(
+              "Hoàn thành khóa học",
+              "Bạn cần hoàn thành tất cả các bài học trước khi làm bài kiểm tra cuối khóa.",
+              [{ text: "OK" }]
+            );
+            return;
+          }
+          
+          // If registered and all chapters completed, navigate to quiz
+          router.push({
+            pathname: '/(tabs)/course_quiz_start',
+            params: { 
+              courseId: courseId
+            }
+          });
         }}
       >
         <View style={styles.finalExamContent}>
@@ -284,18 +302,77 @@ export default function CourseChapterScreen() {
           </View>
           <View style={styles.finalExamTextContainer}>
             <Text style={styles.finalExamTitle}>Bài kiểm tra cuối khóa</Text>
-            <Text style={styles.finalExamDescription}>Kiểm tra kiến thức của bạn</Text>
+            <Text style={styles.finalExamDescription}>
+              {allChaptersCompleted 
+                ? "Kiểm tra kiến thức của bạn"
+                : "Hoàn thành tất cả bài học để mở khóa"}
+            </Text>
           </View>
           <View style={styles.finalExamStatus}>
-            {completedQuizzes['04205955-CACE-4F8C-8'] ? (
+            {completedQuizzes[quizId] ? (
               <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
-            ) : (
+            ) : allChaptersCompleted ? (
               <Ionicons name="chevron-forward-circle" size={28} color="#fff" />
+            ) : (
+              <Ionicons name="lock-closed" size={24} color="#aaa" />
             )}
           </View>
         </View>
       </TouchableOpacity>
     );
+  };
+
+  const fetchChapters = async () => {
+    try {
+      if (!courseId) {
+        console.log('CourseId not found, using fallback data');
+        setChapters(getFallbackChapters());
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
+      
+      const token = await AsyncStorage.getItem('accessToken');
+      
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem nội dung khóa học');
+        router.push('/login');
+        return;
+      }
+
+      console.log('Fetching chapters for courseId:', courseId);
+      
+      // Use the correct API endpoint
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllChaptersByCourseId}`, 
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          params: {
+            id: courseId
+          }
+        }
+      );
+
+      console.log('Chapters API Response:', response.data);
+
+      if (response.data?.isSuccess) {
+        setChapters(response.data.data);
+      } else {
+        console.warn('API returned unsuccessful result, using fallback data');
+        setChapters(getFallbackChapters());
+      }
+      
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+      console.log('Using fallback data');
+      setChapters(getFallbackChapters());
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -781,5 +858,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 12,
+  },
+  disabledExamContainer: {
+    opacity: 0.7,
   },
 });
