@@ -113,35 +113,13 @@ export default function CourseChapterScreen() {
           }
         } catch (courseError) {
           console.error('Error fetching course details:', courseError);
-          // Continue with default course info if this fails
         }
 
-        // 2. Fetch chapters (your existing code)
-        const response = await axios.get(
-          `${API_CONFIG.baseURL}/api/Chapter/get-all-chapters-by-courseId`, 
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            params: {
-              id: courseId
-            }
-          }
-        );
-
-        console.log('Chapters API Response:', response.data);
-
-        if (response.data?.isSuccess) {
-          setChapters(response.data.data);
-        } else {
-          console.warn('API returned unsuccessful result, using fallback data');
-          setChapters(getFallbackChapters());
-        }
+        // 2. Fetch chapters
+        await fetchChapters();
         
       } catch (error) {
         console.error('Error fetching data:', error);
-        console.log('Using fallback data');
         setChapters(getFallbackChapters());
       } finally {
         setIsLoading(false);
@@ -296,6 +274,59 @@ export default function CourseChapterScreen() {
         </View>
       </TouchableOpacity>
     );
+  };
+
+  const fetchChapters = async () => {
+    try {
+      if (!courseId) {
+        console.log('CourseId not found, using fallback data');
+        setChapters(getFallbackChapters());
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
+      
+      const token = await AsyncStorage.getItem('accessToken');
+      
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem nội dung khóa học');
+        router.push('/login');
+        return;
+      }
+
+      console.log('Fetching chapters for courseId:', courseId);
+      
+      // Use the correct API endpoint
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllChaptersByCourseId}`, 
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          params: {
+            id: courseId
+          }
+        }
+      );
+
+      console.log('Chapters API Response:', response.data);
+
+      if (response.data?.isSuccess) {
+        setChapters(response.data.data);
+      } else {
+        console.warn('API returned unsuccessful result, using fallback data');
+        setChapters(getFallbackChapters());
+      }
+      
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+      console.log('Using fallback data');
+      setChapters(getFallbackChapters());
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
