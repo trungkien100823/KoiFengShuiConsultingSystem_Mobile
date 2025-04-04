@@ -1,18 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Image, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  Image, 
+  Alert,
+  SafeAreaView,
+  StatusBar,
+  Platform,
+  Dimensions,
+  ImageBackground,
+  BackHandler
+} from 'react-native';
+import { Ionicons, MaterialIcons, FontAwesome5, AntDesign, Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import { SelectList } from 'react-native-dropdown-select-list';
+import { LinearGradient } from 'expo-linear-gradient';
 import BackButton from '../../components/BackButton';
-import LikeButton from '../../components/LikeButton';
 import { images } from '../../constants/images';
-import { ScrollView as HorizontalScrollView } from 'react-native';
 import { koiAPI } from '../../constants/koiData';
 import { pondAPI } from '../../constants/koiPond';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { getAuthHeaders } from '../../services/authService';
+
+const { width, height } = Dimensions.get('window');
 
 const colorCodeMap = {
   'Trắng': '#FFFFFF',
@@ -47,6 +62,7 @@ export default function FishDetails() {
   const [selectedShapeId, setSelectedShapeId] = useState("");
   const [pondsByShape, setPondsByShape] = useState([]);
   const [selectedPondDetails, setSelectedPondDetails] = useState(null);
+  const [hasCalculated, setHasCalculated] = useState(false);
 
   const directions = [
     {key: '1', value: 'Đông'},
@@ -344,224 +360,311 @@ export default function FishDetails() {
     fetchAllPonds();
   }, []); // Empty dependency array means this runs once when component mounts
 
+  // Add this useEffect to handle hardware back button (optional)
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.push('/menu');
+      return true; // Prevents default back behavior
+    });
+
+    return () => backHandler.remove();
+  }, [router]);
+
   return (
     <View style={styles.container}>
-      <ImageBackground 
-        source={require('../../assets/images/buddha.png')} 
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
-        <View style={styles.header}>
-          <BackButton />
-          <TouchableOpacity style={styles.menuButton}>
-            <Ionicons name="ellipsis-horizontal" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView 
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
+      <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
+      
+      {/* Hero Image Section */}
+      <View style={styles.heroContainer}>
+        <ImageBackground
+          source={images[params.imageName] || require('../../assets/images/koi_image.jpg')}
+          style={styles.heroImage}
         >
-          <View style={styles.spacer} />
-          <View style={styles.detailsCard}>
-            <View style={styles.likeButtonContainer}>
-              <View style={styles.likeButtonBackground}>
-                <LikeButton initialLiked={params.liked === 'true'} />
+          <LinearGradient
+            colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.9)']}
+            style={styles.heroOverlay}
+          >
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.push('/menu')}
+            >
+              <Ionicons name="chevron-back" size={28} color="#fff" />
+            </TouchableOpacity>
+            
+            <View style={styles.heroContent}>
+              <Text style={styles.heroTitle}>{params.name || 'Koi Fish'}</Text>
+              <View style={styles.tagContainer}>
+                <View style={styles.tag}>
+                  <FontAwesome5 name="ruler" size={12} color="#FFD700" />
+                  <Text style={styles.tagText}>{params.size || 'Medium'}</Text>
+                </View>
               </View>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.titleSection}>
-                <Text style={styles.fishName}>{koiDetails?.varietyName || 'Unknown'}</Text>
+          </LinearGradient>
+        </ImageBackground>
+      </View>
+      
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Introduction Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <FontAwesome5 name="fish" size={16} color="#8B0000" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>Giới Thiệu</Text>
+          </View>
+          <Text style={styles.cardText}>
+            {params.introduction || 'Thông tin đang được cập nhật...'}
+          </Text>
+        </View>
+        
+        {/* Color Configuration Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <MaterialIcons name="color-lens" size={18} color="#8B0000" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>Màu Sắc</Text>
+          </View>
+          
+          {koiDetails?.colors && koiDetails.colors.map((color, index) => (
+            <View key={index} style={styles.colorRow}>
+              <View style={styles.colorLabelContainer}>
+                <View 
+                  style={[styles.colorDot, { 
+                    backgroundColor: colorCodeMap[color.colorName] || '#ccc',
+                    borderColor: color.colorName === 'Trắng' ? '#ddd' : 'transparent'
+                  }]} 
+                />
+                <Text style={styles.colorLabel}>{color.colorName}</Text>
               </View>
-
-              <View style={styles.sizeSection}>
-                <View style={styles.sizeBox}>
+              
+              <View style={styles.sliderContainer}>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={0}
+                  maximumValue={100}
+                  value={color.percentage}
+                  onValueChange={(value) => {
+                    const updatedColors = [...koiDetails.colors];
+                    updatedColors[index].percentage = Math.round(value);
+                    setKoiDetails({...koiDetails, colors: updatedColors});
+                  }}
+                  minimumTrackTintColor="#8B0000"
+                  maximumTrackTintColor="#E0E0E0"
+                  thumbTintColor="#8B0000"
+                  step={1}
+                />
+                <View style={styles.percentageContainer}>
+                  <Text style={styles.percentageText}>{Math.round(color.percentage)}%</Text>
                 </View>
-                <Text style={styles.shortDescription}>
-                  {koiDetails?.description || 'Không có mô tả.'}
+              </View>
+            </View>
+          ))}
+          
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Tổng phần trăm:</Text>
+            <Text style={[
+              styles.totalValue,
+              koiDetails?.colors && 
+              Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 ? 
+              styles.totalValueError : {}
+            ]}>
+              {koiDetails?.colors ? 
+                Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) : 0}%
+            </Text>
+          </View>
+          
+          {koiDetails?.colors && 
+           Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 && (
+            <Text style={styles.errorMessage}>
+              Tổng phần trăm các màu phải bằng 100%
+            </Text>
+          )}
+        </View>
+        
+        {/* Pond Configuration Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="water-outline" size={18} color="#8B0000" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>Cấu Hình Hồ</Text>
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Hình Dạng Hồ</Text>
+            <SelectList
+              setSelected={handleShapeSelect}
+              data={pondShapes}
+              placeholder="Chọn hình dạng hồ"
+              boxStyles={styles.selectBox}
+              dropdownStyles={styles.dropdown}
+              inputStyles={styles.selectInput}
+              dropdownTextStyles={styles.dropdownText}
+              search={false}
+            />
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Chọn Hồ</Text>
+            
+            {pondsByShape.length > 0 ? (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pondCardsContainer}
+              >
+                {pondsByShape.map((pond, index) => (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={[
+                      styles.pondCard,
+                      selectedPond === pond.koiPondId && styles.selectedPondCard
+                    ]}
+                    onPress={() => handlePondSelect(pond)}
+                  >
+                    <Image 
+                      source={
+                        pond.shapeName === 'Hình chữ nhật' ? require('../../assets/images/natural_pond.jpg') :
+                        pond.shapeName === 'Hình tròn' ? require('../../assets/images/raised_pond.jpg') :
+                        pond.shapeName === 'Hình bầu dục' ? require('../../assets/images/zen_pond.jpg') :
+                        require('../../assets/images/formal_pond.jpg')
+                      }
+                      style={styles.pondImage}
+                    />
+                    {selectedPond === pond.koiPondId && (
+                      <View style={styles.selectedOverlay}>
+                        <AntDesign name="checkcircle" size={24} color="#FFF" />
+                      </View>
+                    )}
+                    <View style={styles.pondNameContainer}>
+                      <Text style={styles.pondName}>{pond.pondName}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyPondsContainer}>
+                <Feather name="alert-circle" size={24} color="#999" />
+                <Text style={styles.emptyPondsText}>
+                  Không tìm thấy hồ cho hình dạng này
                 </Text>
               </View>
-
-              <View style={styles.divider} />
-
-              <Text style={styles.fullDescription}>
-                {koiDetails?.introduction || 
-                  "Cá Koi là một trong những loài cá cảnh được yêu thích nhất trong phong thủy. " +
-                  "Với màu sắc đặc trưng và ý nghĩa tâm linh sâu sắc, chúng không chỉ mang lại vẻ đẹp thẩm mỹ " +
-                  "mà còn được tin là mang đến may mắn và thịnh vượng cho gia chủ. " +
-                  "Việc lựa chọn cá Koi phù hợp với phong thủy nhà ở có thể tăng cường năng lượng tích cực " +
-                  "và tạo nên sự hài hòa trong không gian sống."
-                }
-              </Text>
-
-              {/* Color Percentages Section */}
-              <View style={styles.calculationSection}>
-                <Text style={styles.calculationTitle}>Tỷ lệ màu sắc</Text>
-                <View style={styles.sliderContainer}>
-                  {koiDetails?.colors.map((color, index) => (
-                    <View key={index} style={styles.sliderRow}>
-                      <Text style={styles.sliderLabel}>{color.colorName}</Text>
-                      <Slider
-                        style={styles.slider}
-                        minimumValue={0}
-                        maximumValue={100}
-                        value={color.percentage}
-                        enabled={true}
-                        minimumTrackTintColor={colorCodeMap[color.colorName] || '#D3D3D3'}
-                        maximumTrackTintColor="#EEEEEE"
-                        thumbTintColor={colorCodeMap[color.colorName] || '#8B0000'}
-                        onValueChange={(value) => {
-                          const newColors = [...koiDetails.colors];
-                          newColors[index] = {
-                            ...newColors[index],
-                            percentage: Math.round(value)
-                          };
-                          setKoiDetails({
-                            ...koiDetails,
-                            colors: newColors
-                          });
-                        }}
-                      />
-                      <Text style={[
-                        styles.percentageText,
-                        { color: colorCodeMap[color.colorName] || '#333' }
-                      ]}>
-                        {Math.round(color.percentage)}%
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              {/* Pond Shape Dropdown */}
-              <View style={styles.shapeSection}>
-                <Text style={styles.sectionTitle}>Hình dạng hồ:</Text>
-                <SelectList 
-                  setSelected={handleShapeSelect}
-                  data={[
-                    { key: 'default', value: 'Chọn hình dạng hồ' },
-                    ...pondShapes
-                  ]} 
-                  save="value"
-                  boxStyles={styles.dropdown}
-                  dropdownStyles={styles.dropdownList}
-                  placeholder="Chọn hình dạng hồ"
-                  search={false}
-                  defaultOption={{ key: 'default', value: 'Chọn hình dạng hồ' }}
-                />
-              </View>
-
-              {/* Pond Style Section */}
-              <View style={styles.pondStyleSection}>
-                <Text style={styles.sectionTitle}>Danh sách hồ theo hình dạng:</Text>
-                <HorizontalScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.pondImagesScroll}
-                >
-                  {pondsByShape.length > 0 ? (
-                    pondsByShape.map((pond, index) => (
-                      <TouchableOpacity 
-                        key={index}
-                        style={[
-                          styles.pondImageContainer,
-                          selectedPond === pond.koiPondId && styles.selectedPond
-                        ]}
-                        onPress={() => handlePondSelect(pond)}
-                      >
-                        <Image 
-                          source={
-                            pond.imageUrl 
-                              ? { uri: pond.imageUrl } 
-                              : require('../../assets/images/buddha.png')
-                          } 
-                          style={styles.pondImage}
-                        />
-                        <Text style={styles.pondLabel}>{pond.pondName || 'Chưa đặt tên'}</Text>
-                      </TouchableOpacity>
-                    ))
-                  ) : (
-                    <View style={styles.noPondsContainer}>
-                      <Text style={styles.noPondsText}>
-                        Chưa có hồ nào cho hình dạng này
-                      </Text>
-                    </View>
-                  )}
-                </HorizontalScrollView>
-
-                {selectedPondDetails && (
-                  <View style={styles.selectedPondDetails}>
-                    <View style={styles.pondInfoRow}>
-                      <Text style={styles.pondInfoLabel}>Tên hồ:</Text>
-                      <Text style={styles.pondInfoValue}>
-                        {selectedPondDetails.pondName || 'Chưa đặt tên'}
-                      </Text>
-                    </View>
-                    <View style={styles.pondInfoRow}>
-                      <Text style={styles.pondInfoLabel}>Mệnh:</Text>
-                      <Text style={styles.pondInfoValue}>
-                        {selectedPondDetails.element || 'Chưa xác định'}
-                      </Text>
-                    </View>
-                    <View style={styles.pondInfoRow}>
-                      <Text style={styles.pondInfoLabel}>Hình dạng:</Text>
-                      <Text style={styles.pondInfoValue}>
-                        {selectedPondDetails.shapeName || 'Chưa xác định'}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {/* Direction Dropdown */}
-              <View style={styles.directionSection}>
-                <Text style={styles.sectionTitle}>Hướng đặt hồ:</Text>
-                <SelectList 
-                  setSelected={setSelected} 
-                  data={directions} 
-                  boxStyles={styles.dropdown}
-                  dropdownStyles={styles.dropdownList}
-                  placeholder="Chọn hướng đặt hồ"
-                  search={false}
-                />
-              </View>
-
-              {/* Fish Count Section */}
-              <View style={styles.fishCountSection}>
-                <Text style={styles.sectionTitle}>Số lượng cá:</Text>
-                <View style={styles.fishCountContainer}>
-                  <TouchableOpacity 
-                    style={styles.countButton}
-                    onPress={() => adjustFishCount(false)}
-                  >
-                    <Text style={styles.countButtonText}>-</Text>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.countDisplay}>
-                    <Text style={styles.countText}>{fishCount}</Text>
-                    <Text style={styles.countLabel}>con</Text>
-                  </View>
-
-                  <TouchableOpacity 
-                    style={styles.countButton}
-                    onPress={() => adjustFishCount(true)}
-                  >
-                    <Text style={styles.countButtonText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Calculate Button */}
-              <TouchableOpacity 
-                style={styles.calculateButton}
-                onPress={calculateCompatibility}
-              >
-                <Text style={styles.calculateButtonText}>Tính toán phong thủy</Text>
-              </TouchableOpacity>
-            </ScrollView>
+            )}
           </View>
-        </ScrollView>
-      </ImageBackground>
+          
+          {selectedPondDetails && (
+            <View style={styles.pondDetails}>
+              <View style={styles.pondDetailsHeader}>
+                <Ionicons name="information-circle-outline" size={18} color="#8B0000" />
+                <Text style={styles.pondDetailsTitle}>Thông Tin Hồ</Text>
+              </View>
+              
+              <View style={styles.pondInfoGrid}>
+                <View style={styles.pondInfoItem}>
+                  <Text style={styles.pondInfoLabel}>Tên:</Text>
+                  <Text style={styles.pondInfoValue}>{selectedPondDetails.pondName}</Text>
+                </View>
+                
+                <View style={styles.pondInfoItem}>
+                  <Text style={styles.pondInfoLabel}>Hình dạng:</Text>
+                  <Text style={styles.pondInfoValue}>{selectedPondDetails.shapeName}</Text>
+                </View>
+                
+                <View style={styles.pondInfoItem}>
+                  <Text style={styles.pondInfoLabel}>Nguyên tố:</Text>
+                  <Text style={styles.pondInfoValue}>{selectedPondDetails.element}</Text>
+                </View>
+                
+                <View style={styles.pondInfoItem}>
+                  <Text style={styles.pondInfoLabel}>Diện tích:</Text>
+                  <Text style={styles.pondInfoValue}>{selectedPondDetails.area} m²</Text>
+                </View>
+              </View>
+            </View>
+          )}
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Hướng Đặt Hồ</Text>
+            <SelectList
+              setSelected={setSelected}
+              data={directions}
+              placeholder="Chọn hướng đặt hồ"
+              boxStyles={styles.selectBox}
+              dropdownStyles={styles.dropdown}
+              inputStyles={styles.selectInput}
+              dropdownTextStyles={styles.dropdownText}
+              search={false}
+            />
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Số Lượng Cá</Text>
+            <View style={styles.fishCountControl}>
+              <TouchableOpacity 
+                style={[
+                  styles.countButton,
+                  fishCount <= 1 && styles.disabledButton
+                ]}
+                onPress={() => adjustFishCount(false)}
+                disabled={fishCount <= 1}
+              >
+                <AntDesign name="minus" size={20} color="#FFF" />
+              </TouchableOpacity>
+              
+              <View style={styles.countDisplay}>
+                <Text style={styles.countValue}>{fishCount}</Text>
+                <Text style={styles.countUnit}>con</Text>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.countButton}
+                onPress={() => adjustFishCount(true)}
+              >
+                <AntDesign name="plus" size={20} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        
+        {/* Calculate Button */}
+        <TouchableOpacity 
+          style={styles.calculateButtonContainer}
+          onPress={calculateCompatibility}
+        >
+          <LinearGradient
+            colors={['#8B0000', '#650000']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.calculateButton}
+          >
+            <Text style={styles.calculateButtonText}>Tính Tương Hợp</Text>
+            <MaterialIcons name="calculate" size={22} color="#FFF" style={styles.calculateIcon} />
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        {/* Results Card - Only show if we have calculated */}
+        {hasCalculated && (
+          <View style={[styles.card, styles.resultsCard]}>
+            <View style={styles.cardHeader}>
+              <AntDesign name="barschart" size={18} color="#8B0000" style={styles.cardIcon} />
+              <Text style={styles.cardTitle}>Kết Quả Tương Hợp</Text>
+            </View>
+            
+            <View style={styles.scoreContainer}>
+              <View style={styles.scoreCircle}>
+                <Text style={styles.scoreValue}>{compatibilityScore}%</Text>
+              </View>
+              <Text style={styles.scoreLabel}>Mức độ tương hợp</Text>
+            </View>
+            
+            <Text style={styles.compatibilityMessage}>
+              {compatibilityMessage || 'Không có thông tin tương hợp.'}
+            </Text>
+          </View>
+        )}
+        
+        <View style={styles.bottomPadding} />
+      </ScrollView>
     </View>
   );
 }
@@ -569,294 +672,389 @@ export default function FishDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#f5f5f5',
   },
-  backgroundImage: {
-    flex: 1,
+  heroContainer: {
+    height: height * 0.35,
+    width: width,
+  },
+  heroImage: {
     width: '100%',
+    height: '100%',
   },
-  header: {
-    flexDirection: 'row',
+  heroOverlay: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
+    padding: 16,
   },
-  menuButton: {
-    padding: 8,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  spacer: {
-    height: 450, // Adjust this value to control when the white card appears
-  },
-  detailsCard: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 30,
-    paddingTop: 40,
-    minHeight: '100%', // This ensures the white background extends to the bottom
-  },
-  likeButtonContainer: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-  likeButtonBackground: {
-    borderRadius: 30,
-    padding: 8,
-  },
-  titleSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 10,
-  },
-  fishName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  fishVariant: {
-    fontSize: 32,
-    color: '#FFA500',
-  },
-  sizeSection: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  shortDescription: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#EEEEEE',
-    marginVertical: 20,
-  },
-  fullDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  calculationSection: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-  },
-  calculationTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  sliderContainer: {
-    marginBottom: 20,
-  },
-  sliderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-    backgroundColor: '#F5F5F5',
-    padding: 10,
-    borderRadius: 8,
-  },
-  sliderLabel: {
-    width: 100,
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  slider: {
-    flex: 1,
-    height: 40,
-    marginHorizontal: 10,
-  },
-  percentageText: {
-    width: 50,
-    textAlign: 'right',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  compatibilityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  compatibilityLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  compatibilityValue: {
-    fontSize: 16,
-    color: '#8B0000',
-    marginLeft: 10,
-    fontWeight: 'bold',
-  },
-  directionSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  dropdown: {
-    borderColor: '#8B0000',
-    borderRadius: 8,
-  },
-  dropdownList: {
-    borderColor: '#8B0000',
-  },
-  calculateButton: {
-    backgroundColor: '#8B0000',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  calculateButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  pondStyleSection: {
-    marginBottom: 20,
-  },
-  pondStyleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  redText: {
-    color: '#8B0000',
-    fontWeight: 'bold',
-  },
-  pondImagesScroll: {
-    marginTop: 10,
-  },
-  pondImageContainer: {
-    marginRight: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 10,
-  },
-  selectedPond: {
-    borderColor: '#8B0000',
-  },
-  pondImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 10,
-  },
-  fishCountSection: {
-    marginVertical: 20,
-    paddingHorizontal: 20,
-  },
-  fishCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 15,
-    padding: 10,
-  },
-  countButton: {
-    backgroundColor: '#8B0000',
+  backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    marginTop: Platform.OS === 'ios' ? 40 : 10,
   },
-  countButtonText: {
-    color: 'white',
-    fontSize: 24,
+  heroContent: {
+    padding: 16,
+  },
+  heroTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  countDisplay: {
+  tagContainer: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    paddingHorizontal: 30,
+    alignItems: 'center',
   },
-  countText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#8B0000',
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+  },
+  tagText: {
+    color: '#FFF',
+    fontSize: 14,
+    marginLeft: 6,
+  },
+  scrollView: {
+    flex: 1,
+    marginTop: -25,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  card: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardIcon: {
     marginRight: 8,
   },
-  countLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  pondLabel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 5,
-    textAlign: 'center',
-    fontSize: 14,
+  cardTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: 'white',
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    color: '#333',
   },
-  shapeSection: {
-    marginBottom: 20,
+  cardText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#555',
   },
-  noPondsContainer: {
-    width: '100%',
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+  colorRow: {
+    marginBottom: 16,
   },
-  noPondsText: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  selectedPondDetails: {
-    marginTop: 15,
-    padding: 15,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#8B0000',
-  },
-  pondInfoRow: {
+  colorLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  pondInfoLabel: {
-    width: 80,
-    fontSize: 14,
+  colorDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  colorLabel: {
+    fontSize: 15,
+    color: '#444',
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  slider: {
+    flex: 1,
+    height: 40,
+  },
+  percentageContainer: {
+    width: 50,
+    alignItems: 'flex-end',
+  },
+  percentageText: {
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#333',
   },
-  pondInfoValue: {
-    flex: 1,
-    fontSize: 14,
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 12,
+  },
+  totalLabel: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#555',
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#8B0000',
+    marginLeft: 8,
+  },
+  totalValueError: {
+    color: '#e53935',
+  },
+  errorMessage: {
+    fontSize: 13,
+    color: '#e53935',
+    marginTop: 8,
+    textAlign: 'right',
+    fontStyle: 'italic',
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  formLabel: {
+    fontSize: 16,
     fontWeight: '500',
+    marginBottom: 10,
+    color: '#444',
+  },
+  selectBox: {
+    borderColor: '#ddd',
+    borderRadius: 10,
+    height: 50,
+  },
+  dropdown: {
+    borderColor: '#ddd',
+    borderRadius: 10,
+  },
+  selectInput: {
+    color: '#333',
+  },
+  dropdownText: {
+    color: '#333',
+  },
+  pondCardsContainer: {
+    paddingVertical: 10,
+  },
+  pondCard: {
+    width: 140,
+    height: 140,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 12,
+    position: 'relative',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedPondCard: {
+    borderColor: '#8B0000',
+  },
+  pondImage: {
+    width: '100%',
+    height: '100%',
+  },
+  selectedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(139, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pondNameContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingVertical: 6,
+  },
+  pondName: {
+    color: '#FFF',
+    fontSize: 13,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  emptyPondsContainer: {
+    height: 140,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderStyle: 'dashed',
+  },
+  emptyPondsText: {
+    marginTop: 10,
+    color: '#999',
+    fontSize: 14,
+  },
+  pondDetails: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+  },
+  pondDetailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pondDetailsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#444',
+    marginLeft: 6,
+  },
+  pondInfoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  pondInfoItem: {
+    width: '50%',
+    marginBottom: 10,
+    paddingRight: 10,
+  },
+  pondInfoLabel: {
+    fontSize: 13,
+    color: '#777',
+    marginBottom: 2,
+  },
+  pondInfoValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+  },
+  fishCountControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 25,
+    padding: 10,
+  },
+  countButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#8B0000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  countDisplay: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    width: 80,
+    justifyContent: 'center',
+  },
+  countValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  countUnit: {
+    fontSize: 16,
+    color: '#555',
+    marginLeft: 5,
+  },
+  calculateButtonContainer: {
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  calculateButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  calculateButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  calculateIcon: {
+    marginLeft: 8,
+  },
+  resultsCard: {
+    borderWidth: 1,
+    borderColor: '#8B0000',
+  },
+  scoreContainer: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  scoreCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#8B0000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  scoreValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  scoreLabel: {
+    fontSize: 16,
+    color: '#555',
+  },
+  compatibilityMessage: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#444',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 10,
+  },
+  bottomPadding: {
+    height: 40,
   },
 }); 
