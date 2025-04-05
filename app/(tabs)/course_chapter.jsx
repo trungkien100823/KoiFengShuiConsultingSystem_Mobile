@@ -24,32 +24,34 @@ const { width } = Dimensions.get('window');
 
 export default function CourseChapterScreen() {
   const router = useRouter();
-  const { courseId = '0AA77A49-CAFF-4F01-B', source, courseName, courseDescription, courseImage, courseRating } = useLocalSearchParams();
-  const [expandedChapter, setExpandedChapter] = useState(false);
-  const [completedLessons, setCompletedLessons] = useState({});
-  const [completedQuizzes, setCompletedQuizzes] = useState({});
-  const [chapters, setChapters] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentChapter, setCurrentChapter] = useState(null);
-  const navigation = useNavigation();
-  const [isRegistered, setIsRegistered] = useState(true);
+  const params = useLocalSearchParams();
+  // Get courseId from params without default fallback
+  const { courseId } = params;
+  
   const [courseInfo, setCourseInfo] = useState({
     courseName: '',
     rating: '',
     author: '',
     description: ''
   });
+  const [chapters, setChapters] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [expandedChapter, setExpandedChapter] = useState(null);
+  const [completedLessons, setCompletedLessons] = useState({});
+  const [completedQuizzes, setCompletedQuizzes] = useState({});
+  const [isRegistered, setIsRegistered] = useState(false);
   const [quizId, setQuizId] = useState(null);
+  const [effectiveCourseId, setEffectiveCourseId] = useState(null);
+  const navigation = useNavigation();
 
-  // Load user data on mount
+  // Load completion data from storage
   useEffect(() => {
-    const loadUserData = async () => {
+    const loadCompletionData = async () => {
       try {
         // Load completed lessons
         const savedLessons = await AsyncStorage.getItem('completedLessons');
         if (savedLessons) {
-          const parsedLessons = JSON.parse(savedLessons);
-          setCompletedLessons(parsedLessons);
+          setCompletedLessons(JSON.parse(savedLessons));
         }
         
         // Load completed quizzes
@@ -58,113 +60,223 @@ export default function CourseChapterScreen() {
           setCompletedQuizzes(JSON.parse(savedQuizzes));
         }
       } catch (error) {
-        console.log('Error loading user data', error);
+        console.log('Error loading completion data:', error);
       }
     };
     
-    loadUserData();
+    loadCompletionData();
   }, []);
 
-  // Modify your existing useEffect to fetch both course details and chapters
+  // Update the useEffect that initializes courseId
   useEffect(() => {
-    const fetchData = async () => {
+    const initCourseId = async () => {
+      // First check if we have a courseId from params
+      if (params.courseId) {
+        // Log what we received from params
+        console.log('Received courseId from params:', params.courseId);
+        const cleanCourseId = String(params.courseId).trim();
+        console.log('Using courseId from params:', cleanCourseId);
+        setEffectiveCourseId(cleanCourseId);
+        return;
+      }
+      
+      // If no courseId in params, try to get the last viewed course from storage
       try {
-        if (!courseId) {
-          console.log('CourseId not found, using fallback data');
-          setChapters(getFallbackChapters());
-          setIsLoading(false);
+        const lastCourseId = await AsyncStorage.getItem('lastViewedCourseId');
+        if (lastCourseId) {
+          console.log('Using last viewed courseId from storage:', lastCourseId);
+          setEffectiveCourseId(lastCourseId);
           return;
         }
-        
-        setIsLoading(true);
-        
-        // Log the courseId to help debug
-        console.log('Fetching data for courseId:', courseId);
-        
+      } catch (err) {
+        console.error('Error getting last viewed course:', err);
+      }
+      
+      console.log('No courseId found, cannot load course');
+      Alert.alert('Thông báo', 'Không thể tìm thấy khóa học. Vui lòng thử lại.');
+      router.back();
+    };
+    
+    initCourseId();
+  }, [params.courseId]);
+
+  // Fetch course and chapters when courseId changes
+  useEffect(() => {
+    const fetchCourseData = async () => {
+      if (!courseId) {
+        console.log('No courseId provided, cannot fetch course data');
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
+      console.log('Fetching course data for courseId:', courseId);
+      
+      try {
         const token = await AsyncStorage.getItem('accessToken');
-        
         if (!token) {
-          Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem nội dung khóa học');
+          console.log('No token found, redirecting to login');
           router.push('/login');
           return;
         }
-
-        // 1. Fetch course details
-        try {
-          const courseDetailsResponse = await axios.get(
-            `${API_CONFIG.baseURL}/api/Course/get-course/${courseId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-
-          console.log('Course details API response:', courseDetailsResponse.data);
-
-          if (courseDetailsResponse.data?.isSuccess && courseDetailsResponse.data?.data) {
-            const courseData = courseDetailsResponse.data.data;
-            setCourseInfo({
-              courseName: courseData.courseName || 'Introduction to Feng Shui',
-              rating: courseData.rating?.toString() || '4.5',
-              author: courseData.author || 'Sensei Tanaka',
-              description: courseData.description || 'Khóa học cơ bản về phong thủy và ứng dụng trong đời sống hàng ngày.'
-            });
-            
-            // Set quizId from course data or use a default
-            setQuizId(courseData.quizId || `${courseId}-final-quiz`);
-          }
-        } catch (courseError) {
-          console.error('Error fetching course details:', courseError);
-        }
-
-        // 2. Fetch chapters
-        await fetchChapters();
         
+        // 1. Fetch course details
+        const courseResponse = await axios.get(
+          `${API_CONFIG.baseURL}/api/Course/get-course/${courseId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        console.log('Course details response:', courseResponse.data);
+        
+        if (courseResponse.data?.isSuccess && courseResponse.data.data) {
+          const courseData = courseResponse.data.data;
+          
+          // Set course info
+          setCourseInfo({
+            courseName: courseData.courseName || '',
+            rating: courseData.rating?.toString() || '',
+            author: courseData.author || '',
+            description: courseData.description || ''
+          });
+          
+          // Set registered status
+          setIsRegistered(courseData.isRegistered || false);
+          
+          // Set quiz ID if available
+          if (courseData.quizId) {
+            setQuizId(courseData.quizId);
+          }
+          
+          // 2. Fetch chapters for this course
+          await fetchChapters(courseId, token);
+        } else {
+          console.error('Failed to fetch course:', courseResponse.data?.message);
+        }
       } catch (error) {
-        console.error('Error fetching data:', error);
-        setChapters(getFallbackChapters());
+        console.error('Error fetching course data:', error);
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchData();
+    
+    fetchCourseData();
   }, [courseId]);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      console.log('Màn hình Chapter được focus - Tải lại dữ liệu');
-      fetchChapters();
-    });
-
-    return unsubscribe;
-  }, [navigation]);
-
-  // If you need a temporary solution before API updates, you can set a default value
-  useEffect(() => {
-    // Default quiz ID if not available from API
-    if (!quizId) {
-      setQuizId(`${courseId}-final-quiz`);
+  
+  // Separate function to fetch chapters
+  const fetchChapters = async (courseId, token) => {
+    try {
+      console.log('Fetching chapters for courseId:', courseId);
+      
+      const chaptersResponse = await axios.get(
+        `${API_CONFIG.baseURL}/api/Chapter/get-all-chapters-by-courseId`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          params: {
+            id: courseId
+          }
+        }
+      );
+      
+      console.log('Chapters response:', chaptersResponse.data);
+      
+      if (chaptersResponse.data?.isSuccess && chaptersResponse.data.data) {
+        setChapters(chaptersResponse.data.data);
+        return true;
+      } else {
+        console.error('Failed to fetch chapters:', chaptersResponse.data?.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+      return false;
     }
-  }, [courseId, quizId]);
+  };
+  
+  // Navigate to video when selecting a chapter
+  const navigateToChapter = (chapter) => {
+    if (!chapter || !chapter.chapterId) {
+      console.error('Invalid chapter object', chapter);
+      return;
+    }
+    
+    console.log('Navigating to chapter:', chapter.chapterId);
+    
+    router.push({
+      pathname: '/(tabs)/course_video',
+      params: {
+        chapterId: chapter.chapterId,
+        courseId: courseId
+      }
+    });
+  };
+  
+  // Navigate to quiz
+  const navigateToQuiz = () => {
+    if (!quizId) {
+      console.error('No quiz ID available');
+      return;
+    }
+    
+    console.log('Navigating to quiz:', quizId);
+    
+    router.push({
+      pathname: '/(tabs)/course_quiz_start',
+      params: {
+        quizId: quizId,
+        courseId: courseId
+      }
+    });
+  };
+  
+  // Check if all chapters are completed
+  const checkAllChaptersCompleted = () => {
+    if (!chapters || chapters.length === 0) return false;
+    
+    return chapters.every(chapter => 
+      completedLessons[chapter.chapterId] === true
+    );
+  };
 
   // Fix the handleBackNavigation function error
   const handleBackNavigation = () => {
-    if (source === 'your_paid_courses') {
+    if (params.source === 'your_paid_courses') {
       router.push('/(tabs)/your_paid_courses');
     } else {
-      router.back();
+      router.push('/(tabs)/courses');
     }
   };
 
   const toggleChapter = async (chapter) => {
     try {
+      // Validate we have a valid chapter object
+      if (!chapter) {
+        console.error('Invalid chapter object:', chapter);
+        return;
+      }
+      
+      // Handle expanding chapter section
       if (expandedChapter === chapter.chapterId) {
         setExpandedChapter(null);
       } else {
         setExpandedChapter(chapter.chapterId);
+      }
+      
+      // Make sure we have a valid chapterId before proceeding
+      if (!chapter.chapterId) {
+        console.error('Invalid chapter ID - chapterId is undefined');
+        Alert.alert(
+          'Lỗi',
+          'Không thể tải thông tin chương học. Vui lòng thử lại sau.'
+        );
+        return;
       }
       
       const token = await AsyncStorage.getItem('accessToken');
@@ -174,17 +286,19 @@ export default function CourseChapterScreen() {
         return;
       }
 
-      // No need to check API first, just navigate to video
+      console.log('Navigating to chapter:', chapter.chapterId);
+      
+      // Navigate to video
       router.push({
         pathname: '/(tabs)/course_video',
         params: {
           chapterId: chapter.chapterId,
-          courseId: courseId
+          courseId: courseId // Make sure courseId is valid here
         }
       });
 
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in toggleChapter:', error);
       Alert.alert(
         'Lỗi',
         'Không thể tải thông tin chương học. Vui lòng thử lại sau.'
@@ -204,58 +318,6 @@ export default function CourseChapterScreen() {
     const totalLessons = 9; // Total number of lessons in the course
     const completedCount = Object.values(completedLessons).filter(Boolean).length;
     return Math.round((completedCount / totalLessons) * 100);
-  };
-
-  // Navigate to a quiz
-  const navigateToQuiz = (quizId) => {
-    router.push({
-      pathname: '/(tabs)/course_quiz',
-      params: { 
-        quizId: '04205955-CACE-4F8C-8',
-        courseId: courseId
-      }
-    });
-  };
-
-  const getFallbackChapters = () => {
-    return [
-      {
-        chapterId: 'chapter-1',
-        title: 'Phong thủy cơ bản',
-        status: 'Done',
-        description: 'Các khái niệm cơ bản về phong thủy cổ học',
-        courseId: courseId,
-        videoUrl: 'https://example.com/video1.mp4'
-      },
-      {
-        chapterId: 'chapter-2',
-        title: 'Cách xem hướng',
-        status: 'InProgress',
-        description: 'Các kỹ thuật xác định và phân tích hướng trong phong thủy',
-        courseId: courseId,
-        videoUrl: 'https://example.com/video2.mp4'
-      },
-      {
-        chapterId: 'chapter-3',
-        title: 'Thủy mạch trong phong thủy',
-        status: 'NotStarted',
-        description: 'Vai trò của nước và dòng chảy trong phong thủy',
-        courseId: courseId,
-        videoUrl: 'https://example.com/video3.mp4'
-      }
-    ];
-  };
-
-  // Add this function to check if all chapters are completed
-  const checkAllChaptersCompleted = () => {
-    if (!chapters || chapters.length === 0) return false;
-    
-    // Check if every chapter has been completed
-    const allCompleted = chapters.every(chapter => 
-      completedLessons[chapter.chapterId] === true
-    );
-    
-    return allCompleted;
   };
 
   // Then update the renderFinalExamButton function to use this check
@@ -291,7 +353,7 @@ export default function CourseChapterScreen() {
           router.push({
             pathname: '/(tabs)/course_quiz_start',
             params: { 
-              courseId: courseId
+              courseId: effectiveCourseId
             }
           });
         }}
@@ -322,59 +384,6 @@ export default function CourseChapterScreen() {
     );
   };
 
-  const fetchChapters = async () => {
-    try {
-      if (!courseId) {
-        console.log('CourseId not found, using fallback data');
-        setChapters(getFallbackChapters());
-        setIsLoading(false);
-        return;
-      }
-      
-      setIsLoading(true);
-      
-      const token = await AsyncStorage.getItem('accessToken');
-      
-      if (!token) {
-        Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem nội dung khóa học');
-        router.push('/login');
-        return;
-      }
-
-      console.log('Fetching chapters for courseId:', courseId);
-      
-      // Use the correct API endpoint
-      const response = await axios.get(
-        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllChaptersByCourseId}`, 
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          params: {
-            id: courseId
-          }
-        }
-      );
-
-      console.log('Chapters API Response:', response.data);
-
-      if (response.data?.isSuccess) {
-        setChapters(response.data.data);
-      } else {
-        console.warn('API returned unsuccessful result, using fallback data');
-        setChapters(getFallbackChapters());
-      }
-      
-    } catch (error) {
-      console.error('Error fetching chapters:', error);
-      console.log('Using fallback data');
-      setChapters(getFallbackChapters());
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <ImageBackground 
       source={require('../../assets/images/feng shui.png')}
@@ -396,11 +405,11 @@ export default function CourseChapterScreen() {
         {/* Course Title and Rating */}
         <View style={styles.titleContainer}>
           <Text style={styles.courseTitle}>
-            {courseInfo.courseName || courseName || 'Introduction to Feng Shui'}
+            {courseInfo.courseName || params.courseName || 'Introduction to Feng Shui'}
           </Text>
           <View style={styles.ratingContainer}>
             <Text style={styles.ratingText}>
-              {courseInfo.rating || courseRating || '4.5'}
+              {courseInfo.rating || params.courseRating || '4.5'}
             </Text>
             <View style={styles.starsContainer}>
               <Ionicons name="star" size={16} color="#FFD700" />
@@ -416,8 +425,8 @@ export default function CourseChapterScreen() {
           {/* Main Course Image */}
           <Image 
             source={
-              courseImage 
-                ? { uri: courseImage }
+              params.courseImage 
+                ? { uri: params.courseImage }
                 : require('../../assets/images/koi_image.jpg')
             }
             style={styles.fishImage}
@@ -428,7 +437,7 @@ export default function CourseChapterScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Description:</Text>
             <Text style={styles.descriptionText}>
-              {courseInfo.description || courseDescription || 'Phong thủy là một trong những học thuyết cổ xưa của phương Đông, nghiên cứu về sự ảnh hưởng của hướng gió, dòng nước, địa hình và các yếu tố tự nhiên đến đời sống con người. Phong thủy không chỉ áp dụng trong xây dựng nhà cửa, bố trí nội thất mà còn trong kinh doanh, sức khỏe và vận mệnh cá nhân, giúp cân bằng năng lượng và thu hút tài lộc, may mắn.'}
+              {courseInfo.description || params.courseDescription || 'Phong thủy là một trong những học thuyết cổ xưa của phương Đông, nghiên cứu về sự ảnh hưởng của hướng gió, dòng nước, địa hình và các yếu tố tự nhiên đến đời sống con người. Phong thủy không chỉ áp dụng trong xây dựng nhà cửa, bố trí nội thất mà còn trong kinh doanh, sức khỏe và vận mệnh cá nhân, giúp cân bằng năng lượng và thu hút tài lộc, may mắn.'}
             </Text>
           </View>
 

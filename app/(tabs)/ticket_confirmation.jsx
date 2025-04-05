@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, Platform, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, Platform, Alert, ActivityIndicator, Image, ScrollView, Dimensions } from 'react-native';
 import { AntDesign, Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,8 @@ import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { ticketService } from '../../constants/ticketCreate';
 import { paymentService } from '../../constants/paymentService';
+
+const { width } = Dimensions.get('window');
 
 export default function TicketConfirmation() {
   const navigation = useNavigation();
@@ -443,300 +445,442 @@ export default function TicketConfirmation() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
       <LinearGradient
-        colors={['#AE1D1D', '#212121']}
+        colors={['#8B0000', '#212121']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Ticket confirmation</Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <Feather name="more-horizontal" size={24} color="white" />
-        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Xác Nhận Đặt Vé</Text>
+          <View style={styles.rightHeaderPlaceholder} />
+        </View>
       </LinearGradient>
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{flex: 1}}
+        style={styles.keyboardAvoidingContainer}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#AE1D1D" />
+            <ActivityIndicator size="large" color="#8B0000" />
             <Text style={styles.loadingText}>Đang tải thông tin...</Text>
           </View>
         ) : (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.content}>
-              <Text style={styles.eventTitle}>{workshopInfo.title}</Text>
+          <>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                <View style={styles.workshopCard}>
+                  <Image 
+                    source={require('../../assets/images/buddha.png')} 
+                    style={styles.workshopImage}
+                  />
+                  <View style={styles.workshopInfo}>
+                    <View style={styles.workshopOverlay}>
+                      <Text style={styles.workshopTitle} numberOfLines={2}>
+                        {workshopInfo.title}
+                      </Text>
+                      <View style={styles.infoRow}>
+                        <Ionicons name="calendar-outline" size={16} color="#FFD700" />
+                        <Text style={styles.infoText}>{workshopInfo.date}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Ionicons name="location-outline" size={16} color="#FFD700" />
+                        <Text style={styles.infoText}>{workshopInfo.location}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionTitle}>Thông Tin Khách Hàng</Text>
+                  
+                  <View style={styles.inputContainer}>
+                    <View style={styles.inputIconContainer}>
+                      <Ionicons name="person" size={20} color="#8B0000" />
+                    </View>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Họ và tên"
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                  
+                  <View style={styles.inputContainer}>
+                    <View style={styles.inputIconContainer}>
+                      <Ionicons name="call" size={20} color="#8B0000" />
+                    </View>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Số điện thoại"
+                      value={phoneNumber}
+                      onChangeText={setPhoneNumber}
+                      keyboardType="phone-pad"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                  
+                  <View style={styles.inputContainer}>
+                    <View style={styles.inputIconContainer}>
+                      <Ionicons name="mail" size={20} color="#8B0000" />
+                    </View>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Email"
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionTitle}>Số Lượng Vé</Text>
+                  
+                  <View style={styles.ticketSelectionContainer}>
+                    <View style={styles.ticketPriceContainer}>
+                      <Text style={styles.ticketPriceLabel}>Giá vé:</Text>
+                      <Text style={styles.ticketPrice}>{workshopInfo.price || "$0"}</Text>
+                    </View>
+
+                    <View style={styles.ticketCounterRow}>
+                      <Text style={styles.ticketCounterLabel}>Số lượng:</Text>
+                      <View style={styles.ticketCounter}>
+                        <TouchableOpacity 
+                          style={styles.counterButton}
+                          onPress={() => ticketCount > 1 && setTicketCount(ticketCount - 1)}
+                        >
+                          <AntDesign name="minus" size={16} color="#FFF" />
+                        </TouchableOpacity>
+                        
+                        <View style={styles.counterValueContainer}>
+                          <Text style={styles.counterValue}>{ticketCount}</Text>
+                        </View>
+                        
+                        <TouchableOpacity 
+                          style={styles.counterButton}
+                          onPress={() => setTicketCount(ticketCount + 1)}
+                        >
+                          <AntDesign name="plus" size={16} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Payment Method Section */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
+                  
+                  <View style={styles.paymentOptions}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.paymentMethod,
+                        selectedPayment === 'VietQR' && styles.selectedPaymentMethod
+                      ]}
+                      onPress={() => setSelectedPayment('VietQR')}
+                    >
+                      <Image 
+                        source={require('../../assets/images/VietQR.png')} 
+                        style={styles.paymentMethodImage} 
+                      />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[
+                        styles.paymentMethod,
+                        selectedPayment === 'PayOS' && styles.selectedPaymentMethod
+                      ]}
+                      onPress={() => setSelectedPayment('PayOS')}
+                    >
+                      <Image 
+                        source={require('../../assets/images/PayOS.png')} 
+                        style={styles.paymentMethodImage} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Order Summary */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Tổng tiền</Text>
+                    <Text style={styles.summaryValue}>
+                      {workshopInfo && workshopInfo.price ? 
+                        typeof workshopInfo.price === 'string' ?
+                          `${parseFloat(workshopInfo.price.replace(/[^0-9.]/g, '')) * ticketCount} VND` :
+                          `${parseFloat(workshopInfo.price) * ticketCount} VND`
+                        : "0 VND"}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Chiết khấu</Text>
+                    <Text style={styles.summaryValue}>0 VND</Text>
+                  </View>
+                  
+                  <View style={styles.divider} />
+                  
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.totalLabel}>Tổng thanh toán</Text>
+                    <Text style={styles.totalValue}>
+                      {workshopInfo && workshopInfo.price ? 
+                        typeof workshopInfo.price === 'string' ?
+                          `${parseFloat(workshopInfo.price.replace(/[^0-9.]/g, '')) * ticketCount} VND` :
+                          `${parseFloat(workshopInfo.price) * ticketCount} VND`
+                        : "0 VND"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.bottomSpacing} />
+              </ScrollView>
+            </TouchableWithoutFeedback>
+
+            {/* Fixed Bottom Payment Bar - moved outside TouchableWithoutFeedback */}
+            <View style={styles.fixedBottomBar}>
+              <View style={styles.bottomTotalContainer}>
+                <Text style={styles.bottomTotalLabel}>Tổng thanh toán</Text>
+                <Text style={styles.bottomTotalValue}>
+                  {workshopInfo && workshopInfo.price ? 
+                    typeof workshopInfo.price === 'string' ?
+                      `${parseFloat(workshopInfo.price.replace(/[^0-9.]/g, '')) * ticketCount} VND` :
+                      `${parseFloat(workshopInfo.price) * ticketCount} VND`
+                    : "0 VND"}
+                </Text>
+              </View>
               
-              <View style={styles.eventInfoContainer}>
-                <View style={styles.eventInfoItem}>
-                  <MaterialIcons name="date-range" size={14} color="#AE1D1D" />
-                  <Text style={styles.eventInfoText}>Date: {workshopInfo.date}</Text>
-                </View>
-                
-                <View style={styles.eventInfoItem}>
-                  <Ionicons name="location" size={14} color="#AE1D1D" />
-                  <Text style={styles.eventInfoText}>{workshopInfo.location}</Text>
-                </View>
-              </View>
-
-              <View style={styles.formContainer}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Customer<Text style={styles.required}>*</Text></Text>
-                  <View style={styles.inputContainer}>
-                    <View style={styles.inputWrapper}>
-                      <TextInput
-                        style={styles.input}
-                        value={customerName}
-                        onChangeText={setCustomerName}
-                        placeholder="John Smith"
-                        placeholderTextColor="#999"
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Phone number<Text style={styles.required}>*</Text></Text>
-                  <View style={styles.inputContainer}>
-                    <View style={styles.inputWrapper}>
-                      <TextInput
-                        style={styles.input}
-                        value={phoneNumber}
-                        onChangeText={setPhoneNumber}
-                        placeholder="0123456789"
-                        placeholderTextColor="#999"
-                        keyboardType="phone-pad"
-                        maxLength={10}
-                      />
-                      {phoneNumber.length === 10 && (
-                        <Ionicons name="checkmark" size={20} color="#4CAF50" />
-                      )}
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email<Text style={styles.required}>*</Text></Text>
-                  <View style={styles.inputContainer}>
-                    <View style={styles.inputWrapper}>
-                      <TextInput
-                        style={styles.input}
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="johnsmith@gmail.com"
-                        placeholderTextColor="#999"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>No. Of Tickets</Text>
-                  <View style={styles.ticketCounterContainer}>
-                    <View style={styles.ticketInputContainer}>
-                      <TextInput
-                        style={styles.ticketInput}
-                        value={ticketCount.toString()}
-                        editable={false}
-                      />
-                    </View>
-                    <View style={styles.ticketButtons}>
-                      <TouchableOpacity onPress={decreaseTickets} style={styles.ticketButton}>
-                        <AntDesign name="minus" size={16} color="black" />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={increaseTickets} style={styles.ticketButton}>
-                        <AntDesign name="plus" size={16} color="black" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              </View>
+              <TouchableOpacity 
+                style={styles.paymentButton}
+                onPress={handleContinue}
+                disabled={!selectedPayment || isLoading}
+              >
+                <Text style={styles.paymentButtonText}>Thanh toán</Text>
+              </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
+          </>
         )}
       </KeyboardAvoidingView>
-      
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.buttonWrapper} onPress={handleContinue} disabled={isLoading}>
-          <LinearGradient
-            colors={['#AE1D1D', '#212121']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
-          >
-            <Text style={styles.buttonText}>Continue</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.buttonWrapper} 
-          onPress={() => navigation.navigate('workshopDetails')}
-          disabled={isLoading}
-        >
-          <LinearGradient
-            colors={['#AE1D1D', '#212121']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
-          >
-            <Text style={styles.buttonText}>Cancel</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f8f8',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 50 : 16,
+    paddingBottom: 16,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
+    textAlign: 'center',
   },
-  menuButton: {
-    padding: 8,
+  rightHeaderPlaceholder: {
+    width: 40,
   },
-  content: {
+  keyboardAvoidingContainer: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
     padding: 16,
   },
-  eventTitle: {
+  workshopCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  workshopImage: {
+    width: '100%',
+    height: 280,
+    resizeMode: 'cover',
+  },
+  workshopInfo: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  workshopOverlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 16,
+  },
+  workshopTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#fff',
     marginBottom: 8,
-    marginTop: 10,
   },
-  eventInfoContainer: {
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#fff',
+    marginLeft: 8,
+  },
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B0000',
     marginBottom: 16,
   },
-  eventInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  eventInfoText: {
-    marginLeft: 8,
-    fontSize: 13,
-  },
-  formContainer: {
-    marginTop: 5,
-  },
-  inputGroup: {
-    marginBottom: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    width: '30%',
-  },
-  required: {
-    color: '#AE1D1D',
-  },
   inputContainer: {
-    width: '65%',
-  },
-  
-  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#AE1D1D',
+    borderColor: '#ddd',
     borderRadius: 8,
-    height: 40,
-    paddingHorizontal: 8,
+    marginBottom: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  inputIconContainer: {
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#eee',
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    height: 50,
+    paddingHorizontal: 12,
+    fontSize: 16,
     color: '#333',
-    height: '100%',
   },
-  
-  ticketCounterContainer: {
-    width: '65%',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ticketInputContainer: {
-    marginRight: 10,
-    width: 50,
-    height: 40,
-  },
-  ticketButtons: {
-    flexDirection: 'row',
-  },
-  ticketButton: {
-    width: 36,
-    height: 36,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
+  ticketSelectionContainer: {
     backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 16,
   },
-  buttonContainer: {
+  ticketPriceContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
-    paddingTop: 10,
-    paddingBottom: 20,
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  buttonWrapper: {
-    flex: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
-    height: 45,
-    marginHorizontal: 4,
+  ticketPriceLabel: {
+    fontSize: 16,
+    color: '#555',
   },
-  gradientButton: {
-    width: '100%',
-    height: '100%',
+  ticketPrice: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  ticketCounterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ticketCounterLabel: {
+    fontSize: 16,
+    color: '#555',
+  },
+  ticketCounter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  counterButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#8B0000',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
+  counterValueContainer: {
+    minWidth: 50,
+    alignItems: 'center',
+    paddingHorizontal: 12,
   },
-  ticketInput: {
-    width: '100%',
-    height: '100%',
-    textAlign: 'center',
-    fontSize: 15,
+  counterValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#333',
-    borderWidth: 1,
-    borderColor: '#AE1D1D',
-    borderRadius: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  summaryLabel: {
+    fontSize: 16,
+    color: '#555',
+  },
+  summaryValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 12,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  totalValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  bottomSpacing: {
+    height: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -744,8 +888,67 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
-    color: '#AE1D1D',
+    color: '#8B0000',
+  },
+  paymentOptions: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  paymentMethod: {
+    width: 100,
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+  },
+  selectedPaymentMethod: {
+    borderColor: '#8B0000',
+    backgroundColor: '#FFF5F5',
+  },
+  paymentMethodImage: {
+    width: 80,
+    height: 50,
+    resizeMode: 'contain',
+  },
+  fixedBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#8B0000',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  bottomTotalContainer: {
+    flex: 1,
+  },
+  bottomTotalLabel: {
+    fontSize: 14,
+    color: '#fff',
+  },
+  bottomTotalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  paymentButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+  },
+  paymentButtonText: {
+    color: '#8B0000',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
