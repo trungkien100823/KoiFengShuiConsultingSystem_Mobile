@@ -12,49 +12,40 @@ const axiosInstance = axios.create({
 });
 
 export const workshopDetailsService = {
-  getWorkshopById: async (id) => {
+  getWorkshopDetails: async (id) => {
     try {
-      console.log(`Đang gọi API lấy workshop ID: ${id}`);
-      
       const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        throw new Error('Không tìm thấy token đăng nhập');
-      }
-
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/Workshop/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/Workshop/${id}`,
+        {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
         }
-      });
-
-      return response;
+      );
+      return response.data;
     } catch (error) {
-      console.error('Lỗi khi lấy workshop details:', error);
+      console.error('Error fetching workshop details:', error);
       throw error;
     }
   },
-
-  // Thêm hàm getMasterById với cấu hình giống getWorkshopById
-  getMasterById: async (id) => {
+  
+  getMasterDetails: async (masterId) => {
     try {
-      console.log(`Đang gọi API lấy master ID: ${id}`);
-      
       const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        throw new Error('Không tìm thấy token đăng nhập');
-      }
-
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/Master/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/Master/${masterId}`,
+        {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
         }
-      });
-
-      return response;
+      );
+      return response.data;
     } catch (error) {
-      console.error('Lỗi khi lấy master details:', error);
+      console.error('Error fetching master details:', error);
       throw error;
     }
   }

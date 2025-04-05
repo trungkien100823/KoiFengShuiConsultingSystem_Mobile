@@ -38,91 +38,56 @@ const WorkshopDetailsScreen = () => {
   
   const fetchData = async () => {
     if (!workshopId) {
+      setError('Không tìm thấy workshop');
       setLoading(false);
-      setError('Không có ID workshop');
       return;
     }
-    
+
     try {
       setLoading(true);
       setError(null);
       
-      // Gọi API lấy thông tin workshop
-      const response = await workshopDetailsService.getWorkshopById(workshopId);
-      console.log('Workshop Response:', response);
+      console.log('Đang gọi API workshop với ID:', workshopId);
       
-      if (response?.data?.isSuccess) {
-        const workshopDetails = response.data.data;
-        console.log('Workshop Details:', workshopDetails);
+      // Fetch workshop details from the correct API endpoint
+      const response = await workshopDetailsService.getWorkshopDetails(workshopId);
+      
+      console.log('Workshop details response:', JSON.stringify(response));
+      
+      if (response && response.isSuccess) {
+        // Extract data from the response
+        const workshopDetails = response.data;
+        console.log('Workshop data extracted:', JSON.stringify(workshopDetails));
         
-        // Cập nhật state workshop
-        const processedWorkshop = {
-          id: workshopDetails.workshopId,
-          title: workshopDetails.workshopName,
-          date: workshopDetails.startDate ? new Date(workshopDetails.startDate).toLocaleDateString('vi-VN') : '',
-          location: workshopDetails.location,
-          description: workshopDetails.description,
-          status: workshopDetails.status,
-          capacity: workshopDetails.capacity,
-          price: `${workshopDetails.price}$`,
-          image: getImageForId(imageId)
-        };
+        // Format date if startDate exists
+        if (workshopDetails.startDate) {
+          console.log('Found startDate:', workshopDetails.startDate);
+          const formattedDate = formatDate(workshopDetails.startDate);
+          console.log('Formatted date result:', formattedDate);
+          workshopDetails.formattedDate = formattedDate;
+        }
         
-        setWorkshopData(processedWorkshop);
-
-        // Fetch thông tin master nếu có masterId
+        // Set workshop data to state
+        setWorkshopData(workshopDetails);
+        
+        // If there's a masterId, fetch master details
         if (workshopDetails.masterId) {
           try {
-            console.log('Fetching master with ID:', workshopDetails.masterId);
-            const masterResponse = await workshopDetailsService.getMasterById(workshopDetails.masterId);
-            console.log('Master API Response:', masterResponse);
-            
-            if (masterResponse?.data?.isSuccess) {
-              const masterDetails = masterResponse.data.data;
-              console.log('Master Details:', masterDetails);
-              
-              setMasterInfo({
-                id: masterDetails.masterId,
-                name: masterDetails.masterName,
-                title: masterDetails.title,
-                rating: masterDetails.rating,
-                experience: masterDetails.experience,
-                expertise: masterDetails.expertise,
-                description: masterDetails.biography,
-                image: require('../../assets/images/buddha.png')
-              });
-            } else {
-              console.error('Master API response not successful:', masterResponse?.data);
-              throw new Error('Không thể lấy thông tin master');
+            const masterResponse = await workshopDetailsService.getMasterDetails(workshopDetails.masterId);
+            if (masterResponse && masterResponse.isSuccess) {
+              setMasterInfo(masterResponse.data);
             }
           } catch (masterError) {
-            console.error('Error fetching master:', masterError);
-            // Log thêm chi tiết lỗi
-            if (masterError.response) {
-              console.error('Error response:', masterError.response.data);
-            }
-            setMasterInfo({
-              name: workshopDetails.masterName || 'Chưa có thông tin',
-              title: 'Master',
-              image: require('../../assets/images/buddha.png')
-            });
+            console.error('Error fetching master info:', masterError);
+            // Don't set error state here - we still have workshop data
           }
-        } else {
-          console.log('No masterId provided');
-          setMasterInfo({
-            name: workshopDetails.masterName,
-            title: 'Master',
-            image: require('../../assets/images/buddha.png')
-          });
         }
-
-        return;
+      } else {
+        throw new Error(response?.message || 'Không thể tải dữ liệu');
       }
-      
-      setError('Không thể tải thông tin workshop');
     } catch (error) {
-      console.error('Lỗi khi tải dữ liệu:', error);
-      setError('Không thể tải thông tin workshop. Vui lòng thử lại sau.');
+      console.error('Fetch data error:', error);
+      setError(error.message || 'Đã xảy ra lỗi khi lấy dữ liệu');
     } finally {
       setLoading(false);
       setRetrying(false);
@@ -139,6 +104,35 @@ const WorkshopDetailsScreen = () => {
       return require('../../assets/images/buddha.png');
     }
     return require('../../assets/images/buddha.png');
+  };
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return null;
+    
+    try {
+      console.log('Formatting date string:', dateString);
+      
+      const date = new Date(dateString);
+      
+      if (isNaN(date.getTime())) {
+        console.log('Date không hợp lệ, trả về nguyên mẫu:', dateString);
+        return dateString;
+      }
+      
+      // Format date
+      const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+      
+      // Format time
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const formattedTime = `${hours}:${minutes}`;
+      
+      // Combine date and time
+      return `${formattedDate} - ${formattedTime}`;
+    } catch (error) {
+      console.error('Lỗi định dạng ngày:', error);
+      return dateString;
+    }
   };
   
   // Hiển thị loader khi đang tải dữ liệu
@@ -207,7 +201,7 @@ const WorkshopDetailsScreen = () => {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Hero Image Section */}
         <ImageBackground
-          source={{ uri: displayWorkshop.image || 'https://res.cloudinary.com/dzedpn3us/image/upload/v1714547103/3_cgq2wb.jpg' }}
+          source={{ uri: displayWorkshop.imageUrl || 'https://res.cloudinary.com/dzedpn3us/image/upload/v1714547103/3_cgq2wb.jpg' }}
           style={styles.heroImage}
         >
           <LinearGradient
@@ -215,22 +209,9 @@ const WorkshopDetailsScreen = () => {
             style={styles.gradient}
           >
             <View style={styles.heroContent}>
-              <Text style={styles.title}>{displayWorkshop.title || 'Workshop Title'}</Text>
+              <Text style={styles.title}>{displayWorkshop.workshopName || 'Workshop Title'}</Text>
               
-              <View style={styles.ratingContainer}>
-                <View style={styles.stars}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Ionicons 
-                      key={star} 
-                      name={star <= (displayWorkshop.rating || 4) ? "star" : "star-outline"} 
-                      size={16} 
-                      color="#FFD700" 
-                    />
-                  ))}
-                </View>
-                <Text style={styles.ratingText}>{displayWorkshop.rating || 4.0}</Text>
-                <Text style={styles.studentsCount}>• {displayWorkshop.numberAttendees || 100} người tham dự</Text>
-              </View>
+              
             </View>
           </LinearGradient>
         </ImageBackground>
@@ -246,18 +227,8 @@ const WorkshopDetailsScreen = () => {
                 <Ionicons name="calendar" size={18} color="#8B0000" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Ngày diễn ra</Text>
-                <Text style={styles.detailValue}>{displayWorkshop.date}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.detailRow}>
-              <View style={styles.detailIconContainer}>
-                <Ionicons name="time" size={18} color="#8B0000" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Thời gian</Text>
-                <Text style={styles.detailValue}>{displayWorkshop.duration || '3 giờ'}</Text>
+                <Text style={styles.detailLabel}>Thời gian diễn ra</Text>
+                <Text style={styles.detailValue}>{displayWorkshop.formattedDate || formatDate(displayWorkshop.startDate) || 'Đang cập nhật'}</Text>
               </View>
             </View>
             
@@ -273,58 +244,30 @@ const WorkshopDetailsScreen = () => {
             
             <View style={styles.detailRow}>
               <View style={styles.detailIconContainer}>
-                <FontAwesome name="dollar" size={18} color="#8B0000" />
+                <Ionicons name="people" size={18} color="#8B0000" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Giá vé</Text>
-                <Text style={styles.detailValue}>{displayWorkshop.price || 'Miễn phí'}</Text>
+                <Text style={styles.detailLabel}>Sức chứa</Text>
+                <Text style={styles.detailValue}>{displayWorkshop.capacity || 0} người</Text>
               </View>
             </View>
           </View>
-
-          {/* What You'll Learn Section */}
-          <View style={styles.learnCard}>
-            <Text style={styles.sectionTitle}>Bạn sẽ học được gì</Text>
-            
-            {formatDescription(displayWorkshop.description).map((point, index) => (
-              <View key={index} style={styles.learningPoint}>
-                <View style={styles.checkmarkContainer}>
-                  <Ionicons name="checkmark" size={16} color="#fff" />
-                </View>
-                <Text style={styles.learningPointText}>{point.trim()}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Includes Section */}
-          <View style={styles.includesCard}>
-            <Text style={styles.sectionTitle}>Workshop bao gồm</Text>
-            
-            <View style={styles.includeRow}>
-              <MaterialIcons name="access-time" size={20} color="#8B0000" />
-              <Text style={styles.includeText}>{displayWorkshop.duration || '3 giờ'} học tập</Text>
-            </View>
-            
-            <View style={styles.includeRow}>
-              <MaterialIcons name="description" size={20} color="#8B0000" />
-              <Text style={styles.includeText}>Tài liệu hướng dẫn</Text>
-            </View>
-            
-            <View style={styles.includeRow}>
-              <MaterialCommunityIcons name="certificate" size={20} color="#8B0000" />
-              <Text style={styles.includeText}>Chứng chỉ hoàn thành</Text>
-            </View>
-            
-            <View style={styles.includeRow}>
-              <Ionicons name="people" size={20} color="#8B0000" />
-              <Text style={styles.includeText}>Kết nối với cộng đồng</Text>
-            </View>
-          </View>
-
           {/* Description Section */}
           <View style={styles.descriptionCard}>
             <Text style={styles.sectionTitle}>Mô tả chi tiết</Text>
             <Text style={styles.description}>{displayWorkshop.description || 'Đang cập nhật thông tin...'}</Text>
+          </View>
+
+          {/* Add this as the last card before the bottom booking button */}
+          <View style={styles.priceCard}>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Giá vé tham dự:</Text>
+              <Text style={styles.priceValue}>
+                {displayWorkshop.price 
+                  ? `${displayWorkshop.price.toLocaleString('vi-VN')} VND` 
+                  : 'Miễn phí'}
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -334,8 +277,8 @@ const WorkshopDetailsScreen = () => {
         <TouchableOpacity 
           style={styles.bookingButton}
           onPress={() => navigation.navigate('ticket_confirmation', { 
-            workshopId: displayWorkshop.id,
-            workshopName: displayWorkshop.title,
+            workshopId: displayWorkshop.workshopId,
+            workshopName: displayWorkshop.workshopName,
             workshopPrice: displayWorkshop.price
           })}
         >
@@ -593,6 +536,49 @@ const styles = StyleSheet.create({
     color: '#8B0000',
     fontSize: 14,
     textAlign: 'center',
+  },
+  priceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f0d9d9',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  priceValue: {
+    fontSize: 24,
+    color: '#8B0000',
+    fontWeight: 'bold',
+  },
+  priceDivider: {
+    height: 1,
+    backgroundColor: '#f0d9d9',
+    marginVertical: 12,
+  },
+  priceNoteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  priceNote: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
   },
 });
 
