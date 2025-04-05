@@ -9,18 +9,19 @@ import {
   TextInput, 
   FlatList,
   ActivityIndicator,
-  Alert,
-  SafeAreaView,
-  StatusBar
+  Alert 
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { workshopService } from '../../constants/workshop';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 
-// Component for workshop card with new design
+// Component hiển thị một workshop
 const WorkshopCard = ({ workshop }) => {
   const navigation = useNavigation();
   
@@ -43,18 +44,22 @@ const WorkshopCard = ({ workshop }) => {
         });
       }}
     >
-      <Image
-        source={workshop.image}
-        style={styles.workshopImage}
-      />
-      <View style={styles.cardOverlay}>
+      {/* Rest of your component remains the same */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={workshop.image}
+          style={styles.workshopImage}
+          resizeMode="cover"
+        />
+      </View>
+      <View style={styles.workshopInfo}>
         <Text style={styles.workshopTitle} numberOfLines={2}>{workshop.title}</Text>
         <View style={styles.workshopDetails}>
           <Text style={styles.workshopDate}>
-            <Ionicons name="calendar-outline" size={14} color="#fff" /> {workshop.date}
+            <Ionicons name="calendar-outline" size={14} color="#666" /> {workshop.date}
           </Text>
           <Text style={styles.workshopLocation}>
-            <Ionicons name="location-outline" size={14} color="#fff" /> {workshop.location}
+            <Ionicons name="location-outline" size={14} color="#666" /> {workshop.location}
           </Text>
         </View>
       </View>
@@ -62,27 +67,35 @@ const WorkshopCard = ({ workshop }) => {
   );
 };
 
-// Component for workshop section with new styling
+// Component hiển thị một phần (section) với tiêu đề và danh sách workshops
 const WorkshopSection = ({ title, workshops, loading }) => {
   if (loading) {
     return (
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <ActivityIndicator size="large" color="#8B0000" />
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+        </View>
+        <ActivityIndicator size="large" color="#AE1D1D" />
       </View>
     );
   }
 
   return (
-    <View style={styles.sectionContainer}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
       <FlatList
         horizontal
+        inverted={title === "Newest Workshops"}
         data={workshops}
         renderItem={({ item }) => <WorkshopCard workshop={item} />}
         keyExtractor={item => item.id.toString()}
+        contentContainerStyle={[
+          styles.workshopList,
+          title === "Newest Workshops" && styles.workshopListReversed
+        ]}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.workshopList}
       />
     </View>
   );
@@ -93,8 +106,6 @@ export default function Workshop() {
   const [newestWorkshops, setNewestWorkshops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userName, setUserName] = useState('John Smith');
-  const [searchQuery, setSearchQuery] = useState('');
   const navigation = useNavigation();
 
   const fetchWorkshops = async () => {
@@ -235,70 +246,49 @@ export default function Workshop() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      
-      {/* Fixed Header Section */}
-      <View style={styles.fixedHeader}>
-        {/* Header */}
+      <ScrollView>
         <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Text style={styles.greeting}>Hi, {userName}</Text>
-            <Text style={styles.subGreeting}>Find workshops near you</Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons name="calendar-outline" size={35} color="#8B0000" style={{ marginTop: 20, marginRight: 5 }} />
+          <Text style={styles.headerTitle}>What Suit You?</Text>
+          <TouchableOpacity style={styles.moreButton}>
+            <Ionicons name="ellipsis-horizontal" size={24} color="#333" />
           </TouchableOpacity>
         </View>
 
-        {/* Search Bar */}
+        {/* Hiển thị lỗi nếu có */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <RetryButton />
+          </View>
+        )}
+        
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search workshops"
+              placeholder="Search workshops..."
               placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
             />
-            <Ionicons name="search" size={20} color="#666" />
           </View>
         </View>
-      </View>
+        
+        <WorkshopSection 
+          title="Trending Workshops" 
+          workshops={trendingWorkshops}
+          loading={loading}
+        />
 
-      {/* Error display */}
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <RetryButton />
-        </View>
-      )}
-
-      {loading && !error ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B0000" />
-        </View>
-      ) : (
-        <ScrollView style={styles.scrollContent}>
-          {/* Trending Workshops */}
-          <WorkshopSection 
-            title="Trending Workshops" 
-            workshops={trendingWorkshops}
-            loading={false}
-          />
-          
-          {/* Newest Workshops */}
-          <WorkshopSection 
-            title="Newest Workshops" 
-            workshops={newestWorkshops}
-            loading={false}
-          />
-          
-          {/* Add some space at the bottom for the tab bar */}
-          <View style={{ height: 100 }} />
-        </ScrollView>
-      )}
+        <WorkshopSection 
+          title="Newest Workshops" 
+          workshops={newestWorkshops}
+          loading={loading}
+        />
+      </ScrollView>
       
+      {/* Thêm CustomTabBar vào đây */}
       <CustomTabBar />
+      
     </SafeAreaView>
   );
 }
@@ -308,137 +298,135 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  fixedHeader: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
-  headerContent: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 30,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#8B0000',
-    marginTop: 10,
-    marginBottom: 4,
+    color: '#000',
   },
-  subGreeting: {
-    fontSize: 16,
-    color: '#666',
+  moreButton: {
+    padding: 5,
   },
   searchContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginBottom: 16,
   },
   searchBar: {
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
     alignItems: 'center',
+    backgroundColor: '#f2f2f2',
+    borderRadius: 25,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    height: 40,
+    borderColor: '#ddd',
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#333',
   },
-  scrollContent: {
-    flex: 1,
+  section: {
+    marginBottom: 24,
   },
-  sectionContainer: {
-    marginTop: 24,
-    marginBottom: 16,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#8B0000',
-    marginBottom: 12,
-    paddingHorizontal: 16,
+    color: '#000',
   },
   workshopList: {
     paddingLeft: 16,
+    paddingRight: 8,
+  },
+  workshopListReversed: {
+    flexDirection: 'row-reverse',
+    paddingLeft: 8,
+    paddingRight: 16,
   },
   workshopCard: {
-    width: 220,
-    height: 240,
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginRight: 16,
+    width: 180,
+    marginRight: 12,
     backgroundColor: '#fff',
-    elevation: 3,
+    borderRadius: 8,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  imageContainer: {
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    overflow: 'hidden',
   },
   workshopImage: {
     width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    height: 120,
+    backgroundColor: '#f0f0f0',
   },
-  cardOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 8,
+  workshopInfo: {
+    padding: 12,
   },
   workshopTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 6,
+    color: '#000',
   },
   workshopDetails: {
     marginTop: 4,
   },
   workshopDate: {
-    color: '#fff',
     fontSize: 12,
-    marginBottom: 2,
+    color: '#666',
+    marginBottom: 4,
   },
   workshopLocation: {
-    color: '#fff',
     fontSize: 12,
+    color: '#666',
   },
-  loadingContainer: {
+  loader: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   errorContainer: {
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   errorText: {
-    color: '#8B0000',
-    fontSize: 16,
+    color: '#FF0000',
+    marginBottom: 10,
     textAlign: 'center',
-    marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#8B0000',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    backgroundColor: '#AE1D1D',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
   },
   retryButtonText: {
-    color: '#fff',
+    color: '#FFF',
     fontWeight: 'bold',
   },
 });
