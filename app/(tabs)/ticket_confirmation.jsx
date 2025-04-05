@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, Platform, Alert, ActivityIndicator, ScrollView, Image } from 'react-native';
 import { AntDesign, Feather, Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
+
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,6 +10,8 @@ import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { ticketService } from '../../constants/ticketCreate';
 import { paymentService } from '../../constants/paymentService';
+
+const { width } = Dimensions.get('window');
 
 export default function TicketConfirmation() {
   const navigation = useNavigation();
@@ -417,16 +421,14 @@ export default function TicketConfirmation() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
       {/* Header with Gradient */}
       <LinearGradient
+
         colors={['#8B0000', '#550000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
+
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => {
@@ -441,11 +443,12 @@ export default function TicketConfirmation() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Đặt vé Workshop</Text>
         <View style={{width: 32}} />
+
       </LinearGradient>
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{flex: 1}}
+        style={styles.keyboardAvoidingContainer}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
         {isLoading ? (
@@ -484,7 +487,6 @@ export default function TicketConfirmation() {
                     </View>
                   </View>
                 </View>
-              </View>
 
               {/* Customer Information Form */}
               <View style={styles.formContainer}>
@@ -568,6 +570,87 @@ export default function TicketConfirmation() {
                     </TouchableOpacity>
                   </View>
                 </View>
+
+                {/* Payment Method Section */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
+                  
+                  <View style={styles.paymentOptions}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.paymentMethod,
+                        selectedPayment === 'VietQR' && styles.selectedPaymentMethod
+                      ]}
+                      onPress={() => setSelectedPayment('VietQR')}
+                    >
+                      <Image 
+                        source={require('../../assets/images/VietQR.png')} 
+                        style={styles.paymentMethodImage} 
+                      />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[
+                        styles.paymentMethod,
+                        selectedPayment === 'PayOS' && styles.selectedPaymentMethod
+                      ]}
+                      onPress={() => setSelectedPayment('PayOS')}
+                    >
+                      <Image 
+                        source={require('../../assets/images/PayOS.png')} 
+                        style={styles.paymentMethodImage} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Order Summary */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Tổng tiền</Text>
+                    <Text style={styles.summaryValue}>
+                      {workshopInfo && workshopInfo.price ? 
+                        typeof workshopInfo.price === 'string' ?
+                          `${parseFloat(workshopInfo.price.replace(/[^0-9.]/g, '')) * ticketCount} VND` :
+                          `${parseFloat(workshopInfo.price) * ticketCount} VND`
+                        : "0 VND"}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Chiết khấu</Text>
+                    <Text style={styles.summaryValue}>0 VND</Text>
+                  </View>
+                  
+                  <View style={styles.divider} />
+                  
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.totalLabel}>Tổng thanh toán</Text>
+                    <Text style={styles.totalValue}>
+                      {workshopInfo && workshopInfo.price ? 
+                        typeof workshopInfo.price === 'string' ?
+                          `${parseFloat(workshopInfo.price.replace(/[^0-9.]/g, '')) * ticketCount} VND` :
+                          `${parseFloat(workshopInfo.price) * ticketCount} VND`
+                        : "0 VND"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.bottomSpacing} />
+              </ScrollView>
+            </TouchableWithoutFeedback>
+
+            {/* Fixed Bottom Payment Bar - moved outside TouchableWithoutFeedback */}
+            <View style={styles.fixedBottomBar}>
+              <View style={styles.bottomTotalContainer}>
+                <Text style={styles.bottomTotalLabel}>Tổng thanh toán</Text>
+                <Text style={styles.bottomTotalValue}>
+                  {workshopInfo && workshopInfo.price ? 
+                    typeof workshopInfo.price === 'string' ?
+                      `${parseFloat(workshopInfo.price.replace(/[^0-9.]/g, '')) * ticketCount} VND` :
+                      `${parseFloat(workshopInfo.price) * ticketCount} VND`
+                    : "0 VND"}
+                </Text>
               </View>
 
               {/* Order Summary Card */}
@@ -623,12 +706,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
+    textAlign: 'center',
+  },
+  rightHeaderPlaceholder: {
+    width: 40,
   },
   scrollView: {
     flex: 1,
@@ -673,7 +765,7 @@ const styles = StyleSheet.create({
   workshopDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   workshopDetailText: {
     fontSize: 14,
@@ -731,7 +823,9 @@ const styles = StyleSheet.create({
   },
   ticketCounterContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
   counterButton: {
     width: 36,
@@ -803,6 +897,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+
   confirmButtonText: {
     color: 'white',
     fontSize: 16,

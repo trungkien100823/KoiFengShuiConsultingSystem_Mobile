@@ -31,6 +31,7 @@ const WorkshopDetailsScreen = () => {
   const [masterInfo, setMasterInfo] = useState(null);
   const [error, setError] = useState(null);
   const [retrying, setRetrying] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
   
   // Lấy ID workshop từ params
   const { workshop, imageId } = route.params || {};
@@ -343,6 +344,7 @@ const WorkshopDetailsScreen = () => {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+
   );
 };
 
@@ -362,7 +364,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -438,6 +448,7 @@ const styles = StyleSheet.create({
   },
   detailContent: {
     flex: 1,
+    justifyContent: 'center',
   },
   detailLabel: {
     fontSize: 14,
@@ -538,6 +549,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    marginRight: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -562,6 +574,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 20,
   },
   retryButton: {
     backgroundColor: '#8B0000',
@@ -571,28 +585,20 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
+    fontSize: 16,
   },
   backToListButton: {
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   backToListText: {
-    color: '#666',
-    fontSize: 14,
+    color: '#8B0000',
+    fontSize: 16,
     textDecorationLine: 'underline',
   },
-  smallErrorContainer: {
-    padding: 10,
-    backgroundColor: '#FFF3F3',
-    borderRadius: 6,
-    marginHorizontal: 16,
-    marginVertical: 10,
-  },
-  smallErrorText: {
-    color: '#8B0000',
-    fontSize: 14,
-    textAlign: 'center',
+  detailLabel: {
+    fontWeight: 'bold',
+    color: '#FFD700',
   },
 });
 
