@@ -85,48 +85,53 @@ const AttachmentBookingOffline = () => {
         const status = bookingResponse.data.data.status;
         setBookingStatus(status);
         console.log('Set booking status to:', status);
+        
+        // Hiển thị thông báo debug trong môi trường phát triển
+        if (__DEV__) {
+          setTimeout(() => {
+            Alert.alert(
+              "Debug - Trạng thái",
+              `Trạng thái hiện tại: [${status}]`,
+              [{ text: "OK" }]
+            );
+          }, 1000);
+        }
       }
 
       // Fetch attachment data
-      const attachmentResponse = await axios.get(
-        `${API_CONFIG.baseURL}/api/Attachment/booking/${params.id}`, 
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      try {
+        const attachmentResponse = await axios.get(
+          `${API_CONFIG.baseURL}/api/Attachment/booking/${params.id}`, 
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
           }
+        );
+
+        if (attachmentResponse.data && attachmentResponse.data.isSuccess && attachmentResponse.data.data) {
+          setAttachmentUrl(attachmentResponse.data.data.attachmentUrl);
+          setAttachmentId(attachmentResponse.data.data.attachmentId);
         }
-      );
-
-      console.log('Attachment Response:', JSON.stringify(attachmentResponse.data, null, 2));
-
-      if (attachmentResponse.data && attachmentResponse.data.isSuccess) {
-        const attachmentData = attachmentResponse.data.data;
-        console.log('Setting attachment data:', {
-          url: attachmentData.attachmentUrl,
-          id: attachmentData.attachmentId
-        });
-        setAttachmentUrl(attachmentData.attachmentUrl);
-        setAttachmentId(attachmentData.attachmentId);
-      } else {
-        console.log('No attachment data found or request failed');
-        setAttachmentUrl(null);
-        setAttachmentId(null);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        console.error('Error response:', error.response?.data);
+        console.log('Attachment not found');
+        // Không hiển thị alert lỗi nếu biên bản chưa được tạo, chỉ ghi log
+        if (error.response?.status !== 404) {
+          Alert.alert(
+            "Lỗi",
+            "Không thể tải biên bản. Vui lòng thử lại sau."
+          );
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
-      console.error('Error response:', error.response?.data);
-      
-      if (error.response?.status === 404) {
-        console.log('Attachment not found');
-        setAttachmentUrl(null);
-        setAttachmentId(null);
-      } else {
-        Alert.alert(
-          "Lỗi",
-          "Không thể tải dữ liệu. Vui lòng thử lại sau."
-        );
-      }
+      Alert.alert(
+        "Lỗi",
+        "Không thể tải dữ liệu. Vui lòng thử lại sau."
+      );
     } finally {
       setLoading(false);
     }
@@ -347,112 +352,124 @@ const AttachmentBookingOffline = () => {
     }
   };
 
-  const handleApprove = () => {
-    Alert.alert(
-      "Xác nhận",
-      "Bạn có chắc chắn muốn đồng ý biên bản nghiệm thu này?",
-      [
-        {
-          text: "Hủy",
-          style: "cancel"
-        },
-        {
-          text: "Đồng ý",
-          style: "default",
-          onPress: async () => {
-            try {
-              const token = await getAuthToken();
-              
-              if (!attachmentId) {
-                throw new Error('Không tìm thấy ID biên bản');
-              }
+  const handleApprove = async () => {
+    try {
+      if (!attachmentId) {
+        console.error('Error approving attachment: [Error: Không tìm thấy ID biên bản]');
+        Alert.alert(
+          "Thông báo",
+          "Biên bản chưa được tạo. Vui lòng chờ Master tạo biên bản."
+        );
+        return;
+      }
 
-              console.log('Sending approve request with attachmentId:', attachmentId);
+      const token = await getAuthToken();
+      
+      if (!token) {
+        Alert.alert("Thông báo", "Vui lòng đăng nhập lại để tiếp tục");
+        return;
+      }
 
-              const response = await axios.put(
-                `${API_CONFIG.baseURL}/api/Attachment/confirm/${attachmentId}`,
-                {},
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                }
-              );
-              
-              if (response.data && response.data.isSuccess) {
-                Alert.alert("Thành công", "Đã đồng ý biên bản nghiệm thu", [
+      Alert.alert(
+        "Xác nhận",
+        "Bạn có chắc chắn muốn đồng ý biên bản này?",
+        [
+          {
+            text: "Hủy",
+            style: "cancel"
+          },
+          {
+            text: "Đồng ý",
+            style: "default",
+            onPress: async () => {
+              try {
+                const response = await axios.put(
+                  `${API_CONFIG.baseURL}/api/Attachment/confirm/${attachmentId}`,
+                  {},
                   {
-                    text: "OK",
-                    onPress: () => router.push('/(tabs)/your_booking')
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
                   }
-                ]);
-              } else {
-                throw new Error(response.data?.message || 'Có lỗi xảy ra');
+                );
+                
+                if (response.data && response.data.isSuccess) {
+                  Alert.alert("Thành công", "Đã đồng ý biên bản");
+                  router.push('/(tabs)/your_booking');
+                }
+              } catch (error) {
+                console.error('Error confirming attachment:', error);
+                Alert.alert("Lỗi", "Không thể đồng ý biên bản. Vui lòng thử lại sau.");
               }
-            } catch (error) {
-              console.error('Error approving attachment:', error);
-              console.error('Error response:', error.response?.data);
-              Alert.alert("Lỗi", error.response?.data?.message || error.message || "Không thể đồng ý biên bản. Vui lòng thử lại sau.");
             }
           }
-        }
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error('Error in handleApprove:', error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi. Vui lòng thử lại sau.");
+    }
   };
 
-  const handleReject = () => {
-    Alert.alert(
-      "Xác nhận",
-      "Bạn có chắc chắn muốn từ chối biên bản nghiệm thu này?",
-      [
-        {
-          text: "Hủy",
-          style: "cancel"
-        },
-        {
-          text: "Từ chối",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const token = await getAuthToken();
-              
-              if (!attachmentId) {
-                throw new Error('Không tìm thấy ID biên bản');
-              }
+  const handleReject = async () => {
+    try {
+      if (!attachmentId) {
+        console.error('Error rejecting attachment: [Error: Không tìm thấy ID biên bản]');
+        Alert.alert(
+          "Thông báo",
+          "Biên bản chưa được tạo. Vui lòng chờ Master tạo biên bản."
+        );
+        return;
+      }
 
-              console.log('Sending reject request with attachmentId:', attachmentId);
+      const token = await getAuthToken();
+      
+      if (!token) {
+        Alert.alert("Thông báo", "Vui lòng đăng nhập lại để tiếp tục");
+        return;
+      }
 
-              const response = await axios.put(
-                `${API_CONFIG.baseURL}/api/Attachment/cancel/${attachmentId}`,
-                {},
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                }
-              );
-              
-              if (response.data && response.data.isSuccess) {
-                Alert.alert("Thành công", "Đã từ chối biên bản nghiệm thu", [
+      Alert.alert(
+        "Xác nhận",
+        "Bạn có chắc chắn muốn từ chối biên bản này?",
+        [
+          {
+            text: "Hủy",
+            style: "cancel"
+          },
+          {
+            text: "Từ chối",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                const response = await axios.put(
+                  `${API_CONFIG.baseURL}/api/Attachment/cancel/${attachmentId}`,
+                  {},
                   {
-                    text: "OK",
-                    onPress: () => router.push('/(tabs)/your_booking')
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
                   }
-                ]);
-              } else {
-                throw new Error(response.data?.message || 'Có lỗi xảy ra');
+                );
+                
+                if (response.data && response.data.isSuccess) {
+                  Alert.alert("Thành công", "Đã từ chối biên bản");
+                  router.push('/(tabs)/your_booking');
+                }
+              } catch (error) {
+                console.error('Error rejecting attachment:', error);
+                Alert.alert("Lỗi", "Không thể từ chối biên bản. Vui lòng thử lại sau.");
               }
-            } catch (error) {
-              console.error('Error rejecting attachment:', error);
-              console.error('Error response:', error.response?.data);
-              Alert.alert("Lỗi", error.response?.data?.message || error.message || "Không thể từ chối biên bản. Vui lòng thử lại sau.");
             }
           }
-        }
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error('Error in handleReject:', error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi. Vui lòng thử lại sau.");
+    }
   };
 
   const renderAttachment = () => {
@@ -533,30 +550,50 @@ const AttachmentBookingOffline = () => {
 
     const status = bookingStatus.trim().toLowerCase();
     console.log('Rendering buttons for status:', status);
+    
+    // Log chi tiết để debug
+    console.log('Status checks:', {
+      isDocumentConfirmedByCustomer: status.includes('documentconfirmedbycustomer'),
+      isAttachmentConfirmed: status.includes('attachmentconfirmed'),
+      isVerifyingOTPAttachment: status.includes('verifyingotpattachment'),
+      rawStatus: bookingStatus
+    });
 
-    if (status === 'documentconfirmedbycustomer') {
-      return (
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.approveButton]}
-            onPress={handleApprove}
-          >
-            <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Đồng ý</Text>
-          </TouchableOpacity>
+    // Kiểm tra chính xác trạng thái DocumentConfirmedByCustomer
+    if (status.includes('documentconfirmedbycustomer')) {
+      try {
+        if (!attachmentId) {
+          console.log('Error: Attachment ID not found');
+          return null;
+        }
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
-            onPress={handleReject}
-          >
-            <Ionicons name="close-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Từ chối</Text>
-          </TouchableOpacity>
-        </View>
-      );
+        return (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.approveButton]}
+              onPress={handleApprove}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Đồng ý</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton]}
+              onPress={handleReject}
+            >
+              <Ionicons name="close-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Từ chối</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      } catch (error) {
+        console.error('Error rendering buttons for DocumentConfirmedByCustomer:', error);
+        return null;
+      }
     }
 
-    if (status === 'attachmentconfirmed' || status === 'verifyingotpattachment') {
+    // Kiểm tra trạng thái AttachmentConfirmed và VerifyingOTPAttachment
+    if (status.includes('attachmentconfirmed') || status.includes('verifyingotpattachment')) {
       return (
         <View style={styles.buttonRow}>
           <TouchableOpacity
@@ -570,6 +607,8 @@ const AttachmentBookingOffline = () => {
       );
     }
     
+    // Log nếu không phù hợp với bất kỳ điều kiện nào
+    console.log('No matching condition for status:', status);
     return null;
   };
 

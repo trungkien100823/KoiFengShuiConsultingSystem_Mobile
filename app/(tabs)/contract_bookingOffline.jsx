@@ -72,7 +72,22 @@ const ContractBookingOffline = () => {
       );
 
       if (bookingResponse.data && bookingResponse.data.isSuccess) {
-        setBookingStatus(bookingResponse.data.data.status);
+        const status = bookingResponse.data.data.status;
+        setBookingStatus(status);
+        
+        // Log trạng thái để debug
+        console.log('Fetched booking status:', status);
+        
+        // Hiển thị thông báo debug trong môi trường phát triển
+        if (__DEV__) {
+          setTimeout(() => {
+            Alert.alert(
+              "Thông tin trạng thái",
+              `Trạng thái hiện tại: [${status}]`,
+              [{ text: "OK" }]
+            );
+          }, 1000);
+        }
       }
 
       // Fetch contract data
@@ -445,8 +460,17 @@ const ContractBookingOffline = () => {
     console.log('Current status:', bookingStatus);
     console.log('Trimmed and lowercased status:', status);
 
+    // Log chi tiết hơn để debug
+    console.log('Comparing status:', {
+      status: status,
+      isContractConfirmedByCustomer: status === 'contractconfirmedbycustomer' || status.includes('contractconfirmedbycustomer'),
+      isVerifyingOTP: status === 'verifyingotp' || status.includes('verifyingotp'),
+      isContractConfirmedByManager: status === 'contractconfirmedbymanager' || status.includes('contractconfirmedbymanager')
+    });
+
     // Hiển thị nút Ký hợp đồng khi booking ở trạng thái ContractConfirmedByCustomer hoặc VerifyingOTP
-    if (status === 'contractconfirmedbycustomer' || status === 'verifyingotp') {
+    // Sử dụng includes thay vì === để tránh sai sót do khoảng trắng hoặc chữ hoa/thường
+    if (status.includes('contractconfirmedbycustomer') || status.includes('verifyingotp')) {
       return (
         <View style={styles.buttonRow}>
           <TouchableOpacity
@@ -460,7 +484,7 @@ const ContractBookingOffline = () => {
       );
     }
 
-    if (status === 'contractconfirmedbymanager') {
+    if (status.includes('contractconfirmedbymanager')) {
       return (
         <View style={styles.buttonRow}>
           <TouchableOpacity
@@ -480,6 +504,13 @@ const ContractBookingOffline = () => {
           </TouchableOpacity>
         </View>
       );
+    }
+
+    // Hiển thị thông tin trạng thái nếu không khớp với bất kỳ trường hợp nào
+    if (!status.includes('contractconfirmedbycustomer') && 
+        !status.includes('verifyingotp') && 
+        !status.includes('contractconfirmedbymanager')) {
+      console.log('Unhandled contract status:', status);
     }
 
     return null;
