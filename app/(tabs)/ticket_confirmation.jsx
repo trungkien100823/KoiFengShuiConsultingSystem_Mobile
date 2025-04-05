@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, Platform, Alert, ActivityIndicator, Image, ScrollView, Dimensions } from 'react-native';
-import { AntDesign, Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
+
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, Platform, Alert, ActivityIndicator, ScrollView, Image } from 'react-native';
+import { AntDesign, Feather, Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
+
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -154,102 +156,11 @@ export default function TicketConfirmation() {
     }
   };
 
-  const decreaseTickets = () => {
-    if (ticketCount > 1) {
-      setTicketCount(ticketCount - 1);
-    }
+  const handleTicketCountChange = (value) => {
+    setTicketCount(value);
   };
 
-  const increaseTickets = () => {
-    setTicketCount(ticketCount + 1);
-  };
-
-  const checkPaymentEndpoint = async () => {
-    try {
-      console.log('Kiểm tra cấu hình API thanh toán:', API_CONFIG.endpoints.payment);
-      if (!API_CONFIG.endpoints.payment) {
-        console.error('Không tìm thấy cấu hình endpoint thanh toán');
-      }
-    } catch (error) {
-      console.error('Lỗi khi kiểm tra endpoint thanh toán:', error);
-    }
-  };
-
-  const checkPendingPayments = async () => {
-    try {
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) return false;
-
-      // Gọi API kiểm tra thanh toán đang chờ (nếu có)
-      const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/Order/check-pending?serviceType=RegisterAttend`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      // Trả về true nếu không có thanh toán đang chờ
-      return response.data.isSuccess;
-    } catch (error) {
-      // Nếu có lỗi 400 với thông báo về thanh toán đang chờ
-      if (error.response && error.response.status === 400 && 
-          error.response.data && error.response.data.message &&
-          error.response.data.message.includes('chưa thanh toán')) {
-        
-        // Hiển thị thông báo và chuyển đến trang thanh toán
-        Alert.alert(
-          'Thông báo',
-          error.response.data.message,
-          [
-            {
-              text: 'Đi đến thanh toán',
-              onPress: () => {
-                // Điều hướng đến màn hình quản lý vé
-                navigation.navigate('tickets');
-              }
-            },
-            {
-              text: 'Hủy',
-              style: 'cancel'
-            }
-          ]
-        );
-        return false;
-      }
-      // Mặc định cho phép tiếp tục
-      return true;
-    }
-  };
-
-  // Thêm hàm delay để đợi một khoảng thời gian
-  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-  const checkTicketStatus = async (groupId) => {
-    try {
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) return false;
-      
-      const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/RegisterAttend/check-status/${groupId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      return response.data.isSuccess;
-    } catch (error) {
-      console.error('Lỗi khi kiểm tra trạng thái vé:', error);
-      return false;
-    }
-  };
-
-  const handleContinue = async () => {
+  const handleBooking = async () => {
     if (!customerName || !phoneNumber || !email) {
       Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin');
       return;
@@ -362,7 +273,6 @@ export default function TicketConfirmation() {
     }
   };
 
-  // Cập nhật hàm processPayment để sử dụng service
   const processPayment = async (groupId, numberOfTicket) => {
     try {
       setIsLoading(true);
@@ -444,26 +354,96 @@ export default function TicketConfirmation() {
     }
   };
 
+  const checkPaymentEndpoint = async () => {
+    try {
+      console.log('Kiểm tra cấu hình API thanh toán:', API_CONFIG.endpoints.payment);
+      if (!API_CONFIG.endpoints.payment) {
+        console.error('Không tìm thấy cấu hình endpoint thanh toán');
+      }
+    } catch (error) {
+      console.error('Lỗi khi kiểm tra endpoint thanh toán:', error);
+    }
+  };
+
+  const checkPendingPayments = async () => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) return false;
+
+      // Gọi API kiểm tra thanh toán đang chờ (nếu có)
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/Order/check-pending?serviceType=RegisterAttend`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      // Trả về true nếu không có thanh toán đang chờ
+      return response.data.isSuccess;
+    } catch (error) {
+      // Nếu có lỗi 400 với thông báo về thanh toán đang chờ
+      if (error.response && error.response.status === 400 && 
+          error.response.data && error.response.data.message &&
+          error.response.data.message.includes('chưa thanh toán')) {
+        
+        // Hiển thị thông báo và chuyển đến trang thanh toán
+        Alert.alert(
+          'Thông báo',
+          error.response.data.message,
+          [
+            {
+              text: 'Đi đến thanh toán',
+              onPress: () => {
+                // Điều hướng đến màn hình quản lý vé
+                navigation.navigate('tickets');
+              }
+            },
+            {
+              text: 'Hủy',
+              style: 'cancel'
+            }
+          ]
+        );
+        return false;
+      }
+      // Mặc định cho phép tiếp tục
+      return true;
+    }
+  };
+
+  // New helper function to format price
+  const formatPrice = (price) => {
+    if (!price) return '0 VND';
+    return `${price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")} VND`;
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
+      {/* Header with Gradient */}
       <LinearGradient
-        colors={['#8B0000', '#212121']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Xác Nhận Đặt Vé</Text>
-          <View style={styles.rightHeaderPlaceholder} />
-        </View>
+
+        colors={['#8B0000', '#550000']}
+
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => {
+            // Navigate back to workshopDetails with the original workshop ID
+            navigation.navigate('workshopDetails', {
+              workshop: { id: fullWorkshopId || workshopId },
+              // Include any other parameters needed
+            });
+          }}
+        >
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Đặt vé Workshop</Text>
+        <View style={{width: 32}} />
+
       </LinearGradient>
 
       <KeyboardAvoidingView 
@@ -477,107 +457,117 @@ export default function TicketConfirmation() {
             <Text style={styles.loadingText}>Đang tải thông tin...</Text>
           </View>
         ) : (
-          <>
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                <View style={styles.workshopCard}>
-                  <Image 
-                    source={require('../../assets/images/buddha.png')} 
-                    style={styles.workshopImage}
-                  />
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+              {/* Workshop Info Card */}
+              <View style={styles.workshopCard}>
+                <View style={styles.workshopHeaderRow}>
+                  <View style={styles.workshopImageContainer}>
+                    <Image 
+                      source={{uri: 'https://res.cloudinary.com/dzedpn3us/image/upload/v1714547103/3_cgq2wb.jpg'}} 
+                      style={styles.workshopImage}
+                    />
+                  </View>
                   <View style={styles.workshopInfo}>
-                    <View style={styles.workshopOverlay}>
-                      <Text style={styles.workshopTitle} numberOfLines={2}>
-                        {workshopInfo.title}
-                      </Text>
-                      <View style={styles.infoRow}>
-                        <Ionicons name="calendar-outline" size={16} color="#FFD700" />
-                        <Text style={styles.infoText}>{workshopInfo.date}</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Ionicons name="location-outline" size={16} color="#FFD700" />
-                        <Text style={styles.infoText}>{workshopInfo.location}</Text>
-                      </View>
+                    <Text style={styles.workshopTitle}>{workshopInfo.title}</Text>
+                    
+                    <View style={styles.workshopDetailRow}>
+                      <Ionicons name="calendar-outline" size={14} color="#8B0000" />
+                      <Text style={styles.workshopDetailText}>{workshopInfo.date}</Text>
+                    </View>
+                    
+                    <View style={styles.workshopDetailRow}>
+                      <Ionicons name="location-outline" size={14} color="#8B0000" />
+                      <Text style={styles.workshopDetailText}>{workshopInfo.location}</Text>
+                    </View>
+                    
+                    <View style={styles.workshopDetailRow}>
+                      <FontAwesome name="dollar" size={14} color="#8B0000" />
+                      <Text style={styles.workshopDetailText}>{formatPrice(workshopInfo.price)}</Text>
                     </View>
                   </View>
                 </View>
 
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionTitle}>Thông Tin Khách Hàng</Text>
-                  
-                  <View style={styles.inputContainer}>
-                    <View style={styles.inputIconContainer}>
-                      <Ionicons name="person" size={20} color="#8B0000" />
-                    </View>
+              {/* Customer Information Form */}
+              <View style={styles.formContainer}>
+                <Text style={styles.sectionTitle}>Thông tin người đặt</Text>
+                
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelContainer}>
+                    <Text style={styles.label}>Họ tên</Text>
+                    <Text style={styles.required}>*</Text>
+                  </View>
+                  <View style={styles.inputWrapper}>
                     <TextInput
                       style={styles.input}
-                      placeholder="Họ và tên"
                       value={customerName}
                       onChangeText={setCustomerName}
-                      placeholderTextColor="#999"
-                    />
-                  </View>
-                  
-                  <View style={styles.inputContainer}>
-                    <View style={styles.inputIconContainer}>
-                      <Ionicons name="call" size={20} color="#8B0000" />
-                    </View>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Số điện thoại"
-                      value={phoneNumber}
-                      onChangeText={setPhoneNumber}
-                      keyboardType="phone-pad"
-                      placeholderTextColor="#999"
-                    />
-                  </View>
-                  
-                  <View style={styles.inputContainer}>
-                    <View style={styles.inputIconContainer}>
-                      <Ionicons name="mail" size={20} color="#8B0000" />
-                    </View>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Email"
-                      value={email}
-                      onChangeText={setEmail}
-                      keyboardType="email-address"
+                      placeholder="Nhập họ tên của bạn"
                       placeholderTextColor="#999"
                     />
                   </View>
                 </View>
 
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionTitle}>Số Lượng Vé</Text>
-                  
-                  <View style={styles.ticketSelectionContainer}>
-                    <View style={styles.ticketPriceContainer}>
-                      <Text style={styles.ticketPriceLabel}>Giá vé:</Text>
-                      <Text style={styles.ticketPrice}>{workshopInfo.price || "$0"}</Text>
-                    </View>
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelContainer}>
+                    <Text style={styles.label}>Số điện thoại</Text>
+                    <Text style={styles.required}>*</Text>
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      value={phoneNumber}
+                      onChangeText={setPhoneNumber}
+                      placeholder="Nhập số điện thoại"
+                      placeholderTextColor="#999"
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                    />
+                  </View>
+                </View>
 
-                    <View style={styles.ticketCounterRow}>
-                      <Text style={styles.ticketCounterLabel}>Số lượng:</Text>
-                      <View style={styles.ticketCounter}>
-                        <TouchableOpacity 
-                          style={styles.counterButton}
-                          onPress={() => ticketCount > 1 && setTicketCount(ticketCount - 1)}
-                        >
-                          <AntDesign name="minus" size={16} color="#FFF" />
-                        </TouchableOpacity>
-                        
-                        <View style={styles.counterValueContainer}>
-                          <Text style={styles.counterValue}>{ticketCount}</Text>
-                        </View>
-                        
-                        <TouchableOpacity 
-                          style={styles.counterButton}
-                          onPress={() => setTicketCount(ticketCount + 1)}
-                        >
-                          <AntDesign name="plus" size={16} color="#FFF" />
-                        </TouchableOpacity>
-                      </View>
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelContainer}>
+                    <Text style={styles.label}>Email</Text>
+                    <Text style={styles.required}>*</Text>
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Nhập địa chỉ email"
+                      placeholderTextColor="#999"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelContainer}>
+                    <Text style={styles.label}>Số lượng vé</Text>
+                    <Text style={styles.required}>*</Text>
+                  </View>
+                  <View style={styles.ticketCounterContainer}>
+                    <TouchableOpacity 
+                      style={[styles.counterButton, {backgroundColor: ticketCount <= 1 ? '#f0f0f0' : '#8B0000'}]}
+                      onPress={() => handleTicketCountChange(ticketCount > 1 ? ticketCount - 1 : 1)}
+                      disabled={ticketCount <= 1}
+                    >
+                      <AntDesign name="minus" size={16} color={ticketCount <= 1 ? '#999' : 'white'} />
+                    </TouchableOpacity>
+                    
+                    <View style={styles.ticketCountWrapper}>
+                      <Text style={styles.ticketCountText}>{ticketCount}</Text>
                     </View>
+                    
+                    <TouchableOpacity 
+                      style={[styles.counterButton, {backgroundColor: '#8B0000'}]}
+                      onPress={() => handleTicketCountChange(ticketCount + 1)}
+                    >
+                      <AntDesign name="plus" size={16} color="white" />
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -662,33 +652,55 @@ export default function TicketConfirmation() {
                     : "0 VND"}
                 </Text>
               </View>
-              
-              <TouchableOpacity 
-                style={styles.paymentButton}
-                onPress={handleContinue}
-                disabled={!selectedPayment || isLoading}
+
+              {/* Order Summary Card */}
+              <View style={styles.summaryContainer}>
+                <Text style={styles.sectionTitle}>Tóm tắt đơn hàng</Text>
+                
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Giá vé:</Text>
+                  <Text style={styles.summaryValue}>{formatPrice(workshopInfo.price)}</Text>
+                </View>
+                
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Số lượng:</Text>
+                  <Text style={styles.summaryValue}>{ticketCount} vé</Text>
+                </View>
+                
+                <View style={styles.divider} />
+                
+                <View style={styles.summaryRow}>
+                  <Text style={styles.totalLabel}>Tổng tiền:</Text>
+                  <Text style={styles.totalValue}>{formatPrice(workshopInfo.price * ticketCount)}</Text>
+                </View>
+              </View>
+
+              {/* Confirm Button */}
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={handleBooking}
               >
-                <Text style={styles.paymentButtonText}>Thanh toán</Text>
+                <Text style={styles.confirmButtonText}>Xác nhận đặt vé</Text>
               </TouchableOpacity>
-            </View>
-          </>
+              
+              <View style={styles.bottomSpacing} />
+            </ScrollView>
+          </TouchableWithoutFeedback>
         )}
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f5f5f5',
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 16,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-  },
-  headerContent: {
+    paddingTop: Platform.OS === 'ios' ? 10 : 40,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -710,157 +722,156 @@ const styles = StyleSheet.create({
   rightHeaderPlaceholder: {
     width: 40,
   },
-  keyboardAvoidingContainer: {
-    flex: 1,
-  },
   scrollView: {
     flex: 1,
     padding: 16,
   },
   workshopCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    overflow: 'hidden',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 20,
-    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
+  },
+  workshopHeaderRow: {
+    flexDirection: 'row',
+  },
+  workshopImageContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginRight: 12,
   },
   workshopImage: {
     width: '100%',
-    height: 280,
+    height: '100%',
     resizeMode: 'cover',
   },
   workshopInfo: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  workshopOverlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 16,
+    flex: 1,
+    justifyContent: 'center',
   },
   workshopTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#333',
     marginBottom: 8,
   },
-  infoRow: {
+  workshopDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
   },
-  infoText: {
+  workshopDetailText: {
     fontSize: 14,
-    color: '#fff',
+    color: '#666',
     marginLeft: 8,
   },
-  sectionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+  formContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#8B0000',
+    color: '#333',
     marginBottom: 16,
   },
-  inputContainer: {
+  inputGroup: {
+    marginBottom: 16,
+  },
+  labelContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 8,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+  },
+  required: {
+    color: '#8B0000',
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    marginBottom: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  inputIconContainer: {
-    paddingHorizontal: 12,
-    justifyContent: 'center',
+    height: 48,
     alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#eee',
+    paddingHorizontal: 12,
+    backgroundColor: '#fafafa',
   },
   input: {
     flex: 1,
-    height: 50,
-    paddingHorizontal: 12,
     fontSize: 16,
     color: '#333',
   },
-  ticketSelectionContainer: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 16,
-  },
-  ticketPriceContainer: {
+  ticketCounterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  ticketPriceLabel: {
-    fontSize: 16,
-    color: '#555',
-  },
-  ticketPrice: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8B0000',
-  },
-  ticketCounterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  ticketCounterLabel: {
-    fontSize: 16,
-    color: '#555',
-  },
-  ticketCounter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   counterButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#8B0000',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  counterValueContainer: {
-    minWidth: 50,
+  ticketCountWrapper: {
+    width: 50,
+    height: 48,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    marginHorizontal: 12,
   },
-  counterValue: {
+  ticketCountText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+  },
+  summaryContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   summaryLabel: {
-    fontSize: 16,
-    color: '#555',
+    fontSize: 15,
+    color: '#666',
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
     fontWeight: '500',
   },
@@ -870,14 +881,27 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   totalLabel: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
   },
   totalValue: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#8B0000',
+  },
+  confirmButton: {
+    backgroundColor: '#8B0000',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   bottomSpacing: {
     height: 40,
@@ -891,64 +915,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#8B0000',
-  },
-  paymentOptions: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  paymentMethod: {
-    width: 100,
-    height: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 10,
-  },
-  selectedPaymentMethod: {
-    borderColor: '#8B0000',
-    backgroundColor: '#FFF5F5',
-  },
-  paymentMethodImage: {
-    width: 80,
-    height: 50,
-    resizeMode: 'contain',
-  },
-  fixedBottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#8B0000',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  bottomTotalContainer: {
-    flex: 1,
-  },
-  bottomTotalLabel: {
-    fontSize: 14,
-    color: '#fff',
-  },
-  bottomTotalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  paymentButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 6,
-  },
-  paymentButtonText: {
-    color: '#8B0000',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });
