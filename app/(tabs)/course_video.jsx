@@ -503,22 +503,22 @@ export default function CourseVideoScreen() {
       
       // Call API to update progress
       try {
-        const response = await axios.put(
+      const response = await axios.put(
           `${API_CONFIG.baseURL}/api/RegisterCourse/${chapterId}`,
-          {},
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
-        );
-        
+        }
+      );
+
         console.log('Progress update API Response:', response.data);
-        
-        if (response.data?.isSuccess) {
+
+      if (response.data?.isSuccess) {
           console.log('Progress updated successfully');
-        } else {
+      } else {
           console.warn('Backend returned error but we will save locally:', response.data?.message);
         }
       } catch (apiError) {
@@ -717,7 +717,7 @@ export default function CourseVideoScreen() {
       return (
         <View style={{width: '100%', height: '100%', backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
           <ActivityIndicator size="large" color="#fff" />
-        </View>
+      </View>
       );
     }
 
@@ -783,10 +783,10 @@ export default function CourseVideoScreen() {
     const { videoUrl, onLoad, onError, onPlaybackStatusUpdate, onLoadStart, shouldAutoPlay } = props;
     
     return (
-      <Video
+          <Video
         ref={ref}
         style={[styles.video, {position: 'absolute', top: 0, left: 0, bottom: 0, right: 0}]}
-        source={{
+            source={{
           uri: videoUrl,
           headers: {
             'Cache-Control': 'no-cache',
@@ -794,11 +794,11 @@ export default function CourseVideoScreen() {
           },
           cache: false,
           overrideFileExtensionAndroid: 'mp4'
-        }}
-        useNativeControls
-        resizeMode={ResizeMode.CONTAIN}
+            }}
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
         shouldPlay={shouldAutoPlay}
-        isLooping={false}
+            isLooping={false}
         volume={1.0}
         isMuted={false}
         rate={1.0}
@@ -834,11 +834,11 @@ export default function CourseVideoScreen() {
               }
             }
           }}
-          onLoadStart={() => {
+            onLoadStart={() => {
             if (!loading) setLoading(true);
-          }}
-          onLoad={(status) => {
-            setLoading(false);
+            }}
+            onLoad={(status) => {
+              setLoading(false);
             
             // Only handle load logic once
             if (!videoLoaded) {
@@ -854,10 +854,10 @@ export default function CourseVideoScreen() {
                 }
               }, 500);
             }
-          }}
-          onError={(error) => {
+            }}
+            onError={(error) => {
             console.error(`[${Platform.OS}] Video error:`, error);
-            setLoading(false);
+              setLoading(false);
             setVideoError(true);
             setVideoErrorMessage('Không thể tải video. Vui lòng thử lại sau.');
           }}
@@ -878,7 +878,7 @@ export default function CourseVideoScreen() {
     const isCompleted = completedLessons[item.chapterId];
     
     return (
-      <TouchableOpacity
+              <TouchableOpacity 
         style={[
           styles.contentItem,
           isCurrentChapter && styles.currentContentItem
@@ -888,26 +888,26 @@ export default function CourseVideoScreen() {
         <View style={styles.contentItemInfo}>
           <Text style={styles.contentItemTitle}>
             {index + 1}. {item.title}
-          </Text>
+                  </Text>
           <Text style={styles.contentItemMeta}>
             {item.duration || '10:00'}
-          </Text>
-        </View>
+                  </Text>
+                </View>
         <View style={styles.contentItemStatus}>
           {isCurrentChapter ? (
             <View style={styles.currentCircle}>
               <Ionicons name="play" size={16} color="#fff" />
-            </View>
+                </View>
           ) : isCompleted ? (
             <View style={styles.completedCircle}>
               <Ionicons name="checkmark" size={18} color="#fff" />
-            </View>
+                </View>
           ) : (
             <View style={styles.incompleteCircle}>
               <Ionicons name="lock-closed" size={14} color="#999" />
-            </View>
+                </View>
           )}
-        </View>
+            </View>
       </TouchableOpacity>
     );
   };
@@ -951,10 +951,10 @@ export default function CourseVideoScreen() {
           <Ionicons name="chevron-back" size={24} color="#333" />
           <Text style={styles.headerTitle}>
             {chapterData?.title || 'Đang tải...'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
+                  </Text>
+              </TouchableOpacity>
+            </View>
+            
       {/* Video Player */}
       <View style={styles.videoContainer}>
         {chapterData?.video && (
@@ -964,8 +964,8 @@ export default function CourseVideoScreen() {
             autoResetOnFocus={true}
           />
         )}
-      </View>
-      
+              </View>
+              
       {/* Tabs */}
       <View style={styles.tabContainer}>
               <TouchableOpacity 
@@ -1021,15 +1021,15 @@ export default function CourseVideoScreen() {
                   </Text>
                 </View>
                   <View style={styles.contentItemStatus}>
-                    {completedQuizzes['final-exam'] ? (
+                  {completedQuizzes['final-exam'] ? (
                       <View style={styles.completedCircle}>
                         <Ionicons name="checkmark" size={18} color="#fff" />
                 </View>
-                    ) : (
+                  ) : (
                       <View style={styles.incompleteCircle}>
                         <Ionicons name="help" size={16} color="#999" />
                 </View>
-                    )}
+                  )}
                 </View>
               </TouchableOpacity>
               )}
@@ -1039,11 +1039,11 @@ export default function CourseVideoScreen() {
               <ActivityIndicator size="large" color="#007bff" />
             </View>
                   )}
-                </View>
+          </View>
       ) : (
         <View style={styles.discussionContainer}>
           <Text style={styles.discussionText}>Discussion feature coming soon</Text>
-        </View>
+          </View>
       )}
     </SafeAreaView>
   );
