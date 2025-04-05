@@ -78,9 +78,24 @@ export default function OfflineBookingScreen() {
     return dates;
   };
 
+  // Thêm hàm kiểm tra ngày quá khứ
+  const isDateInPast = (dateString) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(dateString);
+    return selectedDate < today;
+  };
+
   const selectDate = (date) => {
     if (!date) return;
     const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+    
+    // Kiểm tra ngày quá khứ
+    if (isDateInPast(dateString)) {
+      Alert.alert('Thông báo', 'Không thể chọn ngày trong quá khứ');
+      return;
+    }
+    
     setSelectedDate(dateString);
   };
 
@@ -114,11 +129,49 @@ export default function OfflineBookingScreen() {
       return;
     }
 
-    // Nếu đã có đủ thông tin thì mới cho phép tiếp tục
+    // Format ngày tháng đúng chuẩn ISO
+    const formattedDate = new Date(selectedDate);
+    formattedDate.setHours(0, 0, 0, 0);
+    const isoDate = formattedDate.toISOString();
+
+    // Lưu thông tin vào AsyncStorage
     AsyncStorage.setItem('offlineBookingDescription', description);
-    AsyncStorage.setItem('offlineBookingDate', selectedDate);
+    AsyncStorage.setItem('offlineBookingDate', isoDate);
     
+    // Chuyển sang màn hình chọn gói tư vấn
     router.push('/(tabs)/offline_package');
+  };
+
+  const retryRequest = async (fn, maxRetries = 3) => {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (i === maxRetries - 1) throw error;
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Tăng thời gian chờ mỗi lần retry
+      }
+    }
+  };
+
+  const makeRequest = async (token) => {
+    return await axios.post(
+      `${API_CONFIG.baseURL}/api/Booking/offline-transaction-complete`,
+      {
+        description: description,
+        startDate: selectedDate
+      },
+      {
+        params: {
+          packageId: params.packageId,
+          selectedPrice: parseFloat(params.selectedPrice)
+        },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
   };
 
   useEffect(() => {
@@ -126,8 +179,11 @@ export default function OfflineBookingScreen() {
       if (params.packageId && params.selectedPrice && params.shouldCompleteBooking) {
         try {
           setIsSubmitting(true);
+          
+          // Tăng delay lên 1000ms để tránh race condition với DbContext
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
           const token = await AsyncStorage.getItem('accessToken');
-          const savedDescription = await AsyncStorage.getItem('offlineBookingDescription');
           
           if (!token) {
             Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
@@ -135,26 +191,12 @@ export default function OfflineBookingScreen() {
             return;
           }
 
-          const response = await axios.post(
-            `${API_CONFIG.baseURL}/api/Booking/offline-transaction-complete?packageId=${params.packageId}&selectedPrice=${params.selectedPrice}`,
-            {
-              description: savedDescription
-            },
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-
-          console.log('Response from API:', response.data);
+          const response = await retryRequest(() => makeRequest(token));
 
           if (response.data && response.data.isSuccess && response.data.data) {
             const bookingOfflineId = response.data.data.bookingOfflineId;
-            console.log('Created BookingOfflineId:', bookingOfflineId);
-
             await AsyncStorage.removeItem('offlineBookingDescription');
+            await AsyncStorage.removeItem('offlineBookingDate');
             Alert.alert(
               'Thành công',
               'Bạn đã đăng ký lịch tư vấn thành công',
@@ -163,7 +205,7 @@ export default function OfflineBookingScreen() {
                   text: 'OK',
                   onPress: () => {
                     router.push({
-                      pathname: '/(tabs)/offline_payment',
+                      pathname: '/(tabs)/menu',
                       params: {
                         serviceId: bookingOfflineId,
                         serviceType: 1,
@@ -175,20 +217,30 @@ export default function OfflineBookingScreen() {
               ]
             );
           } else {
-            throw new Error('Không nhận được bookingOfflineId từ API');
+            throw new Error(response.data?.message || 'Không nhận được bookingOfflineId từ API');
           }
         } catch (error) {
-          console.error('Lỗi khi hoàn tất booking:', error);
-          Alert.alert('Lỗi', error.response?.data?.message || 'Không thể hoàn tất đặt lịch. Vui lòng thử lại sau.');
+          let errorMessage = 'Không thể hoàn tất đặt lịch. Vui lòng thử lại sau.';
+          
+          if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          }
+          
+          Alert.alert('Thông báo', errorMessage);
         } finally {
           setIsSubmitting(false);
         }
       }
     };
 
-    if (params.packageId && params.selectedPrice && params.shouldCompleteBooking) {
-      completeBooking();
-    }
+    // Tăng delay trước khi gọi completeBooking lên 500ms
+    const timer = setTimeout(() => {
+      if (params.packageId && params.selectedPrice && params.shouldCompleteBooking) {
+        completeBooking();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [params.packageId, params.selectedPrice, params.shouldCompleteBooking]);
 
   return (
@@ -218,6 +270,12 @@ export default function OfflineBookingScreen() {
 
             {/* Thêm calendar vào đây */}
             <View style={styles.calendar}>
+              <Text style={styles.requiredLabel}>Chọn ngày tư vấn *</Text>
+              {selectedDate && (
+                <Text style={styles.selectedDateText}>
+                  Ngày đã chọn: {new Date(selectedDate).toLocaleDateString('vi-VN')}
+                </Text>
+              )}
               <View style={styles.monthSelector}>
                 <TouchableOpacity onPress={handlePrevMonth}>
                   <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
@@ -457,5 +515,17 @@ const styles = StyleSheet.create({
   },
   selected: {
     backgroundColor: '#FF0008',
+  },
+  requiredLabel: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 10,
+  },
+  selectedDateText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginTop: 10,
+    marginBottom: 5,
   }
 });

@@ -75,22 +75,27 @@ export default function OfflinePaymentScreen() {
     }
   };
 
-  const handleBack = () => {
-    router.replace({
-      pathname: '/(tabs)/package_details',
-      params: { 
-        packageId: params.packageId,
-        source: 'payment'
-      }
-    });
-  };
-
   const formatPrice = (price) => {
     return parseFloat(price).toLocaleString('vi-VN');
   };
 
-  const calculateFirstPayment = (price) => {
-    return parseFloat(price) * 0.3; // Không làm tròn số
+  const calculatePaymentAmount = (price, status) => {
+    const totalPrice = parseFloat(price);
+    if (status === 'VerifiedOTP') {
+      return totalPrice * 0.3; // Thanh toán đợt 1: 30%
+    } else if (status === 'VerifiedOTPAttachment') {
+      return totalPrice * 0.7; // Thanh toán đợt 2: 70%
+    }
+    return totalPrice;
+  };
+
+  const getPaymentTitle = (status) => {
+    if (status === 'VerifiedOTP') {
+      return 'Thanh toán đợt 1 (30%)';
+    } else if (status === 'VerifiedOTPAttachment') {
+      return 'Thanh toán đợt 2 (70%)';
+    }
+    return 'Thanh toán';
   };
 
   const handlePayment = async () => {
@@ -102,37 +107,56 @@ export default function OfflinePaymentScreen() {
     setIsLoading(true);
 
     try {
+      const paymentPhase = params.status === 'VerifiedOTP' ? 1 : 2;
+      
+      console.log('Payment params:', params);
+      console.log('ServiceId:', params.serviceId);
+      console.log('ServiceType:', params.serviceType);
+      console.log('PaymentPhase:', paymentPhase);
+
+      // Xác định loại dịch vụ từ enum
+      const serviceTypeEnum = 
+        params.serviceType === 'BookingOffline' 
+          ? paymentService.SERVICE_TYPES.BOOKING_OFFLINE 
+          : paymentService.SERVICE_TYPES.BOOKING_ONLINE;
+      
+      console.log('ServiceTypeEnum:', serviceTypeEnum);
+      
+      // Quay lại cách dùng createPaymentUrl nhưng KHÔNG truyền tham số options
+      console.log('Sử dụng createPaymentUrl với options trống');
       const result = await paymentService.createPaymentUrl(
         params.serviceId,
-        paymentService.SERVICE_TYPES.BOOKING_OFFLINE,
-        {
-          customerInfo: {
-            fullName: userName,
-            phoneNumber: userPhone,
-            email: userEmail
-          },
-          couponCode: couponCode
-        }
+        serviceTypeEnum
       );
-
+      
       console.log('Payment result:', result);
-
+      
       if (result.success) {
+        // Kiểm tra và sử dụng kết quả
+        if (!result.paymentUrl) {
+          throw new Error('Không nhận được URL thanh toán từ API');
+        }
+        
+        console.log('Payment URL:', result.paymentUrl);
+        console.log('Order ID:', result.orderId);
+        
+        // Chuyển hướng đến trang thanh toán
         router.push({
           pathname: '/payment_webview',
           params: {
             paymentUrl: encodeURIComponent(result.paymentUrl),
             orderId: result.orderId,
             serviceId: params.serviceId,
-            serviceType: paymentService.SERVICE_TYPES.BOOKING_OFFLINE,
+            serviceType: params.serviceType,
             returnScreen: 'home'
           }
         });
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || 'Không thể tạo URL thanh toán');
       }
     } catch (error) {
       console.error('Lỗi thanh toán:', error);
+      console.error('Chi tiết lỗi:', error.response?.data || error.message);
       Alert.alert(
         'Lỗi',
         error.message || 'Không thể xử lý thanh toán. Vui lòng thử lại sau.'
@@ -149,18 +173,20 @@ export default function OfflinePaymentScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={handleBack}
           style={styles.backButton}
+          onPress={() => router.push('/(tabs)/your_booking')}
         >
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color="#8B0000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thanh toán</Text>
+        <Text style={styles.headerTitle}>{getPaymentTitle(params.status)}</Text>
       </View>
       
       <View style={styles.mainContainer}>
         <ScrollView style={styles.content}>
           {/* Package Registration Title */}
-          <Text style={styles.registrationTitle}>Gói tư vấn bạn đã chọn</Text>
+          <Text style={styles.registrationTitle}>
+            {params.status === 'VerifiedOTPAttachment' ? 'Thanh toán đợt 2 (70%)' : 'Gói tư vấn bạn đã chọn'}
+          </Text>
           
           {/* Package Card */}
           <View style={styles.courseCardWrapper}>
@@ -175,7 +201,7 @@ export default function OfflinePaymentScreen() {
                     {params.packageName || 'Gói tư vấn phong thủy'}
                   </Text>
                   <Text style={styles.price}>
-                    {formatPrice(params.selectedPrice)} đ
+                    {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} đ
                   </Text>
                 </View>
               </View>
@@ -224,10 +250,18 @@ export default function OfflinePaymentScreen() {
                 {formatPrice(params.selectedPrice)} VNĐ
               </Text>
             </View>
+            {params.status === 'VerifiedOTPAttachment' && (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceTitle}>Đã thanh toán đợt 1 (30%):</Text>
+                <Text style={styles.priceValue}>
+                  {formatPrice(parseFloat(params.selectedPrice) * 0.3)} VNĐ
+                </Text>
+              </View>
+            )}
             <View style={styles.priceRow}>
-              <Text style={styles.priceTitle}>Thanh toán đợt 1 (30%):</Text>
+              <Text style={styles.priceTitle}>{getPaymentTitle(params.status)}:</Text>
               <Text style={styles.priceValue}>
-                {formatPrice(parseFloat(params.selectedPrice) * 0.3)} VNĐ
+                {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} VNĐ
               </Text>
             </View>
           </View>
@@ -235,9 +269,9 @@ export default function OfflinePaymentScreen() {
         
         <View style={styles.checkoutContainer}>
           <View style={styles.checkoutTotal}>
-            <Text style={styles.checkoutTotalLabel}>Thanh toán đợt 1 (30%)</Text>
+            <Text style={styles.checkoutTotalLabel}>{getPaymentTitle(params.status)}</Text>
             <Text style={styles.checkoutTotalValue}>
-              {formatPrice(parseFloat(params.selectedPrice) * 0.3)} VND
+              {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} VND
             </Text>
           </View>
           <TouchableOpacity 
@@ -277,21 +311,16 @@ const styles = StyleSheet.create({
     borderBottomColor: '#EEE',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#8B0000',
+    padding: 8,
+    marginRight: 16,
   },
   headerTitle: {
-    flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
     color: '#8B0000',
+    flex: 1,
     textAlign: 'center',
-    marginRight: 40,
+    marginRight: 48, // Để cân bằng với backButton
   },
   content: {
     flex: 1,

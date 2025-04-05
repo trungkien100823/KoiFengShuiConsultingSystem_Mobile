@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-//const DEV_API_URL = 'http://192.168.1.25:5261';
-const DEV_API_URL = 'http://192.168.31.148:5261';
+const DEV_API_URL = 'http://192.168.110.115:5261';
+//const DEV_API_URL = 'http://192.168.31.148:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
@@ -90,6 +90,22 @@ export const API_CONFIG = {
 
     // contract endpoints
     getContractByBookingOffline: '/api/Contract/by-bookingOffline/{id}',
+    cancelContractByCustomer: '/api/Contract/customer/cancel/{contractId}',
+    confirmContractByCustomer: '/api/Contract/customer/confirm/{contractId}',
+    sendOTPContract: '/api/Contract/send-otp/{contractId}',
+    verifyOTPContract: '/api/Contract/verify-otp/{contractId}',
+
+    // document endpoints
+    getDocumentByBookingOffline: '/api/FengShuiDocument/document/{bookingOfflineId}',
+    confirmDocumentByCustomer: '/api/FengShuiDocument/{documentId}/confirm-by-customer',
+    cancelDocumentByCustomer: '/api/FengShuiDocument/{documentId}/cancel-by-customer',
+
+    // attachment endpoints
+    getAttachmentByBookingOffline: '/api/Attachment/booking/{bookingOfflineId}',
+    cancelAttachmentByCustomer: '/api/Attachment/cancel/{attachmentId}',
+    confirmAttachmentByCustomer: '/api/Attachment/confirm/{attachmentId}',
+    sendOTPAttachment: '/api/Attachment/send-otp/{attachmentId}',
+    verifyOTPAttachment: '/api/Attachment/verify-otp/{attachmentId}',
 
     // chapter endpoints
     getAllChaptersByCourseId: '/api/Chapter/get-all-chapters-by-courseId',

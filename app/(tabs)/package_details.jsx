@@ -21,17 +21,22 @@ const { width } = Dimensions.get('window');
 
 export default function PackageDetailsScreen() {
   const router = useRouter();
-  const { packageId } = useLocalSearchParams();
+  const params = useLocalSearchParams();
   const [packageDetails, setPackageDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPrice, setSelectedPrice] = useState(null);
 
   useEffect(() => {
     fetchPackageDetails();
-  }, [packageId]);
+  }, [params.packageId]);
 
   const fetchPackageDetails = async () => {
     try {
+      if (packageDetails && packageDetails.consultationPackageId === params.packageId) {
+        setIsLoading(false);
+        return;
+      }
+
       const token = await AsyncStorage.getItem('accessToken');
       
       if (!token) {
@@ -41,16 +46,13 @@ export default function PackageDetailsScreen() {
       }
 
       const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/ConsultationPackage/get-by/${packageId}`,
+        `${API_CONFIG.baseURL}/api/ConsultationPackage/get-by/${params.packageId}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          timeout: 30000,
-          validateStatus: function (status) {
-            return status >= 200 && status < 500;
-          }
+          timeout: 10000
         }
       );
 
@@ -67,8 +69,12 @@ export default function PackageDetailsScreen() {
           requiredInfo: response.data.data.requiredInfo,
           pricingDetails: response.data.data.pricingDetails
         });
+        
+        if (params.selectedPrice) {
+          setSelectedPrice(parseFloat(params.selectedPrice));
+        }
       } else {
-        throw new Error(response.data.message || 'Không thể lấy thông tin gói tư vấn');
+        throw new Error(response.data?.message || 'Không thể lấy thông tin gói tư vấn');
       }
     } catch (error) {
       console.error('Lỗi khi lấy thông tin gói tư vấn:', error);
@@ -103,7 +109,7 @@ export default function PackageDetailsScreen() {
             router.push({
               pathname: '/(tabs)/offline_booking',
               params: { 
-                packageId: packageId,
+                packageId: params.packageId,
                 selectedPrice: selectedPrice,
                 shouldCompleteBooking: true
               }

@@ -36,6 +36,18 @@ export default function OfflinePackageScreen() {
     return unsubscribe;
   }, [navigation]);
 
+  const retryRequest = async (fn, maxRetries = 3) => {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (i === maxRetries - 1) throw error;
+        // Tăng thời gian chờ giữa các lần retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      }
+    }
+  };
+
   const fetchConsultingPackages = async () => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
@@ -51,27 +63,21 @@ export default function OfflinePackageScreen() {
       }
 
       const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllConsultationPackages}`;
-      console.log('Calling API URL:', url);
-      console.log('Token:', token);
 
-      const response = await axios.get(
-        url,
-        {
+      // Thêm delay trước khi gọi API để tránh race condition
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const makeRequest = async () => {
+        return await axios.get(url, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          timeout: 30000, // Tăng timeout lên 30 giây
-          validateStatus: function (status) {
-            return status >= 200 && status < 500; // Chấp nhận status code từ 200-499
-          }
-        }
-      );
+          timeout: 10000 // Giảm timeout xuống 10s
+        });
+      };
 
-      // Log response để debug
-      console.log('API Response Status:', response.status);
-      console.log('API Response Headers:', response.headers);
-      console.log('API Response Data:', response.data);
+      const response = await retryRequest(makeRequest);
 
       if (response.data && response.data.isSuccess) {
         setConsultingPackages(response.data.data);
@@ -79,40 +85,13 @@ export default function OfflinePackageScreen() {
         throw new Error(response.data?.message || 'Không thể lấy danh sách gói tư vấn');
       }
     } catch (error) {
-      console.error('Chi tiết lỗi:', {
-        message: error.message,
-        code: error.code,
-        response: error.response,
-        request: error.request,
-        config: error.config
-      });
-
-      if (error.code === 'ECONNABORTED') {
-        Alert.alert('Lỗi', 'Kết nối tới server quá lâu, vui lòng thử lại sau');
-      } else if (error.code === 'ERR_NETWORK') {
-        Alert.alert(
-          'Lỗi Kết Nối',
-          'Không thể kết nối đến server. Vui lòng kiểm tra:\n' +
-          '- Kết nối mạng\n' +
-          '- Server có đang chạy không\n' +
-          '- IP của server có đúng không',
-          [
-            {
-              text: 'Thử lại',
-              onPress: () => fetchConsultingPackages()
-            },
-            {
-              text: 'OK',
-              style: 'cancel'
-            }
-          ]
-        );
-      } else if (error.response) {
-        // Có response từ server nhưng status code không hợp lệ
-        Alert.alert('Lỗi', `Lỗi từ server: ${error.response.status}`);
-      } else {
-        Alert.alert('Lỗi', 'Không thể tải danh sách gói tư vấn. Vui lòng thử lại sau.');
+      let errorMessage = 'Không thể tải danh sách gói tư vấn. Vui lòng thử lại sau.';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
       }
+      
+      Alert.alert('Thông báo', errorMessage);
     } finally {
       setIsLoading(false);
     }
