@@ -8,20 +8,18 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   Alert,
-  SafeAreaView,
-  StatusBar,
   ImageBackground,
+  StatusBar,
   Dimensions,
-  Platform,
-  Animated,
-  BlurView
+  Platform
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { workshopDetailsService } from '../../constants/workshopDetails';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const WorkshopDetailsScreen = () => {
   const route = useRoute();
@@ -159,8 +157,7 @@ const WorkshopDetailsScreen = () => {
   if (error && !workshopData) {
     return (
       <SafeAreaView style={styles.errorContainer}>
-        <StatusBar barStyle="dark-content" />
-        <Ionicons name="cloud-offline-outline" size={60} color="#8B0000" />
+        <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity 
           style={styles.retryButton}
@@ -188,233 +185,182 @@ const WorkshopDetailsScreen = () => {
   const displayWorkshop = workshopData || {};
   const displayMaster = masterInfo || {};
 
+  // New helper function to format description with bullet points
+  const formatDescription = (description) => {
+    if (!description) return [];
+    
+    // Split by newlines or other potential delimiters
+    return description.split(/\n|•/).filter(item => item.trim() !== '');
+  };
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
       
-      {/* Background Image with Gradient Overlay */}
-      <ImageBackground 
-        source={require('../../assets/images/buddha.png')} 
-        style={styles.backgroundImage}
+      {/* Back button */}
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => navigation.navigate('workshop')}
       >
-        <LinearGradient
-          colors={['rgba(139, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.95)']}
-          style={styles.gradientOverlay}
+        <Ionicons name="arrow-back" size={24} color="#fff" />
+      </TouchableOpacity>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Hero Image Section */}
+        <ImageBackground
+          source={{ uri: displayWorkshop.image || 'https://res.cloudinary.com/dzedpn3us/image/upload/v1714547103/3_cgq2wb.jpg' }}
+          style={styles.heroImage}
         >
-          {/* Header with Back Button */}
-          <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => navigation.navigate('workshop')}
-              >
-                <Ionicons name="arrow-back" size={24} color="#FFF" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.shareButton}>
-                <Ionicons name="share-social-outline" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-            
-            {/* Main Scrollable Content */}
-            <ScrollView 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-            >
-              {/* Workshop Image Card */}
-              <View style={styles.imageCardContainer}>
-                <Image 
-                  source={displayWorkshop.image}
-                  style={styles.workshopImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.imageTextOverlay}>
-                  <View style={styles.badgeContainer}>
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusText}>{displayWorkshop.status || 'Đang Mở'}</Text>
-                    </View>
-                    <View style={styles.capacityBadge}>
-                      <Ionicons name="people" size={14} color="#FFF" />
-                      <Text style={styles.capacityText}>{displayWorkshop.capacity || 'Chưa có thông tin'} người</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.gradient}
+          >
+            <View style={styles.heroContent}>
+              <Text style={styles.title}>{displayWorkshop.title || 'Workshop Title'}</Text>
               
-              {/* Workshop Title and Details */}
-              <View style={styles.titleContainer}>
-                <Text style={styles.workshopTitle}>{displayWorkshop.title}</Text>
-              </View>
-              
-              {/* Workshop Details Section */}
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>Chi Tiết Hội Thảo:</Text>
-                <View style={styles.includesGrid}>
-                  <View style={styles.includeItem}>
-                    <View style={styles.includeIconContainer}>
-                      <Ionicons name="calendar" size={22} color="#FFF" />
-                    </View>
-                    <Text style={styles.includeText}>
-                      <Text style={styles.detailLabel}>Ngày: </Text>
-                      {displayWorkshop.date || 'Sẽ thông báo sau'}
-                    </Text>
-                  </View>
-                  <View style={styles.includeItem}>
-                    <View style={styles.includeIconContainer}>
-                      <Ionicons name="time" size={22} color="#FFF" />
-                    </View>
-                    <Text style={styles.includeText}>
-                      <Text style={styles.detailLabel}>Thời gian: </Text>
-                      10:00 - 17:00
-                    </Text>
-                  </View>
-                  <View style={styles.includeItem}>
-                    <View style={styles.includeIconContainer}>
-                      <Ionicons name="location" size={22} color="#FFF" />
-                    </View>
-                    <Text style={styles.includeText}>
-                      <Text style={styles.detailLabel}>Địa điểm: </Text>
-                      {displayWorkshop.location || 'Sẽ thông báo sau'}
-                    </Text>
-                  </View>
-                  <View style={styles.includeItem}>
-                    <View style={styles.includeIconContainer}>
-                      <Ionicons name="people" size={22} color="#FFF" />
-                    </View>
-                    <Text style={styles.includeText}>
-                      <Text style={styles.detailLabel}>Sức chứa: </Text>
-                      {displayWorkshop.capacity || 'Chưa có thông tin'} người
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              {/* Description Section */}
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>Mô Tả:</Text>
-                <Text style={styles.descriptionText} numberOfLines={showFullDescription ? undefined : 4}>
-                  {displayWorkshop.description || 'Không có mô tả cho hội thảo này.'}
-                </Text>
-                {displayWorkshop.description && displayWorkshop.description.length > 150 && (
-                  <TouchableOpacity 
-                    style={styles.showMoreButton}
-                    onPress={() => setShowFullDescription(!showFullDescription)}
-                  >
-                    <Text style={styles.showMoreText}>
-                      {showFullDescription ? 'Thu gọn' : 'Xem thêm'}
-                    </Text>
+              <View style={styles.ratingContainer}>
+                <View style={styles.stars}>
+                  {[1, 2, 3, 4, 5].map((star) => (
                     <Ionicons 
-                      name={showFullDescription ? "chevron-up" : "chevron-down"} 
+                      key={star} 
+                      name={star <= (displayWorkshop.rating || 4) ? "star" : "star-outline"} 
                       size={16} 
                       color="#FFD700" 
                     />
-                  </TouchableOpacity>
-                )}
-              </View>
-              
-              {/* Master Info Section */}
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>Giảng Viên Hướng Dẫn:</Text>
-                <View style={styles.masterContainer}>
-                  <Image 
-                    source={displayMaster.image}
-                    style={styles.masterImage}
-                  />
-                  <View style={styles.masterInfo}>
-                    <Text style={styles.masterName}>{displayMaster.name}</Text>
-                    <Text style={styles.masterTitle}>{displayMaster.title}</Text>
-                    {displayMaster.rating && (
-                      <View style={styles.ratingContainer}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Ionicons 
-                            key={star}
-                            name={star <= Math.floor(displayMaster.rating) ? "star" : star <= displayMaster.rating ? "star-half" : "star-outline"}
-                            size={16}
-                            color="#FFD700"
-                            style={{marginRight: 2}}
-                          />
-                        ))}
-                        <Text style={styles.ratingText}>{displayMaster.rating.toFixed(1)}</Text>
-                      </View>
-                    )}
-                    {displayMaster.expertise && (
-                      <Text style={styles.expertiseText}>
-                        <Ionicons name="ribbon-outline" size={14} color="#FFD700" /> {displayMaster.expertise}
-                      </Text>
-                    )}
-                  </View>
+                  ))}
                 </View>
-                {displayMaster.description && (
-                  <Text style={styles.masterBio} numberOfLines={3}>
-                    {displayMaster.description}
-                  </Text>
-                )}
+                <Text style={styles.ratingText}>{displayWorkshop.rating || 4.0}</Text>
+                <Text style={styles.studentsCount}>• {displayWorkshop.numberAttendees || 100} người tham dự</Text>
               </View>
-              
-              {/* Pricing Section */}
-              <View style={styles.pricingContainer}>
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceLabel}>Phí Tham Gia:</Text>
-                  <Text style={styles.priceValue}>{displayWorkshop.price}</Text>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
+
+        {/* Main Content */}
+        <View style={styles.contentContainer}>
+          {/* Workshop Details Card */}
+          <View style={styles.detailsCard}>
+            <Text style={styles.sectionTitle}>Thông tin Workshop</Text>
+            
+            <View style={styles.detailRow}>
+              <View style={styles.detailIconContainer}>
+                <Ionicons name="calendar" size={18} color="#8B0000" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Ngày diễn ra</Text>
+                <Text style={styles.detailValue}>{displayWorkshop.date}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <View style={styles.detailIconContainer}>
+                <Ionicons name="time" size={18} color="#8B0000" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Thời gian</Text>
+                <Text style={styles.detailValue}>{displayWorkshop.duration || '3 giờ'}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <View style={styles.detailIconContainer}>
+                <Ionicons name="location" size={18} color="#8B0000" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Địa điểm</Text>
+                <Text style={styles.detailValue}>{displayWorkshop.location || 'Đang cập nhật'}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <View style={styles.detailIconContainer}>
+                <FontAwesome name="dollar" size={18} color="#8B0000" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Giá vé</Text>
+                <Text style={styles.detailValue}>{displayWorkshop.price || 'Miễn phí'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* What You'll Learn Section */}
+          <View style={styles.learnCard}>
+            <Text style={styles.sectionTitle}>Bạn sẽ học được gì</Text>
+            
+            {formatDescription(displayWorkshop.description).map((point, index) => (
+              <View key={index} style={styles.learningPoint}>
+                <View style={styles.checkmarkContainer}>
+                  <Ionicons name="checkmark" size={16} color="#fff" />
                 </View>
-                
-                <TouchableOpacity 
-                  style={styles.registerButton}
-                  onPress={() => {
-                    Alert.alert(
-                      'Đăng ký',
-                      `Bạn muốn đăng ký tham gia workshop "${displayWorkshop.title}" chứ?`,
-                      [
-                        { text: 'Hủy', style: 'cancel' },
-                        {
-                          text: 'Đăng ký',
-                          onPress: () => {
-                            navigation.navigate('ticket_confirmation', {
-                              workshop: displayWorkshop,
-                              masterId: displayMaster.id
-                            });
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Text style={styles.registerButtonText}>Đăng Ký Ngay</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#FFF" />
-                </TouchableOpacity>
+                <Text style={styles.learningPointText}>{point.trim()}</Text>
               </View>
-              
-              {/* Space at bottom for better scrolling */}
-              <View style={{height: 40}} />
-            </ScrollView>
-          </SafeAreaView>
-        </LinearGradient>
-      </ImageBackground>
-    </View>
+            ))}
+          </View>
+
+          {/* Includes Section */}
+          <View style={styles.includesCard}>
+            <Text style={styles.sectionTitle}>Workshop bao gồm</Text>
+            
+            <View style={styles.includeRow}>
+              <MaterialIcons name="access-time" size={20} color="#8B0000" />
+              <Text style={styles.includeText}>{displayWorkshop.duration || '3 giờ'} học tập</Text>
+            </View>
+            
+            <View style={styles.includeRow}>
+              <MaterialIcons name="description" size={20} color="#8B0000" />
+              <Text style={styles.includeText}>Tài liệu hướng dẫn</Text>
+            </View>
+            
+            <View style={styles.includeRow}>
+              <MaterialCommunityIcons name="certificate" size={20} color="#8B0000" />
+              <Text style={styles.includeText}>Chứng chỉ hoàn thành</Text>
+            </View>
+            
+            <View style={styles.includeRow}>
+              <Ionicons name="people" size={20} color="#8B0000" />
+              <Text style={styles.includeText}>Kết nối với cộng đồng</Text>
+            </View>
+          </View>
+
+          {/* Description Section */}
+          <View style={styles.descriptionCard}>
+            <Text style={styles.sectionTitle}>Mô tả chi tiết</Text>
+            <Text style={styles.description}>{displayWorkshop.description || 'Đang cập nhật thông tin...'}</Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Bottom Register Button */}
+      <View style={styles.bookingButtonContainer}>
+        <TouchableOpacity 
+          style={styles.bookingButton}
+          onPress={() => navigation.navigate('ticket_confirmation', { 
+            workshopId: displayWorkshop.id,
+            workshopName: displayWorkshop.title,
+            workshopPrice: displayWorkshop.price
+          })}
+        >
+          <Text style={styles.bookingButtonText}>Đăng ký tham gia</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#f5f5f5',
   },
-  backgroundImage: {
+  scrollView: {
     flex: 1,
-    width: '100%',
-  },
-  gradientOverlay: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    zIndex: 10,
   },
   backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 20,
+    zIndex: 10,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -430,236 +376,177 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scrollContent: {
-    paddingBottom: 20,
+  heroImage: {
+    width: width,
+    height: 250,
   },
-  imageCardContainer: {
-    margin: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  workshopImage: {
+  gradient: {
     width: '100%',
-    height: 200,
-    borderRadius: 16,
-  },
-  imageTextOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-  },
-  badgeContainer: {
-    flexDirection: 'row',
+    height: '100%',
     justifyContent: 'flex-end',
-    alignItems: 'center',
   },
-  statusBadge: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginRight: 8,
+  heroContent: {
+    padding: 20,
   },
-  statusText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  capacityBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  capacityText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  titleContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  workshopTitle: {
+  title: {
+    color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFF',
     marginBottom: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-    marginBottom: 8,
-  },
-  detailText: {
-    color: '#FFF',
-    marginLeft: 6,
-    fontSize: 14,
-  },
-  sectionContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 12,
-  },
-  includesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  includeItem: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  includeIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(139, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  includeText: {
-    color: '#FFF',
-    flex: 1,
-    fontSize: 14,
-  },
-  learningContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-    padding: 16,
-  },
-  learningItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  learningText: {
-    color: '#333',
-    marginLeft: 10,
-    fontSize: 14,
-    flex: 1,
-  },
-  descriptionText: {
-    color: '#FFF',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  showMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    alignSelf: 'center',
-  },
-  showMoreText: {
-    color: '#FFD700',
-    fontSize: 14,
-    marginRight: 4,
-  },
-  masterContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  masterImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-  },
-  masterInfo: {
-    marginLeft: 16,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  masterName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  masterTitle: {
-    fontSize: 14,
-    color: '#FFD700',
-    marginBottom: 4,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+  },
+  stars: {
+    flexDirection: 'row',
   },
   ratingText: {
-    color: '#FFF',
-    marginLeft: 4,
+    color: '#fff',
+    marginLeft: 8,
     fontSize: 14,
   },
-  expertiseText: {
-    color: '#FFF',
-    fontSize: 13,
-  },
-  masterBio: {
-    color: 'rgba(255, 255, 255, 0.8)',
+  studentsCount: {
+    color: '#fff',
+    marginLeft: 8,
     fontSize: 14,
-    lineHeight: 20,
-    marginTop: 8,
   },
-  pricingContainer: {
-    margin: 16,
+  contentContainer: {
+    padding: 15,
+    paddingBottom: 80,
+  },
+  detailsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  priceLabel: {
-    fontSize: 16,
-    color: '#FFF',
-  },
-  priceValue: {
-    fontSize: 24,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFD700',
+    color: '#333',
+    marginBottom: 15,
   },
-  registerButton: {
-    backgroundColor: '#8B0000',
-    borderRadius: 25,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+  detailRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f8f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  detailContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  detailValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  learnCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  learningPoint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  checkmarkContainer: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#8B0000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    marginTop: 2,
+  },
+  learningPointText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#444',
+    lineHeight: 22,
+  },
+  includesCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  includeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  includeText: {
+    marginLeft: 12,
+    fontSize: 15,
+    color: '#444',
+  },
+  descriptionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  description: {
+    fontSize: 15,
+    color: '#444',
+    lineHeight: 22,
+  },
+  bookingButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 15,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  bookingButton: {
+    backgroundColor: '#8B0000',
+    borderRadius: 8,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  registerButtonText: {
-    color: '#FFF',
+  bookingButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
     marginRight: 8,
@@ -668,33 +555,33 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 16,
-    color: '#8B0000',
+    color: '#555',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
     padding: 20,
   },
   errorText: {
+    marginBottom: 16,
     fontSize: 16,
-    color: '#8B0000',
+    color: '#666',
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 20,
   },
   retryButton: {
     backgroundColor: '#8B0000',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 25,
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   retryButtonText: {
     color: '#fff',
