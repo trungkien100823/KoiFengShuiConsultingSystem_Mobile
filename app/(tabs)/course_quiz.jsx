@@ -62,23 +62,23 @@ export default function CourseQuizScreen() {
     return [
       {
         questionId: 'fallback-1',
-        question: 'Thuyết Âm Dương trong phong thủy có nguồn gốc từ đâu?',
+      question: 'Thuyết Âm Dương trong phong thủy có nguồn gốc từ đâu?',
         questionType: 'Multiple Choice',
-        options: ['Kinh Dịch', 'Kinh Phật', 'Đạo Giáo', 'Nho Giáo'],
+      options: ['Kinh Dịch', 'Kinh Phật', 'Đạo Giáo', 'Nho Giáo'],
         optionTypes: ['Text', 'Text', 'Text', 'Text'],
         correctAnswer: 0,
         point: 1
-      },
-      {
+    },
+    {
         questionId: 'fallback-2',
-        question: 'Trong phong thủy, "Long Huyệt" là gì?',
+      question: 'Trong phong thủy, "Long Huyệt" là gì?',
         questionType: 'Multiple Choice',
-        options: [
-          'Mạch nước ngầm dưới đất',
-          'Vị trí lý tưởng để xây nhà hoặc đặt mộ',
-          'Hình dáng giống rồng của núi',
-          'Hướng của gió thịnh vượng'
-        ],
+      options: [
+        'Mạch nước ngầm dưới đất',
+        'Vị trí lý tưởng để xây nhà hoặc đặt mộ',
+        'Hình dáng giống rồng của núi',
+        'Hướng của gió thịnh vượng'
+      ],
         optionTypes: ['Text', 'Text', 'Text', 'Text'],
         correctAnswer: 1,
         point: 1
@@ -96,7 +96,7 @@ export default function CourseQuizScreen() {
         questionId: 'fallback-4',
         question: 'Hiện tượng "Sát khí" trong phong thủy thường do đâu tạo ra?',
         questionType: 'Multiple Choice',
-        options: [
+      options: [
           'Góc nhọn chỉ thẳng vào cửa chính',
           'Cây xanh quanh nhà',
           'Hồ nước trước nhà',
@@ -110,7 +110,7 @@ export default function CourseQuizScreen() {
         questionId: 'fallback-5',
         question: 'Việc sắp xếp nội thất theo phong thủy có ý nghĩa gì?',
         questionType: 'Multiple Choice',
-        options: [
+      options: [
           'Chỉ để trang trí cho đẹp',
           'Tạo sự cân bằng năng lượng trong không gian sống',
           'Theo quy định xây dựng',
@@ -371,17 +371,17 @@ export default function CourseQuizScreen() {
         
         // Calculate percentage
         const percentage = Math.round((apiResult.correctAnswers / apiResult.totalQuestions) * 100);
-        
-        // Save completion status
-        try {
+    
+    // Save completion status
+    try {
           const completedQuizzes = JSON.parse(await AsyncStorage.getItem('completedQuizzes')) || {};
-          completedQuizzes[quizId] = {
-            completed: true,
+      completedQuizzes[quizId] = {
+        completed: true,
             correctAnswers: apiResult.correctAnswers,
             totalQuestions: apiResult.totalQuestions,
             percentage: percentage,
-            date: new Date().toISOString()
-          };
+        date: new Date().toISOString()
+      };
           await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
         } catch (storageError) {
           console.error('Error saving quiz completion:', storageError);
@@ -427,15 +427,15 @@ export default function CourseQuizScreen() {
             percentage: percentage,
             date: new Date().toISOString()
           };
-          await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
+      await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
         } catch (storageError) {
           console.error('Error saving quiz completion:', storageError);
         }
-        
+      
         // Navigate to score screen with locally calculated results
         router.push({
-          pathname: '/(tabs)/course_score',
-          params: {
+        pathname: '/(tabs)/course_score',
+        params: {
             courseId: courseId,
             quizId: quizId,
             score: correctAnswers.toString(),
@@ -541,7 +541,7 @@ export default function CourseQuizScreen() {
               // If we're looking at completed quiz results, go back
               if (quizCompleted) {
                 router.back();
-              } else {
+    } else {
                 // Otherwise refresh the current screen
                 handleReloadQuiz();
               }
@@ -589,7 +589,7 @@ export default function CourseQuizScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-        <View style={styles.header}>
+      <View style={styles.header}>
           <TouchableOpacity onPress={handleBack}>
             <Ionicons name="close" size={24} color="#333" />
           </TouchableOpacity>
@@ -678,7 +678,7 @@ export default function CourseQuizScreen() {
                 )}
               </TouchableOpacity>
             ))}
-          </View>
+      </View>
         )}
       </View>
     );
