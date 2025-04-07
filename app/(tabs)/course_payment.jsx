@@ -99,34 +99,50 @@ export default function CoursePaymentScreen() {
     try {
       setIsLoading(true);
       
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+        router.push('login');
+        return;
+      }
 
-      // Simulate successful payment
-      Alert.alert(
-        'Thanh toán thành công',
-        'Bạn đã mua khóa học thành công!',
-        [
-          {
-            text: 'Xem khóa học',
-            onPress: () => {
-              // Navigate to my courses or learning screen
-              handlePaymentSuccess();
-            }
-          }
-        ],
-        { cancelable: false }
+      // Gọi API tạo URL thanh toán
+      const result = await paymentService.createPaymentUrl(
+        params.courseId, 
+        paymentService.SERVICE_TYPES.COURSE
       );
 
+      setIsLoading(false);
+
+      if (result.success && result.paymentUrl) {
+        // Chuyển sang màn hình thanh toán
+        router.push({
+          pathname: '/(tabs)/payment_webview',
+          params: {
+            paymentUrl: result.paymentUrl,
+            serviceId: params.courseId,
+            serviceType: paymentService.SERVICE_TYPES.COURSE,
+            serviceInfo: {
+              courseId: params.courseId,
+              courseTitle: params.courseTitle,
+              coursePrice: params.coursePrice
+            },
+            orderId: result.orderId,
+            returnScreen: 'course_chapter'
+          }
+        });
+      } else {
+        throw new Error(result.message || 'Không thể tạo liên kết thanh toán');
+      }
     } catch (error) {
       console.error('Lỗi xử lý thanh toán:', error);
+      setIsLoading(false);
+      
       Alert.alert(
         'Lỗi',
         'Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại.',
         [{ text: 'OK' }]
       );
-    } finally {
-      setIsLoading(false);
     }
   };
 

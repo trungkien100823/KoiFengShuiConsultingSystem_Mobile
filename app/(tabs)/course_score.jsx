@@ -27,7 +27,8 @@ export default function CourseScoreScreen() {
     totalQuestions = '10',
     correctAnswers = '0',
     timeSpent = '0',
-    percentage = '0'
+    percentage = '0',
+    courseId
   } = useLocalSearchParams();
   
   const [quizDetails, setQuizDetails] = useState(null);
@@ -57,13 +58,25 @@ export default function CourseScoreScreen() {
       try {
         // Use the score data directly from navigation params
         if (score && correctAnswers && totalQuestions) {
-          setScoreData({
+          const scoreDataObj = {
             score: parseFloat(score),
             correctAnswers: parseInt(correctAnswers),
             totalQuestions: parseInt(totalQuestions),
             percentage: parseInt(percentage) || 
               Math.round((parseInt(correctAnswers) / parseInt(totalQuestions)) * 100)
-          });
+          };
+          setScoreData(scoreDataObj);
+
+          // Lưu trạng thái hoàn thành với key duy nhất cho mỗi user
+          const token = await AsyncStorage.getItem('accessToken');
+          if (token && courseId) {
+            const userQuizKey = `${token}_${courseId}_completed`;
+            await AsyncStorage.setItem(userQuizKey, JSON.stringify({
+              completedAt: new Date().toISOString(),
+              score: scoreDataObj
+            }));
+          }
+
           setIsLoading(false);
           return;
         }
@@ -93,12 +106,22 @@ export default function CourseScoreScreen() {
         
         if (result.isSuccess && result.data) {
           const apiResult = result.data;
-          setScoreData({
+          const scoreDataObj = {
             score: apiResult.totalScore,
             correctAnswers: apiResult.correctAnswers,
             totalQuestions: apiResult.totalQuestions,
             percentage: Math.round((apiResult.correctAnswers / apiResult.totalQuestions) * 100)
-          });
+          };
+          setScoreData(scoreDataObj);
+
+          // Lưu trạng thái hoàn thành với key duy nhất cho mỗi user
+          if (token && courseId) {
+            const userQuizKey = `${token}_${courseId}_completed`;
+            await AsyncStorage.setItem(userQuizKey, JSON.stringify({
+              completedAt: new Date().toISOString(),
+              score: scoreDataObj
+            }));
+          }
         } else {
           throw new Error('Invalid score data received');
         }
@@ -125,12 +148,19 @@ export default function CourseScoreScreen() {
       router.replace({
         pathname: '/(tabs)/course_video',
         params: { 
-          lessonId: 'section1-lesson1'
+          lessonId: 'section1-lesson1',
+          courseId: courseId
         }
       });
     } else {
       // Default return to course chapter
-      router.replace('/(tabs)/course_chapter');
+      router.replace({
+        pathname: '/(tabs)/course_chapter',
+        params: { 
+          courseId: courseId,
+          shouldRefresh: true
+        }
+      });
     }
   };
 

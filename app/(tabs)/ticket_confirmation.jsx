@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, Platform, Alert, ActivityIndicator, ScrollView, Image } from 'react-native';
 import { AntDesign, Feather, Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { ticketService } from '../../constants/ticketCreate';
 import { paymentService } from '../../constants/paymentService';
+import { workshopDetailsService } from '../../constants/workshopDetails';
+import { useCallback } from 'react';
 
 export default function TicketConfirmation() {
   const navigation = useNavigation();
@@ -33,62 +35,113 @@ export default function TicketConfirmation() {
 
   useEffect(() => {
     const fetchData = async () => {
+      // Reset state for the new workshop ID
+      setIsLoading(true);
+      setTicketCount(1);
+      setWorkshopInfo({
+        title: workshopName || 'Workshop',
+        date: 'Đang cập nhật',
+        location: 'Đang cập nhật',
+        price: workshopPrice || 0
+      });
+      
       await Promise.all([
-        fetchCurrentUser(),
+        verifyTokenAndUser(),
         fetchWorkshopDetails()
       ]);
     };
     
     fetchData();
-  }, []);
+  }, [workshopId, workshopName, workshopPrice]);
+
+  useEffect(() => {
+    // Add a listener for when the screen comes into focus
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Get the latest params from the route
+      const currentParams = route.params || {};
+      const currentWorkshopId = currentParams.workshopId;
+      
+      // If the ID changed since we last set it, refresh everything
+      if (currentWorkshopId && currentWorkshopId !== workshopId) {
+        // Update our internal workshopId state
+        workshopId = currentWorkshopId;
+        
+        // Reset loading state and fetch new data
+        setIsLoading(true);
+        setTicketCount(1);
+        
+        Promise.all([
+          verifyTokenAndUser(),
+          fetchWorkshopDetails()
+        ]);
+      }
+    });
+
+    // Cleanup the listener when component unmounts
+    return unsubscribe;
+  }, [navigation, route]);
+
+  // Thêm hàm refresh để gọi lại các API
+  const refreshScreen = async () => {
+    setIsLoading(true);
+    try {
+      await fetchCurrentUser();
+      await fetchWorkshopDetails();
+    } catch (error) {
+      console.error('Lỗi khi refresh màn hình:', error);
+      Alert.alert(
+        "Thông báo",
+        "Không thể tải lại thông tin. Vui lòng thử lại sau."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Ticket confirmation screen focused - refreshing data');
+      refreshScreen();
+      return () => {
+        console.log('Ticket confirmation screen blurred');
+      };
+    }, [])
+  );
 
   const fetchWorkshopDetails = async () => {
+    if (!workshopId) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      if (!workshopId) {
-        console.log('Không có ID workshop, sử dụng thông tin mặc định');
-        return;
-      }
+      // Use the workshopDetailsService from constants
+      const response = await workshopDetailsService.getWorkshopDetails(workshopId);
       
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        throw new Error('Không tìm thấy token đăng nhập');
-      }
+      console.log('Workshop details response in ticket confirmation:', JSON.stringify(response));
       
-      console.log(`Đang gọi API workshop với ID: ${workshopId}`);
-      
-      const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/Workshop/${workshopId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      console.log('Workshop details response:', JSON.stringify(response.data));
-      
-      if (response.data) {
-        const workshopData = response.data.data || response.data;
-        
+      if (response && response.isSuccess) {
+        const workshopData = response.data;
         console.log('Workshop data extracted:', JSON.stringify(workshopData));
         
-        if (workshopData.id) {
-          setFullWorkshopId(workshopData.id);
-          console.log('Đã cập nhật fullWorkshopId đầy đủ:', workshopData.id);
-        }
-        
-        if (workshopData.startDate) console.log('Found startDate:', workshopData.startDate);
-        
+        // Set workshop information using the correct API response property names
         setWorkshopInfo({
-          title: workshopData.title || workshopData.name || workshopName,
-          date: formatDate(workshopData.startDate),
-          location: workshopData.location || workshopData.address || 'Đang cập nhật',
-          price: parseFloat(workshopData.price) || workshopPrice
+          title: workshopData.workshopName || workshopName,
+          date: formatDate(workshopData.startDate) || 'Đang cập nhật',
+          location: workshopData.location || 'Đang cập nhật',
+          price: workshopData.price || workshopPrice,
+          imageUrl: workshopData.imageUrl || null,
+          capacity: workshopData.capacity || 0,
+          status: workshopData.status || 'Pending'
         });
+        
+        // Set the full workshop ID for later use
+        setFullWorkshopId(workshopData.workshopId);
+      } else {
+        console.error('API response error:', response?.message);
       }
     } catch (error) {
-      console.error('Lỗi khi lấy thông tin workshop:', error);
-      console.log('Error details:', error.response?.data);
+      console.error('Error fetching workshop details:', error);
     } finally {
       setIsLoading(false);
     }
@@ -116,16 +169,23 @@ export default function TicketConfirmation() {
     }
   };
 
-  const fetchCurrentUser = async () => {
+  const verifyTokenAndUser = async () => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       
+      // If no token exists, redirect to login
       if (!token) {
-        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
-        navigation.navigate('login');
-        return;
+        console.log('No token found, redirecting to login');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'login' }],
+        });
+        return false;
       }
-
+      
+      console.log('Đang xác thực token với endpoint current-user');
+      
+      // Sử dụng endpoint current-user trực tiếp giống như trong online_booking.jsx
       const response = await axios.get(
         `${API_CONFIG.baseURL}/api/Account/current-user`,
         {
@@ -134,19 +194,95 @@ export default function TicketConfirmation() {
           }
         }
       );
-
-      console.log('Current user response:', response.data);
-
+      
+      // Nếu có phản hồi, token hợp lệ
       if (response.data) {
+        console.log('Token verification successful');
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Token verification error:', error);
+      
+      // If error is 401/403, token is invalid
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        console.log('Token invalid (401/403), clearing and redirecting to login');
+        await AsyncStorage.removeItem('accessToken');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'login' }],
+        });
+        return false;
+      }
+      
+      // For other errors, we can just try to continue
+      console.log('Other error during verification, continuing anyway');
+      return true;
+    }
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      // Clear previous user info first
+      setCustomerName('');
+      setPhoneNumber(''); 
+      setEmail('');
+      
+      // Get current access token
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        console.log('No access token found, redirecting to login');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'login' }],
+        });
+        return;
+      }
+      
+      console.log('Đang gọi API để lấy thông tin người dùng hiện tại');
+      
+      // Sử dụng endpoint current-user trực tiếp giống như trong online_booking.jsx
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/Account/current-user`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Current user API response:', JSON.stringify(response.data));
+      
+      // Xử lý dữ liệu trả về từ API
+      if (response.data) {
+        // Update the UI with user data - Trích xuất đúng dữ liệu như trong online_booking.jsx
         setCustomerName(response.data.fullName || response.data.userName || '');
         setPhoneNumber(response.data.phoneNumber || '');
         setEmail(response.data.email || '');
+        
+        console.log('User profile loaded successfully:', response.data.fullName);
       } else {
-        Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng');
+        console.error('Failed to get user data: No data returned');
+        Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng. Vui lòng thử lại sau.');
       }
     } catch (error) {
-      console.error('Lỗi khi lấy thông tin người dùng:', error);
-      Alert.alert('Lỗi', 'Không thể lấy thông tin người dùng');
+      console.error('Error fetching user profile:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      // Check for authentication errors
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        console.log('Authentication error, redirecting to login');
+        await AsyncStorage.removeItem('accessToken');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'login' }],
+        });
+      } else {
+        Alert.alert('Lỗi', 'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -430,10 +566,11 @@ export default function TicketConfirmation() {
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => {
-            // Navigate back to workshopDetails with the original workshop ID
+            // Navigate back to workshopDetails with the correct workshop ID structure
             navigation.navigate('workshopDetails', {
-              workshop: { id: fullWorkshopId || workshopId },
-              // Include any other parameters needed
+              workshop: { 
+                id: fullWorkshopId || workshopId 
+              }
             });
           }}
         >
@@ -460,8 +597,8 @@ export default function TicketConfirmation() {
               <View style={styles.workshopCard}>
                 <View style={styles.workshopHeaderRow}>
                   <View style={styles.workshopImageContainer}>
-                    <Image 
-                      source={{uri: 'https://res.cloudinary.com/dzedpn3us/image/upload/v1714547103/3_cgq2wb.jpg'}} 
+                    <Image
+                      source={{ uri: workshopInfo.imageUrl || 'https://res.cloudinary.com/dzedpn3us/image/upload/v1714547103/3_cgq2wb.jpg' }}
                       style={styles.workshopImage}
                     />
                   </View>
@@ -469,75 +606,76 @@ export default function TicketConfirmation() {
                     <Text style={styles.workshopTitle}>{workshopInfo.title}</Text>
                     
                     <View style={styles.workshopDetailRow}>
-                      <Ionicons name="calendar-outline" size={14} color="#8B0000" />
+                      <Ionicons name="calendar" size={16} color="#8B0000" />
                       <Text style={styles.workshopDetailText}>{workshopInfo.date}</Text>
                     </View>
                     
                     <View style={styles.workshopDetailRow}>
-                      <Ionicons name="location-outline" size={14} color="#8B0000" />
+                      <Ionicons name="location" size={16} color="#8B0000" />
                       <Text style={styles.workshopDetailText}>{workshopInfo.location}</Text>
                     </View>
-                    
+
                     <View style={styles.workshopDetailRow}>
-                      <FontAwesome name="dollar" size={14} color="#8B0000" />
-                      <Text style={styles.workshopDetailText}>{formatPrice(workshopInfo.price)}</Text>
+                      <FontAwesome name="ticket" size={16} color="#8B0000" />
+                      <Text style={styles.workshopDetailText}>{formatPrice(workshopInfo.price)}/vé</Text>
                     </View>
                   </View>
                 </View>
               </View>
 
-              {/* Customer Information Form */}
+              {/* Customer Information Form - Read Only */}
               <View style={styles.formContainer}>
                 <Text style={styles.sectionTitle}>Thông tin người đặt</Text>
                 
+                {/* Customer Name - Read Only */}
                 <View style={styles.inputGroup}>
                   <View style={styles.labelContainer}>
                     <Text style={styles.label}>Họ tên</Text>
                     <Text style={styles.required}>*</Text>
                   </View>
-                  <View style={styles.inputWrapper}>
+                  <View style={[styles.inputWrapper, styles.readOnlyInput]}>
+                    <Ionicons name="person-outline" size={20} color="#777" />
                     <TextInput
                       style={styles.input}
                       value={customerName}
-                      onChangeText={setCustomerName}
-                      placeholder="Nhập họ tên của bạn"
-                      placeholderTextColor="#999"
+                      editable={false}
+                      placeholder="Họ tên của bạn"
                     />
                   </View>
                 </View>
 
+                {/* Phone Number - Read Only */}
                 <View style={styles.inputGroup}>
                   <View style={styles.labelContainer}>
                     <Text style={styles.label}>Số điện thoại</Text>
                     <Text style={styles.required}>*</Text>
                   </View>
-                  <View style={styles.inputWrapper}>
+                  <View style={[styles.inputWrapper, styles.readOnlyInput]}>
+                    <Ionicons name="call-outline" size={20} color="#777" />
                     <TextInput
                       style={styles.input}
                       value={phoneNumber}
-                      onChangeText={setPhoneNumber}
-                      placeholder="Nhập số điện thoại"
-                      placeholderTextColor="#999"
+                      editable={false}
+                      placeholder="Số điện thoại của bạn"
                       keyboardType="phone-pad"
-                      maxLength={10}
                     />
                   </View>
                 </View>
 
+                {/* Email - Read Only */}
                 <View style={styles.inputGroup}>
                   <View style={styles.labelContainer}>
                     <Text style={styles.label}>Email</Text>
                     <Text style={styles.required}>*</Text>
                   </View>
-                  <View style={styles.inputWrapper}>
+                  <View style={[styles.inputWrapper, styles.readOnlyInput]}>
+                    <Ionicons name="mail-outline" size={20} color="#777" />
                     <TextInput
                       style={styles.input}
                       value={email}
-                      onChangeText={setEmail}
-                      placeholder="Nhập địa chỉ email"
-                      placeholderTextColor="#999"
+                      editable={false}
+                      placeholder="Địa chỉ email của bạn"
                       keyboardType="email-address"
-                      autoCapitalize="none"
                     />
                   </View>
                 </View>
@@ -727,6 +865,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
+    marginLeft: 10,
     color: '#333',
   },
   ticketCounterContainer: {
@@ -820,5 +959,26 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#8B0000',
+  },
+  idContainer: {
+    flexDirection: 'row',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  idLabel: {
+    fontSize: 13,
+    color: '#777',
+  },
+  idValue: {
+    fontSize: 13,
+    color: '#555',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  readOnlyInput: {
+    backgroundColor: '#eaeaea',
+    borderColor: '#cccccc',
   },
 });

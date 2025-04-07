@@ -3,12 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
-  Dimensions,
-  ScrollView,
   Modal,
   TextInput,
   Alert,
@@ -20,19 +17,18 @@ import { API_CONFIG } from '../../constants/config';
 import { getAuthToken } from '../../services/authService';
 import { WebView } from 'react-native-webview';
 
-const windowWidth = Dimensions.get('window').width;
-const windowHeight = Dimensions.get('window').height;
-
-const ContractBookingOffline = () => {
+const AttachmentBookingOffline = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
-  const [contractUrl, setContractUrl] = useState(null);
-  const [contractId, setContractId] = useState(null);
+  const [attachmentUrl, setAttachmentUrl] = useState(null);
   const [bookingStatus, setBookingStatus] = useState(null);
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [attachmentId, setAttachmentId] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [bookingDetailVisible, setBookingDetailVisible] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -41,11 +37,23 @@ const ContractBookingOffline = () => {
   }, [params.id]);
 
   useEffect(() => {
-    if (bookingStatus?.trim().toLowerCase() === 'firstpaymentpendingconfirm') {
-      Alert.alert(
-        "Thông báo",
-        "Bạn đã thanh toán thành công, Master đang xác nhận thanh toán của bạn"
-      );
+    if (bookingStatus) {
+      console.log('Current booking status:', bookingStatus);
+      console.log('Status after trim and lowercase:', bookingStatus.trim().toLowerCase());
+      
+      if (bookingStatus.trim().toLowerCase() === 'verifyingotpattachment') {
+        setOtpModalVisible(true);
+      }
+      
+      if (bookingStatus.trim().toLowerCase() === 'secondpaymentpendingconfirm') {
+        console.log('Showing alert for SecondPaymentPendingConfirm');
+        setTimeout(() => {
+          Alert.alert(
+            "Thông báo",
+            "Bạn đã thanh toán thành công, Master đang xác nhận thanh toán của bạn"
+          );
+        }, 500);
+      }
     }
   }, [bookingStatus]);
 
@@ -60,7 +68,7 @@ const ContractBookingOffline = () => {
         return;
       }
 
-      // Fetch booking status
+      // Fetch booking status first
       const bookingResponse = await axios.get(
         `${API_CONFIG.baseURL}/api/Booking/${params.id}`,
         {
@@ -71,18 +79,18 @@ const ContractBookingOffline = () => {
         }
       );
 
+      console.log('Booking Response:', JSON.stringify(bookingResponse.data, null, 2));
+
       if (bookingResponse.data && bookingResponse.data.isSuccess) {
         const status = bookingResponse.data.data.status;
         setBookingStatus(status);
-        
-        // Log trạng thái để debug
-        console.log('Fetched booking status:', status);
+        console.log('Set booking status to:', status);
         
         // Hiển thị thông báo debug trong môi trường phát triển
         if (__DEV__) {
           setTimeout(() => {
             Alert.alert(
-              "Thông tin trạng thái",
+              "Debug - Trạng thái",
               `Trạng thái hiện tại: [${status}]`,
               [{ text: "OK" }]
             );
@@ -90,20 +98,33 @@ const ContractBookingOffline = () => {
         }
       }
 
-      // Fetch contract data
-      const contractResponse = await axios.get(
-        `${API_CONFIG.baseURL}/api/Contract/by-bookingOffline/${params.id}`, 
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      // Fetch attachment data
+      try {
+        const attachmentResponse = await axios.get(
+          `${API_CONFIG.baseURL}/api/Attachment/booking/${params.id}`, 
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
           }
-        }
-      );
+        );
 
-      if (contractResponse.data && contractResponse.data.isSuccess) {
-        setContractUrl(contractResponse.data.data.contractUrl);
-        setContractId(contractResponse.data.data.contractId);
+        if (attachmentResponse.data && attachmentResponse.data.isSuccess && attachmentResponse.data.data) {
+          setAttachmentUrl(attachmentResponse.data.data.attachmentUrl);
+          setAttachmentId(attachmentResponse.data.data.attachmentId);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        console.error('Error response:', error.response?.data);
+        console.log('Attachment not found');
+        // Không hiển thị alert lỗi nếu biên bản chưa được tạo, chỉ ghi log
+        if (error.response?.status !== 404) {
+          Alert.alert(
+            "Lỗi",
+            "Không thể tải biên bản. Vui lòng thử lại sau."
+          );
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -116,106 +137,16 @@ const ContractBookingOffline = () => {
     }
   };
 
-  const handleReject = () => {
-    if (!contractId) {
-      Alert.alert("Lỗi", "Không tìm thấy thông tin hợp đồng");
-      return;
-    }
-
-    Alert.alert(
-      "Xác nhận",
-      "Bạn có chắc chắn muốn từ chối hợp đồng này?",
-      [
-        {
-          text: "Hủy",
-          style: "cancel"
-        },
-        {
-          text: "Từ chối",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const token = await getAuthToken();
-              const response = await axios.patch(
-                `${API_CONFIG.baseURL}/api/Contract/customer/cancel/${contractId}`,
-                {},
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                }
-              );
-              
-              if (response.data && response.data.isSuccess) {
-                Alert.alert("Thành công", "Đã từ chối hợp đồng");
-                router.push('/(tabs)/your_booking');
-              }
-            } catch (error) {
-              console.error('Error rejecting contract:', error);
-              Alert.alert("Lỗi", "Không thể từ chối hợp đồng. Vui lòng thử lại sau.");
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleApprove = async () => {
-    if (!contractId) {
-      Alert.alert("Lỗi", "Không tìm thấy thông tin hợp đồng");
-      return;
-    }
-
-    Alert.alert(
-      "Xác nhận",
-      "Bạn có chắc chắn muốn đồng ý hợp đồng này?",
-      [
-        {
-          text: "Hủy",
-          style: "cancel"
-        },
-        {
-          text: "Đồng ý",
-          style: "default",
-          onPress: async () => {
-            try {
-              const token = await getAuthToken();
-              const response = await axios.patch(
-                `${API_CONFIG.baseURL}/api/Contract/customer/confirm/${contractId}`,
-                {},
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                }
-              );
-              
-              if (response.data && response.data.isSuccess) {
-                Alert.alert("Thành công", "Đã đồng ý hợp đồng");
-                router.push('/(tabs)/your_booking');
-              }
-            } catch (error) {
-              console.error('Error confirming contract:', error);
-              Alert.alert("Lỗi", "Không thể đồng ý hợp đồng. Vui lòng thử lại sau.");
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleSignContract = async () => {
-    if (!contractId) {
-      Alert.alert("Lỗi", "Không tìm thấy thông tin hợp đồng");
+  const handleSignAttachment = async () => {
+    if (!attachmentId) {
+      Alert.alert("Lỗi", "Không tìm thấy thông tin biên bản");
       return;
     }
 
     try {
       const token = await getAuthToken();
       const response = await axios.post(
-        `${API_CONFIG.baseURL}/api/Contract/send-otp/${contractId}`,
+        `${API_CONFIG.baseURL}/api/Attachment/send-otp/${attachmentId}`,
         {},
         {
           headers: {
@@ -228,28 +159,25 @@ const ContractBookingOffline = () => {
       if (response.data && response.data.isSuccess) {
         setOtpModalVisible(true);
       } else {
-        // Hiển thị thông báo lỗi cụ thể từ backend
         Alert.alert("Lỗi", response.data?.message || "Không thể gửi mã OTP. Vui lòng thử lại sau.");
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
       let errorMessage = "Không thể gửi mã OTP. Vui lòng thử lại sau.";
       
-      // Xử lý các trường hợp lỗi cụ thể
       if (error.response) {
         switch (error.response.status) {
           case 400:
-            errorMessage = "Trạng thái hợp đồng không hợp lệ để gửi OTP.";
+            errorMessage = "Trạng thái biên bản không hợp lệ để gửi OTP.";
             break;
           case 404:
-            errorMessage = "Không tìm thấy thông tin hợp đồng hoặc booking.";
+            errorMessage = "Không tìm thấy thông tin biên bản hoặc booking.";
             break;
           case 500:
             errorMessage = "Lỗi hệ thống. Vui lòng thử lại sau.";
             break;
         }
         
-        // Nếu có message từ backend thì hiển thị
         if (error.response.data && error.response.data.message) {
           errorMessage = error.response.data.message;
         }
@@ -260,16 +188,16 @@ const ContractBookingOffline = () => {
   };
 
   const handleResendOTP = async () => {
-    if (!contractId) {
-      console.log('Error: contractId is missing');
-      Alert.alert("Lỗi", "Không tìm thấy thông tin hợp đồng");
+    if (!attachmentId) {
+      console.log('Error: attachmentId is missing');
+      Alert.alert("Lỗi", "Không tìm thấy thông tin biên bản");
       return;
     }
 
     try {
-      console.log('Sending OTP request for contractId:', contractId);
+      console.log('Sending OTP request for attachmentId:', attachmentId);
       const token = await getAuthToken();
-      const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.sendOTPContract.replace('{contractId}', contractId)}`;
+      const url = `${API_CONFIG.baseURL}/api/Attachment/send-otp/${attachmentId}`;
       console.log('Request URL:', url);
       
       const response = await axios.post(
@@ -298,7 +226,7 @@ const ContractBookingOffline = () => {
         error: error,
         response: error.response?.data,
         status: error.response?.status,
-        contractId: contractId
+        attachmentId: attachmentId
       });
       
       let errorMessage = "Không thể gửi lại mã OTP. Vui lòng thử lại sau.";
@@ -318,33 +246,33 @@ const ContractBookingOffline = () => {
       return;
     }
 
-    if (!contractId) {
-      console.log('Error: contractId is missing');
-      Alert.alert("Lỗi", "Không tìm thấy thông tin hợp đồng");
+    if (!attachmentId) {
+      console.log('Error: attachmentId is missing');
+      Alert.alert("Lỗi", "Không tìm thấy thông tin biên bản");
       return;
     }
 
     try {
-      console.log('Verifying OTP for contractId:', contractId);
+      console.log('Verifying OTP for attachmentId:', attachmentId);
       const token = await getAuthToken();
-      const formData = new FormData();
-      formData.append('OtpCode', otp.trim());
 
       console.log('OTP Request Data:', {
-        contractId: contractId,
+        attachmentId: attachmentId,
         otpCode: otp.trim()
       });
 
-      const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.verifyOTPContract.replace('{contractId}', contractId)}`;
+      const url = `${API_CONFIG.baseURL}/api/Attachment/verify-otp/${attachmentId}`;
       console.log('Request URL:', url);
 
       const response = await axios.post(
         url,
-        formData,
+        {
+          otpCode: otp.trim()
+        },
         {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
+            'Content-Type': 'application/json'
           }
         }
       );
@@ -355,8 +283,48 @@ const ContractBookingOffline = () => {
         setOtpModalVisible(false);
         setOtp('');
         setOtpError('');
-        Alert.alert("Thành công", "Xác thực OTP thành công");
-        router.push('/(tabs)/your_booking');
+
+        // Lấy thông tin booking từ API
+        const bookingResponse = await axios.get(
+          `${API_CONFIG.baseURL}/api/Booking/${params.id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        console.log('Booking Response:', JSON.stringify(bookingResponse.data, null, 2));
+
+        if (bookingResponse.data && bookingResponse.data.isSuccess) {
+          const bookingData = bookingResponse.data.data;
+          console.log('Booking Data:', JSON.stringify(bookingData, null, 2));
+
+          const paymentParams = {
+            serviceId: params.id,
+            packageName: bookingData.packageName || 'Gói tư vấn phong thủy',
+            selectedPrice: bookingData.finalPrice || bookingData.price || bookingData.selectedPrice,
+            status: 'VerifiedOTPAttachment',
+            serviceType: 'BookingOffline'
+          };
+
+          console.log('Payment Params:', JSON.stringify(paymentParams, null, 2));
+
+          Alert.alert("Thành công", "Xác thực OTP thành công", [
+            {
+              text: "OK",
+              onPress: () => {
+                router.push({
+                  pathname: '/(tabs)/offline_payment',
+                  params: paymentParams
+                });
+              }
+            }
+          ]);
+        } else {
+          throw new Error('Không thể lấy thông tin booking');
+        }
       } else {
         console.log('Verify OTP failed:', response.data);
         setOtpError(response.data?.message || "Mã OTP không đúng hoặc đã hết hạn");
@@ -366,7 +334,7 @@ const ContractBookingOffline = () => {
         error: error,
         response: error.response?.data,
         status: error.response?.status,
-        contractId: contractId,
+        attachmentId: attachmentId,
         otpLength: otp?.length
       });
       
@@ -375,7 +343,7 @@ const ContractBookingOffline = () => {
       if (error.response?.status === 400) {
         errorMessage = error.response.data?.message || "Mã OTP không đúng hoặc đã hết hạn";
       } else if (error.response?.status === 404) {
-        errorMessage = "Không tìm thấy thông tin hợp đồng";
+        errorMessage = "Không tìm thấy thông tin biên bản";
       } else if (error.response?.status === 500) {
         errorMessage = "Lỗi hệ thống. Vui lòng thử lại sau.";
       }
@@ -384,21 +352,145 @@ const ContractBookingOffline = () => {
     }
   };
 
-  const renderContract = () => {
+  const handleApprove = async () => {
+    try {
+      if (!attachmentId) {
+        console.error('Error approving attachment: [Error: Không tìm thấy ID biên bản]');
+        Alert.alert(
+          "Thông báo",
+          "Biên bản chưa được tạo. Vui lòng chờ Master tạo biên bản."
+        );
+        return;
+      }
+
+      const token = await getAuthToken();
+      
+      if (!token) {
+        Alert.alert("Thông báo", "Vui lòng đăng nhập lại để tiếp tục");
+        return;
+      }
+
+      Alert.alert(
+        "Xác nhận",
+        "Bạn có chắc chắn muốn đồng ý biên bản này?",
+        [
+          {
+            text: "Hủy",
+            style: "cancel"
+          },
+          {
+            text: "Đồng ý",
+            style: "default",
+            onPress: async () => {
+              try {
+                const response = await axios.put(
+                  `${API_CONFIG.baseURL}/api/Attachment/confirm/${attachmentId}`,
+                  {},
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+                
+                if (response.data && response.data.isSuccess) {
+                  Alert.alert("Thành công", "Đã đồng ý biên bản");
+                  router.push('/(tabs)/your_booking');
+                }
+              } catch (error) {
+                console.error('Error confirming attachment:', error);
+                Alert.alert("Lỗi", "Không thể đồng ý biên bản. Vui lòng thử lại sau.");
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error in handleApprove:', error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi. Vui lòng thử lại sau.");
+    }
+  };
+
+  const handleReject = async () => {
+    try {
+      if (!attachmentId) {
+        console.error('Error rejecting attachment: [Error: Không tìm thấy ID biên bản]');
+        Alert.alert(
+          "Thông báo",
+          "Biên bản chưa được tạo. Vui lòng chờ Master tạo biên bản."
+        );
+        return;
+      }
+
+      const token = await getAuthToken();
+      
+      if (!token) {
+        Alert.alert("Thông báo", "Vui lòng đăng nhập lại để tiếp tục");
+        return;
+      }
+
+      Alert.alert(
+        "Xác nhận",
+        "Bạn có chắc chắn muốn từ chối biên bản này?",
+        [
+          {
+            text: "Hủy",
+            style: "cancel"
+          },
+          {
+            text: "Từ chối",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                const response = await axios.put(
+                  `${API_CONFIG.baseURL}/api/Attachment/cancel/${attachmentId}`,
+                  {},
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+                
+                if (response.data && response.data.isSuccess) {
+                  Alert.alert("Thành công", "Đã từ chối biên bản");
+                  router.push('/(tabs)/your_booking');
+                }
+              } catch (error) {
+                console.error('Error rejecting attachment:', error);
+                Alert.alert("Lỗi", "Không thể từ chối biên bản. Vui lòng thử lại sau.");
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error in handleReject:', error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi. Vui lòng thử lại sau.");
+    }
+  };
+
+  const renderAttachment = () => {
     if (loading) {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#8B0000" />
-          <Text style={styles.loadingText}>Đang tải hợp đồng...</Text>
+          <Text style={styles.loadingText}>Đang tải biên bản...</Text>
         </View>
       );
     }
 
-    if (!contractUrl) {
+    const status = bookingStatus?.trim().toLowerCase();
+    
+    if (!attachmentUrl) {
       return (
-        <View style={styles.noContractContainer}>
+        <View style={styles.noAttachmentContainer}>
           <Ionicons name="document-outline" size={60} color="#666" />
-          <Text style={styles.noContractText}>Không tìm thấy hợp đồng</Text>
+          <Text style={styles.noAttachmentText}>
+            Không tìm thấy biên bản nghiệm thu
+          </Text>
         </View>
       );
     }
@@ -429,7 +521,7 @@ const ContractBookingOffline = () => {
           </style>
         </head>
         <body>
-          <iframe src="${contractUrl}" frameborder="0" allowfullscreen></iframe>
+          <iframe src="${attachmentUrl}" frameborder="0" allowfullscreen></iframe>
         </body>
       </html>
     `;
@@ -457,62 +549,66 @@ const ContractBookingOffline = () => {
     if (!bookingStatus) return null;
 
     const status = bookingStatus.trim().toLowerCase();
-    console.log('Current status:', bookingStatus);
-    console.log('Trimmed and lowercased status:', status);
-
-    // Log chi tiết hơn để debug
-    console.log('Comparing status:', {
-      status: status,
-      isContractConfirmedByCustomer: status === 'contractconfirmedbycustomer' || status.includes('contractconfirmedbycustomer'),
-      isVerifyingOTP: status === 'verifyingotp' || status.includes('verifyingotp'),
-      isContractConfirmedByManager: status === 'contractconfirmedbymanager' || status.includes('contractconfirmedbymanager')
+    console.log('Rendering buttons for status:', status);
+    
+    // Log chi tiết để debug
+    console.log('Status checks:', {
+      isDocumentConfirmedByCustomer: status.includes('documentconfirmedbycustomer'),
+      isAttachmentConfirmed: status.includes('attachmentconfirmed'),
+      isVerifyingOTPAttachment: status.includes('verifyingotpattachment'),
+      rawStatus: bookingStatus
     });
 
-    // Hiển thị nút Ký hợp đồng khi booking ở trạng thái ContractConfirmedByCustomer hoặc VerifyingOTP
-    // Sử dụng includes thay vì === để tránh sai sót do khoảng trắng hoặc chữ hoa/thường
-    if (status.includes('contractconfirmedbycustomer') || status.includes('verifyingotp')) {
+    // Kiểm tra chính xác trạng thái DocumentConfirmedByCustomer
+    if (status.includes('documentconfirmedbycustomer')) {
+      try {
+        if (!attachmentId) {
+          console.log('Error: Attachment ID not found');
+          return null;
+        }
+
+        return (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.approveButton]}
+              onPress={handleApprove}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Đồng ý</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton]}
+              onPress={handleReject}
+            >
+              <Ionicons name="close-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Từ chối</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      } catch (error) {
+        console.error('Error rendering buttons for DocumentConfirmedByCustomer:', error);
+        return null;
+      }
+    }
+
+    // Kiểm tra trạng thái AttachmentConfirmed và VerifyingOTPAttachment
+    if (status.includes('attachmentconfirmed') || status.includes('verifyingotpattachment')) {
       return (
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[styles.actionButton, styles.signButton]}
-            onPress={handleSignContract}
+            onPress={handleSignAttachment}
           >
             <Ionicons name="create-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Ký hợp đồng</Text>
+            <Text style={styles.buttonText}>Ký biên bản</Text>
           </TouchableOpacity>
         </View>
       );
     }
-
-    if (status.includes('contractconfirmedbymanager')) {
-      return (
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.approveButton]}
-            onPress={handleApprove}
-          >
-            <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Đồng ý</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
-            onPress={handleReject}
-          >
-            <Ionicons name="close-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Từ chối</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    // Hiển thị thông tin trạng thái nếu không khớp với bất kỳ trường hợp nào
-    if (!status.includes('contractconfirmedbycustomer') && 
-        !status.includes('verifyingotp') && 
-        !status.includes('contractconfirmedbymanager')) {
-      console.log('Unhandled contract status:', status);
-    }
-
+    
+    // Log nếu không phù hợp với bất kỳ điều kiện nào
+    console.log('No matching condition for status:', status);
     return null;
   };
 
@@ -522,7 +618,6 @@ const ContractBookingOffline = () => {
       transparent={true}
       animationType="slide"
       onRequestClose={() => {
-        // Luôn cho phép đóng modal bằng nút back
         setOtpModalVisible(false);
         setOtp('');
         setOtpError('');
@@ -530,7 +625,7 @@ const ContractBookingOffline = () => {
     >
       <View style={styles.modalOverlay}>
         <View style={styles.otpModalContent}>
-          <Text style={styles.otpModalTitle}>Xác nhận ký hợp đồng</Text>
+          <Text style={styles.otpModalTitle}>Xác nhận ký biên bản</Text>
           <Text style={styles.otpModalSubtitle}>Nhập mã OTP</Text>
           
           <TextInput
@@ -563,7 +658,6 @@ const ContractBookingOffline = () => {
             <TouchableOpacity
               style={[styles.otpButton, styles.cancelButton]}
               onPress={() => {
-                // Luôn đóng modal và reset state
                 setOtpModalVisible(false);
                 setOtp('');
                 setOtpError('');
@@ -584,12 +678,6 @@ const ContractBookingOffline = () => {
     </Modal>
   );
 
-  useEffect(() => {
-    if (bookingStatus) {
-      console.log('Booking status changed to:', bookingStatus);
-    }
-  }, [bookingStatus]);
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -605,12 +693,12 @@ const ContractBookingOffline = () => {
 
       {/* Title Section */}
       <View style={styles.titleSection}>
-        <Text style={styles.pageTitle}>Hợp đồng</Text>
+        <Text style={styles.pageTitle}>Biên bản nghiệm thu</Text>
       </View>
 
-      {/* Contract Display Section */}
-      <View style={styles.contractContainer}>
-        {renderContract()}
+      {/* Attachment Display Section */}
+      <View style={styles.attachmentContainer}>
+        {renderAttachment()}
       </View>
 
       {/* Action Buttons */}
@@ -656,7 +744,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  contractContainer: {
+  attachmentContainer: {
     flex: 1,
     margin: 0,
     backgroundColor: '#ffffff',
@@ -667,25 +755,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginHorizontal: 10,
     marginVertical: 5,
-  },
-  imageContainer: {
-    padding: 10,
-    alignItems: 'center',
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  contractImage: {
-    width: windowWidth - 60,
-    height: windowHeight * 0.6,
-    borderRadius: 10,
-  },
-  imageHint: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 14,
-    marginTop: 10,
-    marginBottom: 10,
-    fontStyle: 'italic',
   },
   loadingContainer: {
     flex: 1,
@@ -698,13 +767,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  noContractContainer: {
+  noAttachmentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  noContractText: {
+  noAttachmentText: {
     fontSize: 16,
     color: '#666',
     marginTop: 10,
@@ -727,12 +796,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     borderRadius: 10,
-  },
-  rejectButton: {
-    backgroundColor: '#FF5252',
-  },
-  approveButton: {
-    backgroundColor: '#4CAF50',
   },
   signButton: {
     backgroundColor: '#4A90E2',
@@ -824,6 +887,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  messageContainer: {
+    padding: 15,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  messageText: {
+    color: '#FF9800',
+    fontSize: 14,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  approveButton: {
+    backgroundColor: '#4CAF50',
+  },
+  rejectButton: {
+    backgroundColor: '#FF5252',
+  },
 });
 
-export default ContractBookingOffline; 
+export default AttachmentBookingOffline; 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,20 +19,84 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
+
+// Thêm enum ChapterStatus ở đầu file, sau phần import
+const EnrollChapterStatus = {
+  InProgress: "InProgress", 
+  Done: "Done"
+};
+
+// Hàm helper để chuyển đổi status thành text hiển thị
+const getStatusDisplayText = (status) => {
+  switch (status) {
+    case EnrollChapterStatus.InProgress:
+      return "Đang học";
+    case EnrollChapterStatus.Done:
+      return "Đã hoàn thành";
+    default:
+      return "Đang học";
+  }
+};
+
+// Hàm helper để lấy màu cho status
+const getStatusColor = (status) => {
+  switch (status) {
+    case EnrollChapterStatus.InProgress:
+      return "#007AFF";
+    case EnrollChapterStatus.Done:
+      return "#4CAF50";
+    default:
+      return "#007AFF";
+  }
+};
+
+// Hàm helper để lấy icon cho status
+const getStatusIcon = (status) => {
+  switch (status) {
+    case EnrollChapterStatus.Done:
+      return <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />;
+    case EnrollChapterStatus.InProgress:
+      return <Ionicons name="time" size={20} color="#007AFF" />;
+    default:
+      return <Ionicons name="time" size={20} color="#007AFF" />;
+  }
+};
+
+// Component ProgressBar để hiển thị tiến độ khóa học
+const ProgressBar = ({ progress, width = '100%', height = 8 }) => {
+  return (
+    <View style={[styles.progressBarContainer, { width, height }]}>
+      <View 
+        style={[
+          styles.progressBarFill, 
+          { 
+            width: `${progress}%`,
+            backgroundColor: progress === 100 ? '#4CAF50' : '#007bff'
+          }
+        ]} 
+      />
+    </View>
+  );
+};
 
 export default function CourseChapterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  // Get courseId from params without default fallback
-  const { courseId } = params;
+  const courseId = params?.courseId;
+  console.log('CourseChapterScreen - Received params:', params);
   
   const [courseInfo, setCourseInfo] = useState({
     courseName: '',
     rating: '',
     author: '',
-    description: ''
+    description: '',
+    totalChapters: 0,
+    totalQuestions: 0,
+    totalDuration: '00:00:00',
+    enrollCourseId: null
   });
   const [chapters, setChapters] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,87 +106,493 @@ export default function CourseChapterScreen() {
   const [isRegistered, setIsRegistered] = useState(false);
   const [quizId, setQuizId] = useState(null);
   const [effectiveCourseId, setEffectiveCourseId] = useState(null);
+  const [currentProgress, setCurrentProgress] = useState(0);
+  const [courseCompleted, setCourseCompleted] = useState(false);
+  const [isFreeCourse, setIsFreeCourse] = useState(false);
   const navigation = useNavigation();
 
-  // Load completion data from storage
-  useEffect(() => {
-    const loadCompletionData = async () => {
-      try {
-        // Load completed lessons
-        const savedLessons = await AsyncStorage.getItem('completedLessons');
-        if (savedLessons) {
-          setCompletedLessons(JSON.parse(savedLessons));
-        }
-        
-        // Load completed quizzes
-        const savedQuizzes = await AsyncStorage.getItem('completedQuizzes');
-        if (savedQuizzes) {
-          setCompletedQuizzes(JSON.parse(savedQuizzes));
-        }
-      } catch (error) {
-        console.log('Error loading completion data:', error);
-      }
-    };
-    
-    loadCompletionData();
-  }, []);
+  // Thêm ref để kiểm soát số lần load
+  const hasLoadedData = useRef(false);
+  const lastLoadTime = useRef(0);
 
-  // Update the useEffect that initializes courseId
-  useEffect(() => {
-    const initCourseId = async () => {
-      // First check if we have a courseId from params
-      if (params.courseId) {
-        // Log what we received from params
-        console.log('Received courseId from params:', params.courseId);
-        const cleanCourseId = String(params.courseId).trim();
-        console.log('Using courseId from params:', cleanCourseId);
-        setEffectiveCourseId(cleanCourseId);
+  // Thêm ref để kiểm soát việc gọi API
+  const hasCheckedRegistration = useRef(false);
+  const hasCheckedCompletion = useRef(false);
+
+  // Thêm state để kiểm soát việc refresh
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Thêm state để kiểm soát request
+  const [isLoadingRef] = useState({ current: false });
+  const [lastRequestTime, setLastRequestTime] = useState(0);
+  const REQUEST_DEBOUNCE_TIME = 1000; // 1 giây
+
+  // Load completion data from AsyncStorage
+  const loadCompletionData = async () => {
+    const currentTime = Date.now();
+    if (currentTime - lastLoadTime.current < 3000) {
+      console.log('Đã tải dữ liệu tiến độ gần đây, bỏ qua');
+      return;
+    }
+    lastLoadTime.current = currentTime;
+    
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        console.log('Không tìm thấy token, không thể tải dữ liệu tiến độ');
         return;
       }
+
+      // Lấy enrollCourseId từ API hoặc state
+      const enrollCourseId = courseInfo.enrollCourseId;
+      if (!enrollCourseId) {
+        console.log('Không tìm thấy enrollCourseId, không thể tải dữ liệu tiến độ');
+        return;
+      }
+
+      // Load completed lessons từ AsyncStorage
+      const completedLessons = await AsyncStorage.getItem('completedLessons');
+      if (completedLessons) {
+        const lessonsData = JSON.parse(completedLessons);
+        
+        // Lọc các chapter đã hoàn thành dựa trên enrollCourseId
+        const completedChapters = chapters.filter(chapter => {
+          const lessonKey = `${enrollCourseId}_${chapter.chapterId}`;
+          return lessonsData[lessonKey]?.completed === true;
+        });
+
+        // Cập nhật tiến độ dựa trên số chapter đã hoàn thành
+        const progress = Math.round((completedChapters.length / chapters.length) * 100);
+        setCurrentProgress(progress);
+
+        // Lưu tiến độ vào AsyncStorage
+        const savedProgress = await AsyncStorage.getItem('courseProgress');
+        let progressObj = savedProgress ? JSON.parse(savedProgress) : {};
+        progressObj[courseId] = progress;
+        await AsyncStorage.setItem('courseProgress', JSON.stringify(progressObj));
+      }
+
+    } catch (error) {
+      console.error('Lỗi khi tải dữ liệu tiến độ:', error);
+    }
+  };
+  
+  // Hàm tải dữ liệu hoàn thành từ bộ nhớ cục bộ
+  const loadLocalCompletionData = async () => {
+    try {
+      console.log('Đang tải dữ liệu hoàn thành từ bộ nhớ cục bộ');
       
-      // If no courseId in params, try to get the last viewed course from storage
-      try {
-        const lastCourseId = await AsyncStorage.getItem('lastViewedCourseId');
-        if (lastCourseId) {
-          console.log('Using last viewed courseId from storage:', lastCourseId);
-          setEffectiveCourseId(lastCourseId);
+      // Load completed chapters
+      const savedChapters = await AsyncStorage.getItem('completedLessons');
+      if (savedChapters) {
+        const parsedChapters = JSON.parse(savedChapters);
+        setCompletedLessons(parsedChapters);
+      }
+      
+      // Load completed quizzes
+      const savedQuizzes = await AsyncStorage.getItem('completedQuizzes');
+      if (savedQuizzes) {
+        setCompletedQuizzes(JSON.parse(savedQuizzes));
+      }
+      
+      // Load course progress - ưu tiên giá trị từ API nếu có
+      const savedProgress = await AsyncStorage.getItem('courseProgress');
+      if (savedProgress && courseId) {
+        const progress = JSON.parse(savedProgress);
+        if (progress[courseId] !== undefined) {
+          setCurrentProgress(progress[courseId]);
+          
+          // Nếu tiến độ là 100%, đánh dấu khóa học đã hoàn thành
+          if (progress[courseId] === 100) {
+            setCourseCompleted(true);
+          }
+        }
+      }
+      
+      // Kiểm tra nếu tất cả chapter đã hoàn thành (từ completedLessons hoặc status = "Done")
+      // thì cập nhật tiến độ 100% luôn
+      if (chapters && chapters.length > 0) {
+        const allCompleted = chapters.every(chapter => 
+          completedLessons[chapter.chapterId] === true || chapter.status === "Done"
+        );
+        
+        if (allCompleted) {
+          console.log('Tất cả chapter đã hoàn thành, tự động cập nhật tiến độ 100%');
+          setCurrentProgress(100);
+          setCourseCompleted(true);
+          
+          // Lưu tiến độ 100% vào AsyncStorage
+          const savedProgress = await AsyncStorage.getItem('courseProgress');
+          let progressObj = savedProgress ? JSON.parse(savedProgress) : {};
+          progressObj[courseId] = 100;
+          await AsyncStorage.setItem('courseProgress', JSON.stringify(progressObj));
+        }
+      }
+      
+      // Load course completion data
+      const completedCoursesData = await AsyncStorage.getItem('completedCourses');
+      if (completedCoursesData && courseId) {
+        const completedCourses = JSON.parse(completedCoursesData);
+        if (completedCourses[courseId]) {
+          setCourseCompleted(true);
+        }
+      }
+      
+      // Load course data to check if it's free
+      const courseData = await AsyncStorage.getItem('courseDetails');
+      if (courseData) {
+        const courses = JSON.parse(courseData);
+        if (courseId && courses[courseId]) {
+          setIsFreeCourse(courses[courseId].isFree === true);
+        }
+      }
+
+      // Tính toán lại tiến độ học tập để hiển thị
+      calculateProgress();
+      
+    } catch (error) {
+      console.error('Lỗi khi tải dữ liệu cục bộ:', error);
+    }
+  };
+
+  // Sửa lại useFocusEffect
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      
+      const loadData = async () => {
+        if (!isActive) return;
+        
+        if (!courseId) {
+          console.log('CourseChapterScreen - No courseId available');
+          setIsLoading(false);
           return;
         }
-      } catch (err) {
-        console.error('Error getting last viewed course:', err);
-      }
-      
-      console.log('No courseId found, cannot load course');
-      Alert.alert('Thông báo', 'Không thể tìm thấy khóa học. Vui lòng thử lại.');
-      router.back();
-    };
-    
-    initCourseId();
-  }, [params.courseId]);
+        
+        setRefreshing(true);
+        try {
+          const token = await AsyncStorage.getItem('accessToken');
+          if (!token) {
+            console.log('Không có token');
+            setRefreshing(false);
+            return;
+          }
 
-  // Fetch course and chapters when courseId changes
-  useEffect(() => {
-    const fetchCourseData = async () => {
-      if (!courseId) {
-        console.log('No courseId provided, cannot fetch course data');
-        setIsLoading(false);
-        return;
+          console.log('CourseChapterScreen - Fetching course details for courseId:', courseId);
+          
+          // Gọi API lấy thông tin khóa học
+          const courseResponse = await axios.get(
+            `${API_CONFIG.baseURL}/api/Course/get-details-for-mobile/${courseId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          console.log('Kết quả API get-details-for-mobile:', JSON.stringify(courseResponse.data, null, 2));
+
+          if (courseResponse.data?.isSuccess && courseResponse.data.data) {
+            const courseData = courseResponse.data.data;
+            console.log('EnrollCourseId từ API:', courseData.enrollCourseId);
+
+            // Lưu thông tin khóa học vào state với kiểm tra null/undefined
+            setCourseInfo({
+              courseName: courseData.courseName || 'Chưa có tên khóa học',
+              rating: courseData.rating ? courseData.rating.toString() : null,
+              author: courseData.author || 'Chưa có tác giả',
+              description: courseData.description || 'Chưa có mô tả',
+              totalChapters: courseData.totalChapters || 0,
+              totalQuestions: courseData.totalQuestions || 0,
+              totalDuration: courseData.totalDuration || '00:00:00',
+              enrollCourseId: courseData.enrollCourseId,
+              imageUrl: courseData.imageUrl || null,
+              price: courseData.price || 0,
+              enrolledStudents: courseData.enrolledStudents || 0,
+              categoryName: courseData.categoryName || 'Chưa phân loại'
+            });
+
+            // Kiểm tra đăng ký khóa học
+            const hasEnrollCourseId = !!courseData.enrollCourseId;
+            setIsRegistered(hasEnrollCourseId);
+            console.log('Trạng thái đăng ký:', hasEnrollCourseId ? 'Đã đăng ký' : 'Chưa đăng ký');
+
+            if (hasEnrollCourseId) {
+              console.log('Người dùng đã đăng ký khóa học, lấy danh sách enrollchapters');
+              await fetchChapters(courseId, token, courseData.enrollCourseId);
+            } else {
+              console.log('Người dùng chưa đăng ký khóa học này');
+              setChapters([]);
+              setCurrentProgress(0);
+            }
+          } else {
+            console.log('Không lấy được thông tin khóa học:', courseResponse.data?.message);
+            Alert.alert(
+              "Lỗi",
+              "Không thể tải thông tin khóa học. Vui lòng thử lại sau.",
+              [{ text: "Đóng" }]
+            );
+          }
+        } catch (error) {
+          console.error('Lỗi khi tải dữ liệu:', error);
+          if (error.response) {
+            console.log('Chi tiết lỗi:', {
+              status: error.response.status,
+              data: error.response.data
+            });
+          }
+          Alert.alert(
+            "Lỗi",
+            "Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại sau.",
+            [{ text: "Đóng" }]
+          );
+        } finally {
+          if (isActive) {
+            setRefreshing(false);
+          }
+        }
+      };
+
+      loadData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [courseId, params?.shouldRefresh])
+  );
+
+  // Sửa lại fetchChapters để chỉ lấy thông tin cần thiết
+  const fetchChapters = async (courseId, token, enrollCourseId) => {
+    try {
+      if (!enrollCourseId) {
+        console.log('fetchChapters - Không có enrollCourseId, không thể lấy danh sách chapter');
+        return false;
       }
+
+      console.log('Đang gọi API get-enroll-chapters-by với enrollCourseId:', enrollCourseId);
+      const enrollChaptersResponse = await axios.get(
+        `${API_CONFIG.baseURL}/api/RegisterCourse/get-enroll-chapters-by/${enrollCourseId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
       
-      setIsLoading(true);
-      console.log('Fetching course data for courseId:', courseId);
+      if (enrollChaptersResponse.data?.isSuccess && enrollChaptersResponse.data.data) {
+        const enrollChapters = enrollChaptersResponse.data.data;
+        console.log('Kết quả API enrollChapters:', enrollChaptersResponse.data);
+
+        if (Array.isArray(enrollChapters)) {
+          const formattedChapters = enrollChapters.map(enrollChapter => ({
+            chapterId: enrollChapter.chapterId,
+            title: enrollChapter.chapterName,
+            status: enrollChapter.status || "InProgress",
+            enrollChapterId: enrollChapter.enrollChapterId,
+            customerId: enrollChapter.customerId,
+            enrollCourseId: enrollChapter.enrollCourseId,
+            orderNumber: enrollChapter.orderNumber
+          }));
+
+          // Sắp xếp chapter theo orderNumber
+          formattedChapters.sort((a, b) => (a.orderNumber || 0) - (b.orderNumber || 0));
+
+          console.log('Danh sách chapter đã format:', formattedChapters);
+          setChapters(formattedChapters);
+
+          // Tính toán tiến độ dựa trên số chapter đã hoàn thành
+          const completedChapters = formattedChapters.filter(chapter => chapter.status === "Done");
+          const progress = formattedChapters.length > 0 
+            ? Math.round((completedChapters.length / formattedChapters.length) * 100)
+            : 0;
+          setCurrentProgress(progress);
+          
+          return true;
+        } else {
+          console.log('Dữ liệu chapter không phải là mảng:', enrollChapters);
+          return false;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách enrollchapter:', error);
+      return false;
+    }
+  };
+  
+  // Kiểm tra nếu người dùng đã đăng ký khóa học
+  useEffect(() => {
+    const checkRegistration = async () => {
+      if (!courseId || !chapters || chapters.length === 0 || hasCheckedRegistration.current) return;
       
       try {
         const token = await AsyncStorage.getItem('accessToken');
         if (!token) {
-          console.log('No token found, redirecting to login');
-          router.push('/login');
+          console.log('Không tìm thấy token, không thể kiểm tra đăng ký');
           return;
         }
         
-        // 1. Fetch course details
-        const courseResponse = await axios.get(
-          `${API_CONFIG.baseURL}/api/Course/get-course/${courseId}`,
+        // Đánh dấu đã kiểm tra đăng ký
+        hasCheckedRegistration.current = true;
+        
+        // Lấy chapterId đầu tiên của khóa học để kiểm tra
+        const firstChapterId = chapters[0]?.chapterId;
+        if (!firstChapterId) {
+          console.log('Không tìm thấy chapter đầu tiên, không thể kiểm tra đăng ký');
+          return;
+        }
+        
+        console.log('Kiểm tra đăng ký khóa học bằng chapterId đầu tiên:', firstChapterId);
+        
+        try {
+          // Gửi request đến RegisterCourse API để kiểm tra
+          const testResponse = await axios.put(
+            `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', firstChapterId)}`,
+            {},  // Empty body
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          console.log('Kết quả kiểm tra đăng ký:', JSON.stringify(testResponse.data));
+          
+          // Kiểm tra message "Chương học đã hoàn thành!"
+          if (testResponse.data?.message === "Chương học đã hoàn thành!") {
+            console.log('Chapter đã hoàn thành, đánh dấu tất cả chapter là Done');
+            
+            // Đánh dấu tất cả chapter là Done
+            const updatedChapters = chapters.map(chapter => ({
+              ...chapter,
+              status: EnrollChapterStatus.Done
+            }));
+            setChapters(updatedChapters);
+            
+            // Cập nhật tiến độ 100%
+            setCurrentProgress(100);
+            setCourseCompleted(true);
+            
+            // Lưu tiến độ vào AsyncStorage một lần duy nhất
+            try {
+              const updates = await Promise.all([
+                AsyncStorage.setItem('courseProgress', JSON.stringify({ [courseId]: 100 })),
+                AsyncStorage.setItem('completedCourses', JSON.stringify({
+                  [courseId]: {
+                    completedAt: new Date().toISOString(),
+                    percentage: 100
+                  }
+                })),
+                AsyncStorage.setItem('registeredCourses', JSON.stringify({
+                  [courseId]: {
+                    isRegistered: true,
+                    timestamp: new Date().toISOString(),
+                    percentage: 100,
+                    status: "Done"
+                  }
+                }))
+              ]);
+              
+              console.log('Đã lưu tất cả trạng thái hoàn thành vào AsyncStorage');
+            } catch (error) {
+              console.error('Lỗi khi lưu trạng thái:', error);
+            }
+            
+            setIsRegistered(true);
+            hasCheckedCompletion.current = true;
+            return;
+          }
+          
+          // Các xử lý khác nếu cần...
+          
+        } catch (error) {
+          console.error('Lỗi khi kiểm tra đăng ký khóa học:', error);
+        }
+      } catch (error) {
+        console.error('Lỗi khi kiểm tra đăng ký khóa học:', error);
+      }
+    };
+
+    if (courseId && chapters && chapters.length > 0 && !hasCheckedRegistration.current) {
+      checkRegistration();
+    }
+  }, [courseId, chapters]);
+
+  // Thêm useEffect để kiểm tra và cập nhật trạng thái hoàn thành khi chapters thay đổi
+  useEffect(() => {
+    // Kiểm tra nếu tất cả chapter có status = "Done"
+    if (chapters && chapters.length > 0) {
+      const allDone = chapters.every(chapter => chapter.status === "Done");
+      
+      if (allDone) {
+        console.log('Tất cả chapter có status = "Done", tự động cập nhật tiến độ 100%');
+        
+        // Cập nhật state
+        setCurrentProgress(100);
+        setCourseCompleted(true);
+        
+        // Lưu trạng thái vào AsyncStorage
+        (async () => {
+          try {
+            // Lưu tiến độ 100%
+            const savedProgress = await AsyncStorage.getItem('courseProgress');
+            let progressObj = savedProgress ? JSON.parse(savedProgress) : {};
+            progressObj[courseId] = 100;
+            await AsyncStorage.setItem('courseProgress', JSON.stringify(progressObj));
+            
+            // Lưu trạng thái hoàn thành khóa học
+            const completedCourses = await AsyncStorage.getItem('completedCourses');
+            let coursesObj = completedCourses ? JSON.parse(completedCourses) : {};
+            coursesObj[courseId] = {
+              completedAt: new Date().toISOString(),
+              percentage: 100
+            };
+            await AsyncStorage.setItem('completedCourses', JSON.stringify(coursesObj));
+            
+            console.log('Đã lưu trạng thái hoàn thành khóa học vào AsyncStorage');
+          } catch (error) {
+            console.error('Lỗi khi lưu trạng thái hoàn thành:', error);
+          }
+        })();
+      }
+    }
+  }, [chapters, courseId]);
+
+  // Sửa lại handleChapterClick để lấy chapterId từ chapter được chọn và gọi API get-chapter trước khi chuyển màn hình
+  const handleChapterClick = async (chapter) => {
+    if (!chapter || !chapter.chapterId) {
+      console.log('Chapter không hợp lệ');
+      return;
+    }
+
+    console.log('Người dùng nhấn vào chapter:', chapter);
+
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert(
+          "Yêu cầu đăng nhập",
+          "Vui lòng đăng nhập để tiếp tục.",
+          [
+            { text: "Đóng" },
+            { 
+              text: "Đăng nhập", 
+              onPress: () => router.push('/login')
+            }
+          ]
+        );
+        return;
+      }
+
+      // Gọi API get-chapter để lấy thông tin video
+      try {
+        console.log('Đang gọi API get-chapter với chapterId:', chapter.chapterId);
+        const chapterResponse = await axios.get(
+          `${API_CONFIG.baseURL}/api/Chapter/get-chapter/${chapter.chapterId}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -130,107 +600,109 @@ export default function CourseChapterScreen() {
             }
           }
         );
-        
-        console.log('Course details response:', courseResponse.data);
-        
-        if (courseResponse.data?.isSuccess && courseResponse.data.data) {
-          const courseData = courseResponse.data.data;
+
+        console.log('Kết quả API get-chapter:', chapterResponse.data);
+
+        if (chapterResponse.data?.isSuccess && chapterResponse.data.data) {
+          const chapterData = chapterResponse.data.data;
           
-          // Set course info
-          setCourseInfo({
-            courseName: courseData.courseName || '',
-            rating: courseData.rating?.toString() || '',
-            author: courseData.author || '',
-            description: courseData.description || ''
+          // Chuyển đến trang video với đầy đủ thông tin cần thiết
+          router.push({
+            pathname: '/course_video',
+            params: {
+              courseId: courseId,
+              chapterId: chapter.chapterId,
+              enrollCourseId: chapter.enrollCourseId,
+              enrollChapterId: chapter.enrollChapterId,
+              videoUrl: chapterData.videoUrl,
+              chapterName: chapter.chapterName,
+              status: chapter.status
+            }
           });
-          
-          // Set registered status
-          setIsRegistered(courseData.isRegistered || false);
-          
-          // Set quiz ID if available
-          if (courseData.quizId) {
-            setQuizId(courseData.quizId);
-          }
-          
-          // 2. Fetch chapters for this course
-          await fetchChapters(courseId, token);
         } else {
-          console.error('Failed to fetch course:', courseResponse.data?.message);
+          Alert.alert("Lỗi", "Không thể tải thông tin bài học");
         }
       } catch (error) {
-        console.error('Error fetching course data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchCourseData();
-  }, [courseId]);
-  
-  // Separate function to fetch chapters
-  const fetchChapters = async (courseId, token) => {
-    try {
-      console.log('Fetching chapters for courseId:', courseId);
-      
-      const chaptersResponse = await axios.get(
-        `${API_CONFIG.baseURL}/api/Chapter/get-all-chapters-by-courseId`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          params: {
-            id: courseId
-          }
-        }
-      );
-      
-      console.log('Chapters response:', chaptersResponse.data);
-      
-      if (chaptersResponse.data?.isSuccess && chaptersResponse.data.data) {
-        setChapters(chaptersResponse.data.data);
-        return true;
-      } else {
-        console.error('Failed to fetch chapters:', chaptersResponse.data?.message);
-        return false;
+        console.error('Lỗi khi lấy thông tin chapter:', error);
+        Alert.alert("Lỗi", "Không thể tải thông tin bài học");
       }
     } catch (error) {
-      console.error('Error fetching chapters:', error);
-      return false;
+      console.error('Lỗi khi xử lý chapter click:', error);
+      Alert.alert(
+        "Lỗi",
+        "Đã xảy ra lỗi. Vui lòng thử lại sau.",
+        [{ text: "Đóng" }]
+      );
     }
   };
-  
-  // Navigate to video when selecting a chapter
-  const navigateToChapter = (chapter) => {
-    if (!chapter || !chapter.chapterId) {
-      console.error('Invalid chapter object', chapter);
-      return;
+
+  const navigateToLesson = (lessonId, chapterId) => {
+    // Tìm enrollCourseId từ các nguồn khác nhau
+    let enrollCourseId = '';
+    
+    // Thử lấy từ courseInfo
+    if (courseInfo && courseInfo.enrollCourseId) {
+      enrollCourseId = courseInfo.enrollCourseId;
+    } 
+    // Thử lấy từ chapter
+    else if (chapters && chapters.length > 0) {
+      const chapter = chapters.find(c => c.chapterId === chapterId);
+      if (chapter && chapter.enrollCourseId) {
+        enrollCourseId = chapter.enrollCourseId;
+      }
+    }
+    // Thử lấy từ localStorage
+    else {
+      (async () => {
+        try {
+          const savedRegStatus = await AsyncStorage.getItem('registeredCourses');
+          const registeredCourses = savedRegStatus ? JSON.parse(savedRegStatus) : {};
+          if (registeredCourses[courseId]?.enrollCourseId) {
+            enrollCourseId = registeredCourses[courseId].enrollCourseId;
+          }
+        } catch (error) {
+          console.error('Lỗi khi lấy enrollCourseId từ localStorage:', error);
+        }
+      })();
     }
     
-    console.log('Navigating to chapter:', chapter.chapterId);
+    console.log('Chuyển hướng đến lesson với enrollCourseId:', enrollCourseId);
     
     router.push({
       pathname: '/(tabs)/course_video',
-      params: {
-        chapterId: chapter.chapterId,
-        courseId: courseId
+      params: { 
+        lessonId,
+        chapterId: chapterId,
+        courseId: courseId,
+        enrollCourseId: enrollCourseId
       }
     });
   };
-  
+
+  // Calculate progress percentage
+  const calculateProgress = () => {
+    if (!chapters || chapters.length === 0) return 0;
+    
+    const totalChapters = chapters.length;
+    const completedCount = chapters.filter(chapter => 
+      chapter.status === EnrollChapterStatus.Done
+    ).length;
+    
+    return Math.round((completedCount / totalChapters) * 100);
+  };
+
   // Navigate to quiz
   const navigateToQuiz = () => {
-    if (!quizId) {
-      console.error('No quiz ID available');
+    if (!courseId) {
+      console.error('No courseId available');
       return;
     }
     
-    console.log('Navigating to quiz:', quizId);
+    console.log('Navigating to quiz for course:', courseId);
     
     router.push({
       pathname: '/(tabs)/course_quiz_start',
       params: {
-        quizId: quizId,
         courseId: courseId
       }
     });
@@ -240,84 +712,16 @@ export default function CourseChapterScreen() {
   const checkAllChaptersCompleted = () => {
     if (!chapters || chapters.length === 0) return false;
     
-    return chapters.every(chapter => 
-      completedLessons[chapter.chapterId] === true
-    );
-  };
-
-  // Fix the handleBackNavigation function error
-  const handleBackNavigation = () => {
-    if (params.source === 'your_paid_courses') {
-      router.push('/(tabs)/your_paid_courses');
-    } else {
-      router.push('/(tabs)/courses');
-    }
-  };
-
-  const toggleChapter = async (chapter) => {
-    try {
-      // Validate we have a valid chapter object
-      if (!chapter) {
-        console.error('Invalid chapter object:', chapter);
-        return;
-      }
-      
-      // Handle expanding chapter section
-      if (expandedChapter === chapter.chapterId) {
-        setExpandedChapter(null);
-      } else {
-        setExpandedChapter(chapter.chapterId);
-      }
-      
-      // Make sure we have a valid chapterId before proceeding
-      if (!chapter.chapterId) {
-        console.error('Invalid chapter ID - chapterId is undefined');
-        Alert.alert(
-          'Lỗi',
-          'Không thể tải thông tin chương học. Vui lòng thử lại sau.'
-        );
-        return;
-      }
-      
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem video');
-        router.push('/login');
-        return;
-      }
-
-      console.log('Navigating to chapter:', chapter.chapterId);
-      
-      // Navigate to video
-      router.push({
-        pathname: '/(tabs)/course_video',
-        params: {
-          chapterId: chapter.chapterId,
-          courseId: courseId // Make sure courseId is valid here
-        }
-      });
-
-    } catch (error) {
-      console.error('Error in toggleChapter:', error);
-      Alert.alert(
-        'Lỗi',
-        'Không thể tải thông tin chương học. Vui lòng thử lại sau.'
-      );
-    }
-  };
-  
-  const navigateToLesson = (lessonId) => {
-    router.push({
-      pathname: '/(tabs)/course_video',
-      params: { lessonId }
+    // Chỉ trả về true khi TẤT CẢ chapter có status là Done
+    const allDone = chapters.every(chapter => chapter.status === EnrollChapterStatus.Done);
+    
+    console.log('Kiểm tra hoàn thành khóa học:', {
+      allDone,
+      currentProgress,
+      chapters: chapters.map(c => ({id: c.chapterId, status: c.status}))
     });
-  };
-
-  // Calculate progress percentage
-  const calculateProgress = () => {
-    const totalLessons = 9; // Total number of lessons in the course
-    const completedCount = Object.values(completedLessons).filter(Boolean).length;
-    return Math.round((completedCount / totalLessons) * 100);
+    
+    return allDone;
   };
 
   // Then update the renderFinalExamButton function to use this check
@@ -331,6 +735,11 @@ export default function CourseChapterScreen() {
           !allChaptersCompleted && styles.disabledExamContainer
         ]}
         onPress={() => {
+          console.log('Button Bài kiểm tra cuối khóa được nhấn');
+          console.log('Trạng thái đăng ký:', isRegistered);
+          console.log('Đã hoàn thành tất cả chương:', allChaptersCompleted);
+          console.log('Phần trăm từ API:', currentProgress);
+          
           if (!isRegistered) {
             Alert.alert(
               "Đăng ký khóa học",
@@ -339,21 +748,21 @@ export default function CourseChapterScreen() {
             );
             return;
           }
-          
+
           if (!allChaptersCompleted) {
             Alert.alert(
               "Hoàn thành khóa học",
-              "Bạn cần hoàn thành tất cả các bài học trước khi làm bài kiểm tra cuối khóa.",
+              "Bạn cần hoàn thành tất cả các chương học (có tích xanh) trước khi làm bài kiểm tra cuối khóa.",
               [{ text: "OK" }]
             );
             return;
           }
           
-          // If registered and all chapters completed, navigate to quiz
+          // Chỉ cho phép làm quiz khi đã hoàn thành tất cả chapter
           router.push({
             pathname: '/(tabs)/course_quiz_start',
             params: { 
-              courseId: effectiveCourseId
+              courseId: courseId
             }
           });
         }}
@@ -367,13 +776,17 @@ export default function CourseChapterScreen() {
             <Text style={styles.finalExamDescription}>
               {allChaptersCompleted 
                 ? "Kiểm tra kiến thức của bạn"
-                : "Hoàn thành tất cả bài học để mở khóa"}
+                : "Hoàn thành tất cả chương học để mở khóa"}
             </Text>
+            {!allChaptersCompleted && (
+              <View style={styles.progressBarWrapper}>
+                <ProgressBar progress={currentProgress} />
+                <Text style={styles.progressPercentage}>{currentProgress}%</Text>
+              </View>
+            )}
           </View>
           <View style={styles.finalExamStatus}>
-            {completedQuizzes[quizId] ? (
-              <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
-            ) : allChaptersCompleted ? (
+            {allChaptersCompleted ? (
               <Ionicons name="chevron-forward-circle" size={28} color="#fff" />
             ) : (
               <Ionicons name="lock-closed" size={24} color="#aaa" />
@@ -381,6 +794,366 @@ export default function CourseChapterScreen() {
           </View>
         </View>
       </TouchableOpacity>
+    );
+  };
+
+  // Fix the handleBackNavigation function error
+  const handleBackNavigation = () => {
+    if (params.source === 'your_paid_courses') {
+      router.push('/(tabs)/your_paid_courses');
+    } else {
+      router.push('/(tabs)/courses');
+    }
+  };
+
+  // Thêm hàm xóa thủ công tiến độ khóa học
+  const resetCourseProgress = useCallback(async () => {
+    try {
+      if (!courseId) {
+        Alert.alert("Lỗi", "Không thể xác định ID khóa học");
+        return;
+      }
+
+      Alert.alert(
+        "Xóa tiến độ khóa học",
+        "Bạn có chắc chắn muốn xóa tiến độ khóa học này không? Hành động này không thể hoàn tác.",
+        [
+          {
+            text: "Hủy",
+            style: "cancel"
+          },
+          {
+            text: "Xóa tiến độ",
+            style: "destructive",
+            onPress: async () => {
+              setIsLoading(true);
+              try {
+                // Xóa dữ liệu hoàn thành của các chapter trong khóa học
+                const completedLessons = await AsyncStorage.getItem('completedLessons');
+                if (completedLessons) {
+                  let lessonsData = JSON.parse(completedLessons);
+                  
+                  // Xóa tất cả các chapter thuộc khóa học này
+                  if (chapters && chapters.length > 0) {
+                    chapters.forEach(chapter => {
+                      if (chapter.chapterId) {
+                        delete lessonsData[chapter.chapterId];
+                      }
+                    });
+                  }
+                  
+                  await AsyncStorage.setItem('completedLessons', JSON.stringify(lessonsData));
+                  setCompletedLessons(lessonsData);
+                }
+                
+                // Xóa tiến độ của khóa học
+                const progress = await AsyncStorage.getItem('courseProgress');
+                if (progress) {
+                  let progressData = JSON.parse(progress);
+                  delete progressData[courseId];
+                  await AsyncStorage.setItem('courseProgress', JSON.stringify(progressData));
+                  setCurrentProgress(0);
+                }
+                
+                // Xóa trạng thái hoàn thành của khóa học
+                const completedCourses = await AsyncStorage.getItem('completedCourses');
+                if (completedCourses) {
+                  let coursesData = JSON.parse(completedCourses);
+                  delete coursesData[courseId];
+                  await AsyncStorage.setItem('completedCourses', JSON.stringify(coursesData));
+                  setCourseCompleted(false);
+                }
+                
+                // Hiển thị thông báo thành công
+                Alert.alert(
+                  "Đã xóa tiến độ",
+                  "Tiến độ khóa học đã được xóa thành công. Bạn có thể bắt đầu lại từ đầu.",
+                  [{ text: "OK" }]
+                );
+                
+              } catch (error) {
+                console.error('Lỗi khi xóa tiến độ khóa học:', error);
+                Alert.alert(
+                  "Lỗi",
+                  "Không thể xóa tiến độ khóa học. Vui lòng thử lại sau.",
+                  [{ text: "OK" }]
+                );
+              } finally {
+                setIsLoading(false);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Lỗi khi xóa tiến độ khóa học:', error);
+    }
+  }, [courseId, chapters]);
+
+  // Hàm cập nhật tiến độ khóa học lên server
+  const updateCourseProgressToServer = async () => {
+    if (!courseId || !chapters || chapters.length === 0) {
+      console.log('Không thể cập nhật tiến độ: Thiếu courseId hoặc danh sách chapter');
+      return 0;
+    }
+
+    console.log('Đang cập nhật tiến độ khóa học lên server, courseId:', courseId);
+    
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        console.log('Không có token, không thể cập nhật tiến độ lên server');
+        return 0;
+      }
+
+      // Lấy chapter cuối cùng của khóa học để cập nhật tiến độ
+      const lastChapter = chapters[chapters.length - 1];
+      if (!lastChapter || !lastChapter.chapterId) {
+        console.log('Không tìm thấy chapter cuối cùng để cập nhật tiến độ');
+        return 0;
+      }
+
+      // Gọi API RegisterCourse để cập nhật tiến độ
+      const response = await axios.put(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', lastChapter.chapterId)}`,
+        {},  // Empty body
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('Kết quả cập nhật tiến độ từ server:', response.data);
+
+      if (response.data?.isSuccess) {
+        // Lấy phần trăm tiến độ mới từ kết quả trả về
+        const newPercentage = response.data.data?.percentage || 0;
+        console.log('Tiến độ mới từ server:', newPercentage + '%');
+
+        // Cập nhật tiến độ vào state
+        setCurrentProgress(newPercentage);
+
+        // Lưu tiến độ mới vào AsyncStorage
+        const savedProgress = await AsyncStorage.getItem('courseProgress');
+        let progressObj = savedProgress ? JSON.parse(savedProgress) : {};
+        progressObj[courseId] = newPercentage;
+        await AsyncStorage.setItem('courseProgress', JSON.stringify(progressObj));
+        
+        // Lưu tiến độ vào thông tin đăng ký khóa học
+        const registeredCourses = await AsyncStorage.getItem('registeredCourses');
+        let coursesObj = registeredCourses ? JSON.parse(registeredCourses) : {};
+        if (coursesObj[courseId]) {
+          coursesObj[courseId].percentage = newPercentage;
+          
+          // Kiểm tra và cập nhật enrollCourseId nếu có
+          if (response.data.data?.enrollCourseId && !coursesObj[courseId].enrollCourseId) {
+            coursesObj[courseId].enrollCourseId = response.data.data.enrollCourseId;
+            console.log('Cập nhật enrollCourseId từ API tiến độ:', response.data.data.enrollCourseId);
+          }
+          
+          await AsyncStorage.setItem('registeredCourses', JSON.stringify(coursesObj));
+        }
+
+        // Kiểm tra nếu khóa học đã hoàn thành 100%
+        if (newPercentage === 100) {
+          setCourseCompleted(true);
+          
+          // Lưu trạng thái hoàn thành khóa học
+          const completedCourses = await AsyncStorage.getItem('completedCourses');
+          let coursesObj = completedCourses ? JSON.parse(completedCourses) : {};
+          coursesObj[courseId] = {
+            completedAt: new Date().toISOString(),
+            percentage: 100
+          };
+          await AsyncStorage.setItem('completedCourses', JSON.stringify(coursesObj));
+          console.log('Đã lưu trạng thái hoàn thành khóa học vào AsyncStorage');
+        }
+
+        return newPercentage;
+      } else {
+        // Nếu không thành công, quay lại tiến độ đã lưu trong local
+        const savedProgress = await AsyncStorage.getItem('courseProgress');
+        if (savedProgress) {
+          const progress = JSON.parse(savedProgress);
+          if (progress[courseId]) {
+            return progress[courseId];
+          }
+        }
+        
+        console.error('Lỗi khi cập nhật tiến độ:', response.data?.message);
+        return calculateProgress(); // Trả về tiến độ tính toán từ local
+      }
+    } catch (error) {
+      console.error('Lỗi khi gọi API cập nhật tiến độ:', error);
+      
+      // Nếu có lỗi, quay lại tiến độ đã lưu trong local
+      const savedProgress = await AsyncStorage.getItem('courseProgress');
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        if (progress[courseId]) {
+          return progress[courseId];
+        }
+      }
+      
+      return calculateProgress(); // Trả về tiến độ tính toán từ local
+    }
+  };
+
+  // Sửa lại renderChapterList để chỉ hiển thị số Chapter và ChapterName
+  const renderChapterList = useCallback(() => {
+    if (!chapters || chapters.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.noContentText}>
+            {isRegistered 
+              ? "Không có dữ liệu chương học"
+              : "Vui lòng đăng ký khóa học để xem nội dung"}
+          </Text>
+        </View>
+      );
+    }
+    
+    return chapters.map((chapter, index) => {
+      const isCompleted = chapter.status === "Done";
+      
+      return (
+        <TouchableOpacity 
+          key={chapter.chapterId}
+          style={[
+            styles.chapterItem,
+            isCompleted ? styles.completedChapter : styles.inProgressChapter
+          ]}
+          onPress={() => handleChapterClick(chapter)}
+        >
+          <View style={styles.chapterContent}>
+            <View style={styles.chapterMainInfo}>
+              <Text style={styles.chapterTitle}>
+                Chapter {index + 1}: {chapter.title}
+              </Text>
+            </View>
+            
+            <View style={styles.statusContainer}>
+              {isCompleted ? (
+                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+              ) : (
+                <Ionicons name="time" size={24} color="#FFA500" />
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    });
+  }, [chapters, isRegistered, handleChapterClick]);
+
+  // Sửa lại phần hiển thị thông tin khóa học
+  const renderCourseInfo = () => {
+    return (
+      <>
+        <View style={styles.titleContainer}>
+          <Text style={styles.courseTitle}>
+            {courseInfo.courseName || 'Chưa có tên khóa học'}
+          </Text>
+          {courseInfo.rating && (
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingText}>
+                {courseInfo.rating}
+              </Text>
+              <View style={styles.starsContainer}>
+                <Ionicons name="star" size={16} color="#FFD700" />
+                <Ionicons name="star" size={16} color="#FFD700" />
+                <Ionicons name="star" size={16} color="#FFD700" />
+                <Ionicons name="star" size={16} color="#FFD700" />
+                <Ionicons name="star-half" size={16} color="#FFD700" />
+              </View>
+            </View>
+          )}
+        </View>
+
+        <ScrollView style={styles.content}>
+          {refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+            </View>
+          ) : (
+            <>
+              <Image 
+                source={
+                  courseInfo.imageUrl 
+                    ? { uri: courseInfo.imageUrl }
+                    : require('../../assets/images/koi_image.jpg')
+                }
+                style={styles.fishImage}
+                resizeMode="cover"
+              />
+              
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Thông tin khóa học:</Text>
+                <Text style={styles.descriptionText}>
+                  {courseInfo.description || 'Chưa có mô tả'}
+                </Text>
+                
+                {/* Thông tin tổng quát về khóa học */}
+                <View style={styles.courseStatsContainer}>
+                  {courseInfo.totalChapters != null && (
+                    <View style={styles.statItem}>
+                      <Ionicons name="list" size={18} color="#FFD700" />
+                      <Text style={styles.statText}>
+                        {courseInfo.totalChapters} chương
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {courseInfo.totalQuestions != null && (
+                    <View style={styles.statItem}>
+                      <Ionicons name="help-circle" size={18} color="#FFD700" />
+                      <Text style={styles.statText}>
+                        {courseInfo.totalQuestions} câu hỏi
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {courseInfo.totalDuration && (
+                    <View style={styles.statItem}>
+                      <Ionicons name="time" size={18} color="#FFD700" />
+                      <Text style={styles.statText}>
+                        {courseInfo.totalDuration}
+                      </Text>
+                    </View>
+                  )}
+
+                  {courseInfo.enrolledStudents != null && (
+                    <View style={styles.statItem}>
+                      <Ionicons name="people" size={18} color="#FFD700" />
+                      <Text style={styles.statText}>
+                        {courseInfo.enrolledStudents} học viên
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {!isRegistered && courseInfo.price != null && (
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.priceText}>
+                      Giá: {courseInfo.price.toLocaleString()} VNĐ
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Nội dung khóa học</Text>
+                {renderChapterList()}
+              </View>
+              
+              {/* Final Exam */}
+              {renderFinalExamButton()}
+            </>
+          )}
+        </ScrollView>
+      </>
     );
   };
 
@@ -400,262 +1173,16 @@ export default function CourseChapterScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
+          
+          <TouchableOpacity 
+            onPress={resetCourseProgress}
+            style={styles.resetButton}
+          >
+            <Ionicons name="refresh" size={22} color="#fff" />
+          </TouchableOpacity>
         </View>
 
-        {/* Course Title and Rating */}
-        <View style={styles.titleContainer}>
-          <Text style={styles.courseTitle}>
-            {courseInfo.courseName || params.courseName || 'Introduction to Feng Shui'}
-          </Text>
-          <View style={styles.ratingContainer}>
-            <Text style={styles.ratingText}>
-              {courseInfo.rating || params.courseRating || '4.5'}
-            </Text>
-            <View style={styles.starsContainer}>
-              <Ionicons name="star" size={16} color="#FFD700" />
-              <Ionicons name="star" size={16} color="#FFD700" />
-              <Ionicons name="star" size={16} color="#FFD700" />
-              <Ionicons name="star" size={16} color="#FFD700" />
-              <Ionicons name="star-half" size={16} color="#FFD700" />
-            </View>
-          </View>
-        </View>
-
-        <ScrollView style={styles.content}>
-          {/* Main Course Image */}
-          <Image 
-            source={
-              params.courseImage 
-                ? { uri: params.courseImage }
-                : require('../../assets/images/koi_image.jpg')
-            }
-            style={styles.fishImage}
-            resizeMode="cover"
-          />
-          
-          {/* Description */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Description:</Text>
-            <Text style={styles.descriptionText}>
-              {courseInfo.description || params.courseDescription || 'Phong thủy là một trong những học thuyết cổ xưa của phương Đông, nghiên cứu về sự ảnh hưởng của hướng gió, dòng nước, địa hình và các yếu tố tự nhiên đến đời sống con người. Phong thủy không chỉ áp dụng trong xây dựng nhà cửa, bố trí nội thất mà còn trong kinh doanh, sức khỏe và vận mệnh cá nhân, giúp cân bằng năng lượng và thu hút tài lộc, may mắn.'}
-            </Text>
-          </View>
-
-          {/* Course Chapters */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Course chapters</Text>
-            
-            {isLoading ? (
-              <ActivityIndicator size="large" color="#fff" />
-            ) : chapters.length > 0 ? (
-              chapters.map((chapter, index) => (
-                <TouchableOpacity 
-                  key={chapter.chapterId}
-                  style={[
-                    styles.chapterContainer,
-                    expandedChapter === chapter.chapterId && styles.expandedChapter,
-                    chapter.status === 'Done' && styles.completedChapter
-                  ]}
-                  onPress={() => toggleChapter(chapter)}
-                >
-                  <View style={styles.chapterHeader}>
-                    <Text style={styles.chapterNumber}>Chapter {index + 1}</Text>
-                    <Text style={styles.chapterTitle}>{chapter.title}</Text>
-                    <Ionicons 
-                      name={expandedChapter === chapter.chapterId ? "chevron-up" : "chevron-down"} 
-                      size={24} 
-                      color="#fff" 
-                    />
-                  </View>
-                  {expandedChapter === chapter.chapterId && (
-                    <View style={styles.lessonList}>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => toggleChapter(chapter)}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>{chapter.description || "Video lesson"}</Text>
-                        <View style={styles.durationContainer}>
-                          <Ionicons name="time-outline" size={16} color="#fff" />
-                          <Text style={styles.durationText}>{chapter.duration || "10:00"}</Text>
-                        </View>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))
-            ) : (
-              <>
-                {/* Chapter 1 */}
-                <TouchableOpacity 
-                  style={[
-                    styles.chapterContainer,
-                    expandedChapter === 1 && styles.expandedChapter
-                  ]}
-                  onPress={() => toggleChapter({chapterId: 1, title: "Phong thủy cơ bản"})}
-                >
-                  <View style={styles.chapterHeader}>
-                    <Text style={styles.chapterNumber}>Chapter 1</Text>
-                    <Text style={styles.chapterTitle}>Phong thủy cơ bản</Text>
-                    <Ionicons 
-                      name={expandedChapter === 1 ? "chevron-up" : "chevron-down"} 
-                      size={24} 
-                      color="#fff" 
-                    />
-                  </View>
-                  {expandedChapter === 1 && (
-                    <View style={styles.lessonList}>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => navigateToLesson('section1-lesson1')}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>1. Giới thiệu về Phong thủy cổ học</Text>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => navigateToLesson('section1-lesson2')}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>2. Ngũ hành: Kim, Mộc, Thủy, Hỏa, Thổ</Text>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => navigateToLesson('section1-lesson3')}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>3. Âm dương và tứ tượng</Text>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </TouchableOpacity>
-                
-                {/* Chapter 2 */}
-                <TouchableOpacity 
-                  style={[
-                    styles.chapterContainer,
-                    expandedChapter === 2 && styles.expandedChapter
-                  ]}
-                  onPress={() => toggleChapter({chapterId: 2, title: "Cách xem hướng"})}
-                >
-                  <View style={styles.chapterHeader}>
-                    <Text style={styles.chapterNumber}>Chapter 2</Text>
-                    <Text style={styles.chapterTitle}>Cách xem hướng</Text>
-                    <Ionicons 
-                      name={expandedChapter === 2 ? "chevron-up" : "chevron-down"} 
-                      size={24} 
-                      color="#fff" 
-                    />
-                  </View>
-                  {expandedChapter === 2 && (
-                    <View style={styles.lessonList}>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => navigateToLesson('section2-lesson1')}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>1. Bát quái và phương vị</Text>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => navigateToLesson('section2-lesson2')}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>2. Xác định hướng nhà và phòng</Text>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => navigateToLesson('section2-lesson3')}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>3. Hướng tốt cho từng mệnh</Text>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </TouchableOpacity>
-                
-                {/* Chapter 3 */}
-                <TouchableOpacity 
-                  style={[
-                    styles.chapterContainer,
-                    expandedChapter === 3 && styles.expandedChapter
-                  ]}
-                  onPress={() => toggleChapter({chapterId: 3, title: "Thủy mạch trong phong thủy"})}
-                >
-                  <View style={styles.chapterHeader}>
-                    <Text style={styles.chapterNumber}>Chapter 3</Text>
-                    <Text style={styles.chapterTitle}>Thủy mạch trong phong thủy</Text>
-                    <Ionicons 
-                      name={expandedChapter === 3 ? "chevron-up" : "chevron-down"} 
-                      size={24} 
-                      color="#fff" 
-                    />
-                  </View>
-                  {expandedChapter === 3 && (
-                    <View style={styles.lessonList}>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => navigateToLesson('section3-lesson1')}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>1. Vai trò của thủy trong phong thủy</Text>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.lessonItem}
-                        onPress={() => navigateToLesson('section3-lesson2')}
-                      >
-                        <Image 
-                          source={require('../../assets/images/default-avatar.png')} 
-                          style={styles.lessonThumbnail}
-                        />
-                        <Text style={styles.lessonTitle}>2. Hồ cá Koi và phong thủy</Text>
-                        <Ionicons name="play" size={24} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
-            
-            {/* Final Exam */}
-            {renderFinalExamButton()}
-          </View>
-          
-          {/* Bottom padding */}
-          <View style={{ height: 40 }} />
-        </ScrollView>
+        {renderCourseInfo()}
       </SafeAreaView>
     </ImageBackground>
   );
@@ -677,6 +1204,15 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resetButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -729,64 +1265,43 @@ const styles = StyleSheet.create({
     color: '#fff',
     lineHeight: 20,
   },
-  chapterContainer: {
-    backgroundColor: '#8B0000',
-    borderRadius: 8,
+  chapterItem: {
+    backgroundColor: 'rgba(139, 0, 0, 0.7)',
+    borderRadius: 10,
     marginBottom: 12,
-    overflow: 'hidden',
+    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  chapterHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
+  completedChapter: {
+    backgroundColor: 'rgba(0, 100, 0, 0.7)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
   },
-  chapterNumber: {
-    color: '#fff',
-    marginRight: 12,
-    fontWeight: 'bold',
+  inProgressChapter: {
+    backgroundColor: 'rgba(139, 0, 0, 0.7)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA500',
+  },
+  chapterContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  chapterMainInfo: {
+    flex: 1,
+    marginRight: 10,
   },
   chapterTitle: {
     color: '#fff',
-    flex: 1,
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  chapterDuration: {
-    flexDirection: 'row',
+  statusContainer: {
+    width: 30,
     alignItems: 'center',
-    marginLeft: 8,
+    justifyContent: 'center',
   },
-  durationText: {
-    color: '#fff',
-    marginLeft: 4,
-    fontSize: 12,
-  },
-  lessonList: {
-    padding: 8,
-  },
-  lessonItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  lessonThumbnail: {
-    width: 40,
-    height: 40,
-    borderRadius: 4,
-    marginRight: 12,
-    backgroundColor: '#444',
-  },
-  lessonTitle: {
-    color: '#fff',
-    flex: 1,
-    marginRight: 12,
-    fontSize: 14,
-  },
-
   registerButton: {
     backgroundColor: '#8B0000',
     marginHorizontal: 16,
@@ -800,20 +1315,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-
   },
   finalExamContainer: {
     marginBottom: 15,
     borderRadius: 8,
-    backgroundColor: '#f8f0f0',
+    backgroundColor: '#8B0000',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#ddd',
-    elevation: 2,
+    borderColor: '#ff9999',
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   finalExamContent: {
     flexDirection: 'row',
@@ -821,54 +1335,112 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   finalExamIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#8B0000',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   finalExamTextContainer: {
     flex: 1,
+    marginRight: 8,
   },
   finalExamTitle: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 4,
   },
   finalExamDescription: {
-    color: '#fff',
+    color: '#f8f8f8',
     fontSize: 14,
+    marginBottom: 6,
   },
   finalExamStatus: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  completedChapter: {
-    backgroundColor: 'rgba(0, 128, 0, 0.3)',
-  },
-  completedIcon: {
-    marginLeft: 8,
-  },
-  sectionHeader: {
+  progressBarWrapper: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginTop: 4,
+    flex: 1,
   },
-  progressText: {
-    color: '#4CAF50',
-    fontSize: 16,
+  progressPercentage: {
+    color: '#fff',
+    marginLeft: 8,
+    fontSize: 12,
     fontWeight: 'bold',
   },
-  durationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
+  progressBarContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    flex: 1,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
   },
   disabledExamContainer: {
-    opacity: 0.7,
+    opacity: 0.85,
+  },
+  noContentText: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  courseStatsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    backgroundColor: 'rgba(100, 0, 0, 0.5)',
+    borderRadius: 8,
+    padding: 8,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+    marginVertical: 4,
+  },
+  statText: {
+    color: '#fff',
+    fontSize: 14,
+    marginLeft: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    color: '#fff',
+    marginTop: 10,
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  priceContainer: {
+    marginTop: 12,
+    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 8,
+  },
+  priceText: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
+

@@ -126,13 +126,22 @@ export default function OnlineBookingScreen() {
     if (fromMasterDetails) {
       masterId = selectedMasterId;
       masterName = selectedMasterName;
-    } else if (selectedConsultant !== 'null') {
+    } else if (selectedConsultant && selectedConsultant !== null) {
       const selectedMaster = consultants.find(c => c.key === selectedConsultant);
       if (selectedMaster) {
         masterId = selectedMaster.key;
         masterName = selectedMaster.value;
       }
     }
+    
+    console.log('Thông tin đặt lịch:', {
+      name,
+      phone,
+      email,
+      masterId,
+      masterName,
+      description: description.trim()
+    });
 
     // Chuyển đến trang chọn lịch với thông tin đã nhập
     router.push({
