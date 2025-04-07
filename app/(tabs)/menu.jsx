@@ -1007,82 +1007,78 @@ export default function MenuScreen() {
         </View>
       </View>
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, selectedTab === 'Koi' && styles.selectedTab]}
-          onPress={() => handleTabChange('Koi')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'Koi' && styles.selectedTabText]}>Cá Koi</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, selectedTab === 'Pond' && styles.selectedTab]}
-          onPress={() => handleTabChange('Pond')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'Pond' && styles.selectedTabText]}>Hồ cá</Text>
-        </TouchableOpacity>
-      </View>
-
-      {selectedTab === 'Koi' && (
-        <View style={styles.filterSummaryContainer}>
-          <View style={styles.filterTagsRow}>
-            <TouchableOpacity 
-              style={styles.filterTag}
-              onPress={() => handleOpenFilter('destiny')}
-            >
-              <Text style={styles.filterTagLabel}>Bản mệnh:</Text>
-              <Text style={styles.filterTagValue}>{filterOptions.destiny}</Text>
-              <Ionicons name="chevron-down" size={16} color="#666" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.filterTag}
-              onPress={handleOpenMultipleColorFilter}
-            >
-              <Text style={styles.filterTagLabel}>Màu sắc:</Text>
-              <Text style={styles.filterTagValue}>{filterOptions.color}</Text>
-              <Ionicons name="chevron-down" size={16} color="#666" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.filterButton}
-              onPress={fetchFilteredKoi}
-            >
-              <Text style={styles.filterButtonText}>Lọc</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Hiển thị các phần tử tương thích */}
-          {compatibleElementsMessage ? (
-            <View style={styles.compatibleElementsContainer}>
-              <Text style={styles.compatibleElementsMessage}>{compatibleElementsMessage}</Text>
-              {selectedCompatibleElements.length > 0 && (
-                <View style={styles.compatibleElementsTagsRow}>
-                  {selectedCompatibleElements.map((element, index) => (
-                    <View key={index} style={styles.compatibleElementTag}>
-                      <Text style={styles.compatibleElementTagText}>{element}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          ) : null}
+      {/* Unified header with tabs and filters on same line - more compact */}
+      <View style={styles.unifiedHeaderContainer}>
+        {/* Tab section - left aligned and more compact */}
+        <View style={styles.tabSection}>
+          <TouchableOpacity 
+            style={[styles.tab, selectedTab === 'Koi' && styles.selectedTab]}
+            onPress={() => handleTabChange('Koi')}
+          >
+            <Text style={[styles.tabText, selectedTab === 'Koi' && styles.selectedTabText]}>Cá Koi</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, selectedTab === 'Pond' && styles.selectedTab]}
+            onPress={() => handleTabChange('Pond')}
+          >
+            <Text style={[styles.tabText, selectedTab === 'Pond' && styles.selectedTabText]}>Hồ cá</Text>
+          </TouchableOpacity>
         </View>
-      )}
 
-      {selectedTab === 'Pond' && (
-        <View style={styles.filterSummaryContainer}>
-          <View style={styles.filterTagsRow}>
+        {/* Filter section - right aligned and more compact */}
+        <View style={styles.filterControls}>
+          {selectedTab === 'Koi' ? (
+            <>
+              <TouchableOpacity 
+                style={styles.miniFilterPill}
+                onPress={() => handleOpenFilter('destiny')}
+              >
+                <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
+                  {filterOptions.destiny !== 'Tất cả' ? filterOptions.destiny : 'Mệnh'}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color="#8B0000" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.miniFilterPill}
+                onPress={handleOpenMultipleColorFilter}
+              >
+                <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
+                  {filterOptions.color !== 'Tất cả' ? filterOptions.color : 'Màu'}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color="#8B0000" />
+              </TouchableOpacity>
+            </>
+          ) : (
             <TouchableOpacity 
-              style={styles.filterTag}
+              style={styles.miniFilterPill}
               onPress={() => handleOpenFilter('shape')}
             >
-              <Text style={styles.filterTagLabel}>Hình dạng:</Text>
-              <Text style={styles.filterTagValue}>{filterOptions.shape}</Text>
-              <Ionicons name="chevron-down" size={16} color="#666" />
+              <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
+                {filterOptions.shape !== 'Tất cả' ? filterOptions.shape : 'Hình'}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color="#8B0000" />
             </TouchableOpacity>
-          </View>
+          )}
+          
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => {
+              if (selectedTab === 'Koi') {
+                fetchFilteredKoi();
+              } else {
+                // Use fetchKoiPonds or equivalent function for Pond tab
+                // If no specific function exists, we can use a temporary placeholder
+                console.log('Filtering ponds by:', filterOptions.shape);
+                // Implement pond filtering here based on your existing code
+                // For example, if you have a function for this, call it here
+              }
+            }}
+          >
+            <Ionicons name="filter" size={18} color="#fff" />
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
 
       <ScrollView 
         style={styles.mainContent}
@@ -1284,79 +1280,85 @@ const styles = StyleSheet.create({
     height: 400,
   },
   filterSummaryContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 12,
+    backgroundColor: '#f9f9f9',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eaeaea',
   },
-  filterTagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  filterScrollContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
-  filterTag: {
+  filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 10,
-    marginBottom: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginLeft: 6,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
   },
-  filterTagLabel: {
-    fontSize: 13,
-    color: '#666',
+  filterPillText: {
+    fontSize: 12,
+    color: '#333',
     marginRight: 4,
   },
-  filterTagValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginRight: 6,
-  },
-  filterButton: {
+  applyFilterButton: {
     backgroundColor: '#8B0000',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginLeft: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 5,
+    width: 32,
+    height: 32,
   },
-  filterButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  compatibleElementsContainer: {
+  compatibilityContainer: {
     marginTop: 8,
-    padding: 8,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  compatibilityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  compatibilityTitle: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+  },
+  elementTagsScroll: {
+    paddingVertical: 4,
+  },
+  elementTag: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  compatibleElementsMessage: {
-    fontSize: 13,
-    color: '#555',
-    marginBottom: 5,
-  },
-  compatibleElementsTagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 4,
-  },
-  compatibleElementTag: {
+  selectedElementTag: {
     backgroundColor: '#8B0000',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 15,
-    marginRight: 6,
-    marginBottom: 4,
+    borderColor: '#8B0000',
   },
-  compatibleElementTagText: {
-    color: 'white',
+  elementTagText: {
     fontSize: 12,
+    color: '#444',
+  },
+  selectedElementTagText: {
+    color: '#fff',
     fontWeight: '500',
   },
   noDataContainer: {
@@ -1364,5 +1366,78 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  unifiedHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eaeaea',
+  },
+  tabSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+    flex: 0.5, // Give it a fixed ratio of space
+  },
+  tab: {
+    paddingBottom: 4,
+    marginRight: 12,
+  },
+  selectedTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#8B0000',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  selectedTabText: {
+    color: '#8B0000',
+    fontWeight: '500',
+  },
+  filterControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 0.5, // Give it a fixed ratio of space
+    marginRight: 10,
+    marginTop: -5,
+    justifyContent: 'flex-end',
+  },
+  miniFilterPill: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    marginLeft: 5,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    maxWidth: 100, // Slightly wider to accommodate spacing
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  miniFilterText: {
+    fontSize: 13,
+    color: '#333',
+    marginRight: 8, // Add spacing between text and icon
+  },
+  filterButton: {
+    backgroundColor: '#8B0000',
+    width: 36, // Larger button
+    height: 36, // Larger button
+    borderRadius: 18,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
+
 
