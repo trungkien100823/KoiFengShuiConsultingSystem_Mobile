@@ -20,35 +20,13 @@ const { width } = Dimensions.get('window');
 
 export default function CourseQuizStartScreen() {
   const router = useRouter();
-  const { courseId, source } = useLocalSearchParams();
-  const [completedQuizzes, setCompletedQuizzes] = useState({});
+  const { courseId } = useLocalSearchParams();
   const [quizData, setQuizData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quizId, setQuizId] = useState(null);
   const [quizTitle, setQuizTitle] = useState('');
-
-  // Section titles
-  const sectionTitles = {
-    'final': 'Kết thúc khóa học',
-  };
-
-  // Default quiz details (fallback if API fails)
-  const defaultQuizDetails = {
-    description: 'Bài kiểm tra cuối khóa sẽ đánh giá toàn bộ kiến thức bạn đã học trong khóa học.',
-    timeLimit: '30 phút',
-    questions: 30,
-    passingScore: '80%',
-    attempts: '3 lần',
-    requirements: 'Hoàn thành tất cả các bài học trong khóa học'
-  };
-
-  // Get current section from quizId
-  const getCurrentSection = () => {
-    return 'final';
-  };
-  
-  const currentSection = getCurrentSection();
+  const [hasCompletedQuiz, setHasCompletedQuiz] = useState(false);
 
   // Fetch quiz data from API
   useEffect(() => {
@@ -56,14 +34,23 @@ export default function CourseQuizStartScreen() {
       try {
         setLoading(true);
         
-        // Get the auth token
         const token = await AsyncStorage.getItem('accessToken');
         
         if (!token) {
           throw new Error('Vui lòng đăng nhập để xem bài kiểm tra');
         }
+
+        // Tạo key duy nhất cho mỗi user và quiz
+        const userQuizKey = `${token}_${courseId}_completed`;
         
-        console.log(`Fetching quiz for course: ${courseId}`);
+        // Kiểm tra trạng thái hoàn thành từ AsyncStorage với key của user
+        const completedQuizzes = await AsyncStorage.getItem(userQuizKey);
+        if (completedQuizzes) {
+          const quizzes = JSON.parse(completedQuizzes);
+          setHasCompletedQuiz(!!quizzes);
+        } else {
+          setHasCompletedQuiz(false);
+        }
         
         const response = await fetch(
           `${API_CONFIG.baseURL}/api/Quiz/by-course/${courseId}`,
@@ -77,28 +64,22 @@ export default function CourseQuizStartScreen() {
         );
         
         const result = await response.json();
-        console.log('Quiz API response:', result);
         
         if (result.isSuccess && result.data) {
           setQuizData(result.data);
           
-          // Extract quizId and title
           if (result.data.quizId) {
             setQuizId(result.data.quizId);
-            console.log('Found quiz ID:', result.data.quizId);
           }
           
           if (result.data.title) {
             setQuizTitle(result.data.title);
-            console.log('Quiz title:', result.data.title);
           }
         } else {
-          console.error('API returned error:', result.message);
-          setError(result.message || 'Failed to fetch quiz data');
+          setError(result.message || 'Không thể tải thông tin bài kiểm tra');
         }
       } catch (err) {
-        console.error('Error fetching quiz data:', err);
-        setError('Failed to connect to server. Please try again later.');
+        setError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
       } finally {
         setLoading(false);
       }
@@ -107,27 +88,10 @@ export default function CourseQuizStartScreen() {
     if (courseId) {
       fetchQuizData();
     } else {
-      console.error('No courseId provided');
-      setError('Missing course information');
+      setError('Thiếu thông tin khóa học');
       setLoading(false);
     }
   }, [courseId]);
-
-  // Load completed quizzes on mount
-  useEffect(() => {
-    const loadCompletionData = async () => {
-      try {
-        const savedData = await AsyncStorage.getItem('completedQuizzes');
-        if (savedData) {
-          setCompletedQuizzes(JSON.parse(savedData));
-        }
-      } catch (error) {
-        console.log('Error loading quiz completion data', error);
-      }
-    };
-
-    loadCompletionData();
-  }, []);
 
   // Handle back button
   const handleBack = () => {
@@ -140,7 +104,7 @@ export default function CourseQuizStartScreen() {
   // Start the quiz
   const handleStartQuiz = () => {
     if (!quizId) {
-      console.error('No quiz ID available');
+      console.error('Không có ID bài kiểm tra');
       return;
     }
     
@@ -148,32 +112,10 @@ export default function CourseQuizStartScreen() {
       pathname: '/(tabs)/course_quiz',
       params: { 
         quizId: quizId,
-        courseId: courseId 
+        courseId: courseId
       }
     });
   };
-
-  // Get quiz title from API data or fallback
-  const getQuizTitle = () => {
-    if (quizTitle) {
-      return quizTitle;
-    }
-    return 'Bài kiểm tra cuối khóa';
-  };
-
-  // Get quiz details (combining API data with default structure)
-  const getQuizDetails = () => {
-    return {
-      description: quizData?.description || defaultQuizDetails.description,
-      timeLimit: defaultQuizDetails.timeLimit,
-      questions: defaultQuizDetails.questions,
-      passingScore: defaultQuizDetails.passingScore,
-      attempts: defaultQuizDetails.attempts,
-      requirements: defaultQuizDetails.requirements
-    };
-  };
-
-  const currentQuizDetails = getQuizDetails();
 
   // Loading state
   if (loading) {
@@ -188,6 +130,18 @@ export default function CourseQuizStartScreen() {
     );
   }
 
+  // Error state
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -196,9 +150,7 @@ export default function CourseQuizStartScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#333" />
-          <Text style={styles.sectionTitle}>
-            {`Chapter ${currentSection.replace('section', '')}: ${sectionTitles[currentSection]}`}
-          </Text>
+          <Text style={styles.backText}>Quay lại</Text>
         </TouchableOpacity>
       </View>
       
@@ -208,8 +160,8 @@ export default function CourseQuizStartScreen() {
           <View style={styles.iconContainer}>
             <Ionicons name="document-text-outline" size={40} color="#8B0000" />
           </View>
-          <Text style={styles.quizTitle}>{getQuizTitle()}</Text>
-          {quizId && completedQuizzes[quizId] && (
+          <Text style={styles.quizTitle}>{quizTitle || 'Bài kiểm tra'}</Text>
+          {hasCompletedQuiz && (
             <View style={styles.completedBadge}>
               <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
               <Text style={styles.completedText}>Đã hoàn thành</Text>
@@ -219,7 +171,7 @@ export default function CourseQuizStartScreen() {
         
         <View style={styles.quizInfoCard}>
           <Text style={styles.sectionHeading}>Mô tả</Text>
-          <Text style={styles.description}>{currentQuizDetails.description}</Text>
+          <Text style={styles.description}>{quizData?.description || 'Chưa có mô tả cho bài kiểm tra này'}</Text>
           
           <View style={styles.divider} />
           
@@ -229,14 +181,14 @@ export default function CourseQuizStartScreen() {
               <Ionicons name="time-outline" size={20} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Thời gian</Text>
-                <Text style={styles.detailValue}>{currentQuizDetails.timeLimit}</Text>
+                <Text style={styles.detailValue}>{quizData?.timeLimit || 'Chưa cập nhật'}</Text>
               </View>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="help-circle-outline" size={20} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Số câu hỏi</Text>
-                <Text style={styles.detailValue}>{currentQuizDetails.questions}</Text>
+                <Text style={styles.detailValue}>{quizData?.totalQuestions || 'Chưa cập nhật'}</Text>
               </View>
             </View>
           </View>
@@ -246,24 +198,16 @@ export default function CourseQuizStartScreen() {
               <Ionicons name="trophy-outline" size={20} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Điểm đạt</Text>
-                <Text style={styles.detailValue}>{currentQuizDetails.passingScore}</Text>
+                <Text style={styles.detailValue}>{quizData?.passingScore || 'Chưa cập nhật'}</Text>
               </View>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="repeat-outline" size={20} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Số lần làm</Text>
-                <Text style={styles.detailValue}>{currentQuizDetails.attempts}</Text>
+                <Text style={styles.detailValue}>{quizData?.maxAttempts || 'Không giới hạn'}</Text>
               </View>
             </View>
-          </View>
-          
-          <View style={styles.divider} />
-          
-          <Text style={styles.sectionHeading}>Yêu cầu</Text>
-          <View style={styles.requirementContainer}>
-            <Ionicons name="alert-circle-outline" size={20} color="#8B0000" />
-            <Text style={styles.requirementText}>{currentQuizDetails.requirements}</Text>
           </View>
         </View>
         
@@ -287,12 +231,12 @@ export default function CourseQuizStartScreen() {
       {/* Start Quiz Button */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
-          style={styles.startButton}
+          style={[styles.startButton, hasCompletedQuiz && styles.retakeButton]}
           onPress={handleStartQuiz}
           disabled={!quizId}
         >
           <Text style={styles.startButtonText}>
-            {quizId && completedQuizzes[quizId] ? 'Làm lại bài kiểm tra' : 'Bắt đầu bài kiểm tra'}
+            {hasCompletedQuiz ? 'Kiểm tra lại' : 'Bắt đầu làm bài'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -329,7 +273,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  sectionTitle: {
+  backText: {
     fontSize: 16,
     fontWeight: '500',
     marginLeft: 10,
@@ -359,20 +303,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#333',
-  },
-  completedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e8f5e9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 12,
-  },
-  completedText: {
-    fontSize: 14,
-    color: '#4CAF50',
-    marginLeft: 5,
   },
   quizInfoCard: {
     backgroundColor: '#fff',
@@ -421,21 +351,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: '#333',
-  },
-  requirementContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff8f8',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#8B0000',
-  },
-  requirementText: {
-    fontSize: 14,
-    color: '#555',
-    marginLeft: 10,
-    flex: 1,
   },
   instructionContainer: {
     backgroundColor: '#fff',
@@ -499,5 +414,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#8B0000',
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 12,
+  },
+  completedText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    marginLeft: 5,
+  },
+  retakeButton: {
+    backgroundColor: '#4CAF50',
   },
 });

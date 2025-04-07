@@ -70,7 +70,7 @@ export default function PaymentWebView() {
           
           // Đợi 5 giây rồi chuyển màn hình
           setTimeout(() => {
-            navigation.navigate('workshop');
+            navigation.navigate('menu');
           }, 5000);
           
         } else {
@@ -85,7 +85,7 @@ export default function PaymentWebView() {
           [
             {
               text: 'OK',
-              onPress: () => navigation.navigate('workshop')
+              onPress: () => navigation.navigate('menu')
             }
           ]
         );
@@ -95,7 +95,7 @@ export default function PaymentWebView() {
 
     // Xử lý khi hủy thanh toán
     if (currentUrl.includes('cancel')) {
-      navigation.navigate('workshop');
+      navigation.navigate('menu');
       return;
     }
   };

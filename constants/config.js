@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-const DEV_API_URL = 'http://192.168.110.115:5261';
+const DEV_API_URL = 'http://192.168.110.254:5261';
 //const DEV_API_URL = 'http://192.168.31.148:5261';
 
 export const API_CONFIG = {
@@ -113,6 +113,7 @@ export const API_CONFIG = {
 
     // registerCourse endpoints
     updateProccessCourse: '/api/RegisterCourse/{chapterId}',
+    getEnrollChaptersByEnrollCourseId: '/api/RegisterCourse/get-enroll-chapters-by/{enrollCourseId}',
   },
   timeoutDuration: 30000 // 30 seconds
 };

@@ -10,7 +10,8 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { authAPI } from '../../constants/auth';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +37,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [image, setImage] = useState(null);
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
@@ -47,6 +50,24 @@ export default function RegisterScreen() {
   const checkInputType = (text) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setIsEmail(emailRegex.test(text));
+  };
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setImage(result.assets[0]);
+      }
+    } catch (error) {
+      console.error('Lỗi khi chọn ảnh:', error);
+      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+    }
   };
 
   const validateForm = () => {
@@ -82,9 +103,22 @@ export default function RegisterScreen() {
       return false;
     }
   
-    // Validate ngày sinh
+    // Validate ngày sinh và tuổi
     if (!dob) {
       Alert.alert('Lỗi', 'Vui lòng chọn ngày sinh');
+      return false;
+    }
+
+    // Kiểm tra tuổi (phải từ 18 tuổi trở lên)
+    const today = new Date();
+    const birthDate = new Date(dob);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    if (age < 18) {
+      Alert.alert('Lỗi', 'Bạn phải đủ 18 tuổi để đăng ký');
       return false;
     }
   
@@ -104,19 +138,40 @@ export default function RegisterScreen() {
       }
   
       setIsLoading(true);
+
+      // Tạo FormData object
+      const formData = new FormData();
+      formData.append('FullName', fullName.trim());
+      formData.append('Email', email.trim().toLowerCase());
+      formData.append('PhoneNumber', phoneNumber);
+      formData.append('Password', password);
+      formData.append('ConfirmedPassword', confirmPassword);
+      formData.append('Gender', gender === 'male');
+      formData.append('Dob', dob.toISOString());
+
+      // Thêm ảnh nếu có
+      if (image) {
+        const imageFile = {
+          uri: image.uri,
+          type: 'image/jpeg',
+          name: 'profile-image.jpg'
+        };
+        formData.append('ImageUrl', imageFile);
+      }
   
-      const registerData = {
-        fullName: fullName,
-        email: email,
-        phoneNumber: phoneNumber,
-        password: password,
-        confirmedPassword: confirmPassword,
-        gender: gender === 'male', // Chuyển đổi male -> true, female -> false
-        dob: dob.toISOString()
-      };
-  
-      const result = await authAPI.register(registerData);
-  
+      console.log('Đang gửi dữ liệu đăng ký:', formData);
+      
+      const response = await authAPI.register(formData);
+      
+      // Kiểm tra response
+      console.log('Response từ API:', response);
+
+      // Nếu có token trong response
+      if (response?.data?.token) {
+        await AsyncStorage.setItem('accessToken', response.data.token);
+      }
+
+      // Hiển thị thông báo thành công
       Alert.alert(
         'Thành công',
         'Đăng ký tài khoản thành công!',
@@ -127,11 +182,58 @@ export default function RegisterScreen() {
           }
         ]
       );
+      
     } catch (error) {
-      Alert.alert(
-        'Lỗi',
-        error.toString()
-      );
+      console.error('Lỗi đăng ký:', error);
+      
+      let errorMessage = 'Đã có lỗi xảy ra khi đăng ký';
+      
+      // Kiểm tra nếu error.message chứa "thành công"
+      if (error.message && error.message.toLowerCase().includes('thành công')) {
+        // Đây thực sự là thành công, không phải lỗi
+        Alert.alert(
+          'Thành công',
+          'Đăng ký tài khoản thành công!',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+        return;
+      }
+      
+      if (error.response?.data) {
+        const responseData = error.response.data;
+        
+        if (responseData.errors) {
+          const errorMessages = [];
+          Object.keys(responseData.errors).forEach(key => {
+            errorMessages.push(...responseData.errors[key]);
+          });
+          errorMessage = errorMessages.join('\n');
+        } else if (responseData.message) {
+          switch (responseData.message) {
+            case 'EXISTED_EMAIL':
+              errorMessage = 'Email này đã được đăng ký';
+              break;
+            case 'GENDER_REQUIRED':
+              errorMessage = 'Vui lòng chọn giới tính';
+              break;
+            default:
+              errorMessage = responseData.message;
+          }
+        }
+      }
+      
+      // Chỉ hiển thị Alert lỗi nếu thực sự là lỗi
+      if (!error.message?.toLowerCase().includes('thành công')) {
+        Alert.alert(
+          'Lỗi',
+          errorMessage
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -303,6 +405,26 @@ export default function RegisterScreen() {
                 </View>
               </View>
 
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Ảnh đại diện (tùy chọn)</Text>
+                <TouchableOpacity 
+                  style={styles.imagePickerButton} 
+                  onPress={pickImage}
+                >
+                  {image ? (
+                    <Image 
+                      source={{ uri: image.uri }} 
+                      style={styles.previewImage} 
+                    />
+                  ) : (
+                    <View style={styles.imagePlaceholder}>
+                      <Ionicons name="camera" size={24} color="#666" />
+                      <Text style={styles.imagePlaceholderText}>Chọn ảnh</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity 
                 style={[styles.signUpButton, isLoading && styles.disabledButton]} 
                 onPress={handleSubmit}
@@ -464,5 +586,30 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#ccc',
+  },
+  imagePickerButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    alignItems: 'center',
+  },
+  imagePlaceholderText: {
+    marginTop: 5,
+    color: '#666',
+    fontSize: 12,
   },
 }); 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,11 @@ import {
   Alert,
   FlatList,
   Image,
-  Platform
+  Platform,
+  BackHandler
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Video, Audio, ResizeMode } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -23,6 +24,14 @@ import { API_CONFIG } from '../../constants/config';
 import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
+
+// Thêm các mã thông báo API response
+const API_RESPONSE_MESSAGES = {
+  PROCEED_TO_QUIZ_SUCCESS: "PROCEED_TO_QUIZ_SUCCESS",
+  CHAPTER_ALREADY_COMPLETED: "CHAPTER_ALREADY_COMPLETED",
+  REGISTER_COURSE_NOT_FOUND: "REGISTER_COURSE_NOT_FOUND",
+  CHAPTER_UPDATED_PROGRESS_SUCCESS: "CHAPTER_UPDATED_PROGRESS_SUCCESS"
+};
 
 // Replace the optimizeCloudinaryUrlForIOS function with this more comprehensive version
 const optimizeCloudinaryUrlForIOS = (url) => {
@@ -99,138 +108,19 @@ const VideoWithFallback = React.forwardRef(({ source, ...props }, ref) => {
 // First, create a separate VideoPlayer component outside of the main component
 // This will prevent re-renders from the parent component affecting the video
 
-const VideoPlayer = React.memo(({ videoUrl, onComplete, autoResetOnFocus = true }) => {
+const VideoPlayer = React.memo(({ videoUrl, onComplete }) => {
   const videoRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const hasLoaded = useRef(false);
-  const currentPositionRef = useRef(0);
-  
-  // Handle screen focus and blur
-  useFocusEffect(
-    useCallback(() => {
-      console.log('Video screen focused');
-      
-      // When screen comes into focus, reload video if needed
-      if (videoRef.current && hasLoaded.current) {
-        if (autoResetOnFocus) {
-          // Reset to beginning and play
-          videoRef.current.setPositionAsync(0)
-            .then(() => videoRef.current.playAsync())
-            .catch(e => console.log('Error resetting video position:', e));
-        } else {
-          // Resume from last position
-          videoRef.current.playAsync()
-            .catch(e => console.log('Error playing video:', e));
-        }
-      }
-      
-      // Cleanup function called when screen loses focus
-      return () => {
-        console.log('Video screen blurred - stopping video');
-        if (videoRef.current) {
-          // Save current position
-          if (videoRef.current.getStatusAsync) {
-            videoRef.current.getStatusAsync()
-              .then(status => {
-                if (status.isLoaded) {
-                  currentPositionRef.current = status.positionMillis;
-                }
-              })
-              .catch(e => console.log('Error getting video status:', e));
-          }
-          
-          // Pause playback
-          videoRef.current.pauseAsync()
-            .catch(e => console.log('Error pausing video:', e));
-        }
-      };
-    }, [autoResetOnFocus])
-  );
-  
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      console.log('Video component unmounting - cleaning up');
-      if (videoRef.current) {
-        videoRef.current.unloadAsync().catch(e => console.log('Error unloading:', e));
-      }
-    };
-  }, []);
-  
-  const handleLoad = (status) => {
-    if (!hasLoaded.current) {
-      hasLoaded.current = true;
-      setLoading(false);
-      console.log('Video loaded successfully:', status);
-    }
-  };
-  
-  const handlePlaybackStatusUpdate = (status) => {
-    if (status.isLoaded) {
-      // Update position for potential resume
-      currentPositionRef.current = status.positionMillis;
-      
-      // Check for completion
-      if (status.didJustFinish) {
-        onComplete && onComplete();
-      }
-    }
-  };
-  
-  const handleError = (error) => {
-    console.error('Video error:', error);
-    setLoading(false);
-    setError(true);
-    
-    if (Platform.OS === 'ios' && error.error?.domain === 'NSURLErrorDomain') {
-      switch (error.error?.code) {
-        case -1001: 
-          setErrorMessage('Kết nối video quá chậm. Vui lòng kiểm tra mạng của bạn.');
-          break;
-        case -1008:
-          setErrorMessage('Không thể kết nối đến máy chủ video. Vui lòng thử lại sau.');
-          break;
-        case -1009:
-          setErrorMessage('Không có kết nối mạng. Vui lòng kiểm tra kết nối internet.');
-          break;
-        default:
-          setErrorMessage('Lỗi phát video. Vui lòng thử lại sau.');
-      }
-    } else {
-      setErrorMessage('Không thể tải video. Vui lòng thử lại sau.');
-    }
-  };
-  
-  const handleRetry = () => {
-    setError(false);
-    setLoading(true);
-    hasLoaded.current = false;
-    
-    if (videoRef.current) {
-      videoRef.current.unloadAsync()
-        .then(() => {
-          setTimeout(() => {
-            videoRef.current.loadAsync(
-              { uri: videoUrl + '&retry=' + Date.now() },
-              { shouldPlay: true },
-              false
-            );
-          }, 500);
-        })
-        .catch(err => console.log('Error during retry:', err));
-    }
-  };
-  
+
   return (
-    <View style={{flex: 1, backgroundColor: '#000'}}>
+    <View style={styles.playerContainer}>
       <Video
         ref={videoRef}
-        style={{flex: 1}}
+        style={styles.video}
         source={{
           uri: videoUrl,
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+          headers: { 'Cache-Control': 'no-cache' }
         }}
         useNativeControls
         resizeMode={ResizeMode.CONTAIN}
@@ -239,28 +129,45 @@ const VideoPlayer = React.memo(({ videoUrl, onComplete, autoResetOnFocus = true 
         volume={1.0}
         playsInSilentModeIOS={true}
         ignoreSilentSwitch="ignore"
-        onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-        onLoad={handleLoad}
-        onError={handleError}
+        onPlaybackStatusUpdate={(status) => {
+          if (status.isLoaded) {
+            setLoading(false);
+            if (status.didJustFinish) {
+              onComplete && onComplete();
+            }
+          }
+        }}
+        onError={(error) => {
+          console.error('Video error:', error);
+          setLoading(false);
+          setError(true);
+        }}
       />
       
       {loading && (
-        <View style={{...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)'}}>
+        <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#fff" />
-          <Text style={{color: '#fff', marginTop: 10}}>Đang tải video...</Text>
+          <Text style={styles.loadingText}>Đang tải video...</Text>
         </View>
       )}
       
       {error && (
-        <View style={{...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000'}}>
-          <Ionicons name="alert-circle" size={48} color="#dc3545" />
-          <Text style={{color: '#fff', textAlign: 'center', margin: 20}}>{errorMessage}</Text>
+        <View style={styles.overlay}>
+          <Text style={styles.errorText}>Không thể tải video. Vui lòng thử lại sau.</Text>
           <TouchableOpacity 
-            style={{flexDirection: 'row', backgroundColor: '#007bff', padding: 12, borderRadius: 4, alignItems: 'center'}}
-            onPress={handleRetry}
+            style={styles.retryButton}
+            onPress={() => {
+              setError(false);
+              setLoading(true);
+              if (videoRef.current) {
+                videoRef.current.loadAsync(
+                  { uri: videoUrl },
+                  { shouldPlay: true }
+                );
+              }
+            }}
           >
-            <Ionicons name="refresh" size={20} color="#fff" />
-            <Text style={{color: '#fff', marginLeft: 8}}>Thử lại</Text>
+            <Text style={styles.retryText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -268,128 +175,116 @@ const VideoPlayer = React.memo(({ videoUrl, onComplete, autoResetOnFocus = true 
   );
 });
 
+// Cache dữ liệu để tránh tải lại quá nhiều lần
+const loadedUserIds = new Set();
+const loadedCourseIds = new Set();
+
+// Thay đổi enum để khớp với backend
+const EnrollChapterStatus = {
+  InProgress: "InProgress",
+  Done: "Done"
+};
+
+// Hàm helper để chuyển đổi status thành text hiển thị
+const getStatusDisplayText = (status) => {
+  switch (status) {
+    case EnrollChapterStatus.InProgress:
+      return "Đang học";
+    case EnrollChapterStatus.Done:
+      return "Đã hoàn thành";
+    default:
+      return "Đang học";
+  }
+};
+
+// Hàm helper để lấy màu cho status
+const getStatusColor = (status) => {
+  switch (status) {
+    case EnrollChapterStatus.InProgress:
+      return "#007AFF";
+    case EnrollChapterStatus.Done:
+      return "#4CAF50";
+    default:
+      return "#007AFF";
+  }
+};
+
+// Hàm helper để lấy icon cho status
+const getStatusIcon = (status) => {
+  switch (status) {
+    case EnrollChapterStatus.Done:
+      return <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />;
+    case EnrollChapterStatus.InProgress:
+      return <Ionicons name="time" size={20} color="#007AFF" />;
+    default:
+      return <Ionicons name="time" size={20} color="#007AFF" />;
+  }
+};
+
 export default function CourseVideoScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { chapterId, courseId } = params;
-  const videoRef = useRef(null);
-  const [status, setStatus] = useState({});
-  const [loading, setLoading] = useState(true);
+  const { courseId, chapterId, enrollCourseId } = params;
   const [chapterData, setChapterData] = useState(null);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [activeTab, setActiveTab] = useState('content'); // 'content' or 'discussion'
-  const [completedLessons, setCompletedLessons] = useState({});
-  const [completedQuizzes, setCompletedQuizzes] = useState({});
-  const [lessonId, setLessonId] = useState(params.lessonId);
   const [courseContent, setCourseContent] = useState([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
-  
-  // Add new state variables for video error handling
-  const [videoError, setVideoError] = useState(false);
-  const [videoErrorMessage, setVideoErrorMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [videoError, setVideoError] = useState(null);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [completedLessons, setCompletedLessons] = useState({});
+  const [completedQuizzes, setCompletedQuizzes] = useState({});
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [currentProgress, setCurrentProgress] = useState(0);
+  const [courseCompleted, setCourseCompleted] = useState(false);
+  const [isFreeCourse, setIsFreeCourse] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-
-  // Add a useRef to store the processed video URL to prevent unnecessary recalculations
+  const [videoErrorMessage, setVideoErrorMessage] = useState('');
+  const [hasShownAlert, setHasShownAlert] = useState(false);
+  const [showBackConfirmation, setShowBackConfirmation] = useState(false);
+  const [status, setStatus] = useState({});
+  const [activeTab, setActiveTab] = useState('content');
+  const [lessonId, setLessonId] = useState(params.lessonId);
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(params.autoPlay === 'true');
+  const videoRef = useRef(null);
+  const hasShownIOSNote = useRef(false);
+  const lastProgressUpdate = useRef(Date.now());
+  const isVideoPlaying = useRef(false);
   const processedVideoUrlRef = useRef(null);
-
-  // Add these refs at the top of your component
+  const currentRenderCycleUrl = useRef(null);
   const hasLoggedVideoUrl = useRef(false);
   const currentVideoUrl = useRef('');
-
-  // Add this state to track if video should auto-play
-  const [shouldAutoPlay, setShouldAutoPlay] = useState(true);
-
-  // Add this ref to track if we've already shown the iOS note
-  const hasShownIOSNote = useRef(false);
-
-  // Add this ref to track the processed URL for the current render cycle
-  const currentRenderCycleUrl = useRef('');
-
-  // Add these state variables at the top of your component
-  const [videoUrl, setVideoUrl] = useState(null);
-  const [videoLoaded, setVideoLoaded] = useState(false);
-
-  // Add this near your other useRef declarations
   const isInitialMount = useRef(true);
-  const isVideoPlaying = useRef(false);
+  const lastDataLoadTime = useRef(0);
+  const [chapterStatus, setChapterStatus] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Thêm biến quản lý thời gian tải dữ liệu
+  let lastLoadTime = 0;
 
-  // Load completion data from storage
-  useEffect(() => {
-    const loadCompletionData = async () => {
-      try {
-        // Load completed lessons
-        const savedLessons = await AsyncStorage.getItem('completedLessons');
-        if (savedLessons) {
-          setCompletedLessons(JSON.parse(savedLessons));
-        }
-        
-        // Load completed quizzes
-        const savedQuizzes = await AsyncStorage.getItem('completedQuizzes');
-        if (savedQuizzes) {
-          setCompletedQuizzes(JSON.parse(savedQuizzes));
-        }
-      } catch (error) {
-        console.log('Error loading completion data', error);
-      }
-    };
+  // Hàm để tải dữ liệu hoàn thành từ AsyncStorage và từ server
+  const loadCompletionData = async () => {
+    if (!chapterId || !courseId) {
+      console.error('Thiếu chapterId hoặc courseId để tải dữ liệu');
+      return;
+    }
     
-    loadCompletionData();
-  }, []);
-
-  // Modify the audio setup useEffect to properly handle navigation
-  useEffect(() => {
-    const setupAudio = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-      } catch (error) {
-        console.log('Lỗi cài đặt audio:', error);
-      }
-    };
-    
-    setupAudio();
-    
-    // This cleanup function runs when navigating away from the page
-    return () => {
-      console.log('Navigating away - stopping video playback');
-      if (videoRef.current) {
-        try {
-          // Stop playback when leaving the screen
-          videoRef.current.pauseAsync().catch(err => console.log('Error pausing video:', err));
-          videoRef.current.setPositionAsync(0).catch(err => console.log('Error resetting position:', err));
-        } catch (err) {
-          console.log('Error in video cleanup:', err);
-        }
-      }
-    };
-  }, []);
-
-  // Fetch chapter data
-  useEffect(() => {
-    const fetchChapterData = async () => {
-      if (!chapterId) {
-        console.log('No chapterId provided, cannot fetch chapter data');
+    try {
+      console.log('Bắt đầu tải dữ liệu chapter từ server...');
+      // 1. Kiểm tra token
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        console.error('Không tìm thấy token, không thể tải dữ liệu từ server');
         return;
       }
       
+      // Tải dữ liệu từ server trước
       try {
-        setLoading(true);
-        console.log('Fetching chapter data for chapterId:', chapterId);
-        
-        const token = await AsyncStorage.getItem('accessToken');
-        if (!token) {
-          console.log('No token found, redirecting to login');
-          router.push('/login');
-          return;
-        }
-
-        // 1. Fetch chapter details
-        const response = await axios.get(
-          `${API_CONFIG.baseURL}/api/Chapter/get-chapter/${chapterId}`,
+        console.log('Gửi request đến API để kiểm tra trạng thái hoàn thành, chapter hiện tại:', chapterId);
+        const response = await axios.put(
+          `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', chapterId)}`,
+          {},
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -397,66 +292,373 @@ export default function CourseVideoScreen() {
             }
           }
         );
-
-        console.log('Chapter response:', response.data);
-
-        if (response.data?.isSuccess && response.data.data) {
-          let videoUrl = response.data.data.video;
-          console.log('Raw video URL from API:', videoUrl);
+        
+        console.log('Kết quả từ server:', JSON.stringify(response.data));
+        
+        if (response.data?.isSuccess) {
+          // 2. Lấy dữ liệu chương đã hoàn thành từ server
+          const serverData = response.data.data;
           
-          // Clean up the URL
-          if (videoUrl) {
-            videoUrl = videoUrl.trim();
+          if (serverData) {
+            // Cập nhật tiến độ từ server
+            if (serverData.percentage !== undefined) {
+              console.log('Tiến độ từ server:', serverData.percentage);
+              
+              // Lưu tiến độ mới vào AsyncStorage
+              const savedProgress = await AsyncStorage.getItem('courseProgress');
+              let progressObj = savedProgress ? JSON.parse(savedProgress) : {};
+              progressObj[courseId] = serverData.percentage;
+              await AsyncStorage.setItem('courseProgress', JSON.stringify(progressObj));
+              
+              // Cập nhật state
+              setCurrentProgress(serverData.percentage);
+            }
+            
+            // Xử lý dữ liệu chapter hoàn thành
+            if (serverData.completedChapters) {
+              let completedChaptersData = serverData.completedChapters;
+              console.log('Danh sách chapter đã hoàn thành từ server:', typeof completedChaptersData, completedChaptersData);
+              
+              const newCompletedLessons = {};
+              
+              // Xử lý dữ liệu chapter hoàn thành dựa vào kiểu dữ liệu
+              if (Array.isArray(completedChaptersData)) {
+                // Nếu là mảng
+                completedChaptersData.forEach(id => {
+                  if (id) newCompletedLessons[id] = true;
+                });
+              } else if (typeof completedChaptersData === 'string') {
+                // Nếu là chuỗi, thử parse JSON
+                try {
+                  const chaptersArray = JSON.parse(completedChaptersData);
+                  if (Array.isArray(chaptersArray)) {
+                    chaptersArray.forEach(id => {
+                      if (id) newCompletedLessons[id] = true;
+                    });
+                  } else if (chaptersArray && typeof chaptersArray === 'object') {
+                    // Nếu là object
+                    Object.keys(chaptersArray).forEach(key => {
+                      if (chaptersArray[key] === true) newCompletedLessons[key] = true;
+                    });
+                  }
+                } catch (e) {
+                  // Nếu không phải JSON, có thể là danh sách id phân cách bởi dấu phẩy
+                  const chapterIds = completedChaptersData.split(',').map(id => id.trim());
+                  chapterIds.forEach(id => {
+                    if (id) newCompletedLessons[id] = true;
+                  });
+                }
+              } else if (typeof completedChaptersData === 'number' || /^\d+$/.test(completedChaptersData)) {
+                // Nếu là số hoặc chuỗi số
+                const id = completedChaptersData.toString();
+                newCompletedLessons[id] = true;
+              }
+              
+              console.log('Chapter đã hoàn thành sau khi xử lý:', Object.keys(newCompletedLessons));
+              
+              // Lưu vào AsyncStorage
+              await AsyncStorage.setItem('completedLessons', JSON.stringify(newCompletedLessons));
+              
+              // Cập nhật state 
+              setCompletedLessons(newCompletedLessons);
+              
+              // Kiểm tra xem chapter hiện tại đã hoàn thành chưa
+              if (newCompletedLessons[chapterId]) {
+                console.log('Chapter hiện tại đã hoàn thành theo dữ liệu từ server');
+                setIsCompleted(true);
+              } else {
+                console.log('Chapter hiện tại chưa hoàn thành theo dữ liệu từ server');
+                setIsCompleted(false);
+              }
+            } else if (response.data.message === "CHAPTER_ALREADY_COMPLETED") {
+              // Chapter hiện tại đã hoàn thành
+              console.log('Chapter đã hoàn thành theo thông báo từ server');
+              setIsCompleted(true);
+              
+              // Cập nhật AsyncStorage
+              const savedLessons = await AsyncStorage.getItem('completedLessons');
+              let lessonsObj = savedLessons ? JSON.parse(savedLessons) : {};
+              lessonsObj[chapterId] = true;
+              await AsyncStorage.setItem('completedLessons', JSON.stringify(lessonsObj));
+              setCompletedLessons(lessonsObj);
+            }
           }
+        } else if (response.data.message === "CHAPTER_ALREADY_COMPLETED") {
+          // Chapter hiện tại đã hoàn thành
+          console.log('Chapter đã hoàn thành theo thông báo từ server');
+          setIsCompleted(true);
           
-          // Validate video URL
-          if (!isValidVideoUrl(videoUrl)) {
-            console.warn('Invalid video URL from API:', videoUrl);
-          }
-          
-          // Fix for iOS - Force HTTPS
-          if (Platform.OS === 'ios' && videoUrl && videoUrl.startsWith('http:')) {
-            videoUrl = videoUrl.replace('http:', 'https:');
-          }
-          
-          // Store chapter data with processed URL
-          const chapterData = {
-            ...response.data.data,
-            video: videoUrl,
-            videoWithCacheBuster: isValidVideoUrl(videoUrl) ? addCacheBuster(videoUrl) : null
-          };
-          
-          setChapterData(chapterData);
-          
-          // Use courseId from chapter if not provided in params
-          const effectiveCourseId = courseId || response.data.data.courseId;
-          
-          // 2. Fetch all chapters for this course
-          if (effectiveCourseId) {
-            await fetchCourseChapters(effectiveCourseId, token, chapterId);
-          }
-        } else {
-          throw new Error(response.data?.message || 'Failed to fetch chapter data');
+          // Cập nhật AsyncStorage
+          const savedLessons = await AsyncStorage.getItem('completedLessons');
+          let lessonsObj = savedLessons ? JSON.parse(savedLessons) : {};
+          lessonsObj[chapterId] = true;
+          await AsyncStorage.setItem('completedLessons', JSON.stringify(lessonsObj));
+          setCompletedLessons(lessonsObj);
         }
       } catch (error) {
-        console.error('Error fetching chapter data:', error);
-        setVideoError(true);
-        setVideoErrorMessage('Không thể tải thông tin chương học. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
+        console.error('Lỗi khi tải dữ liệu từ server:', error);
+        
+        // Nếu server lỗi, thử lấy dữ liệu từ local
+        // Tải dữ liệu từ AsyncStorage
+        console.log('Đang thử lấy dữ liệu từ local...');
+        
+        // 3. Kiểm tra dữ liệu hoàn thành hiện có trong AsyncStorage
+        const savedLessons = await AsyncStorage.getItem('completedLessons');
+        if (savedLessons) {
+          try {
+            const lessonsObj = JSON.parse(savedLessons);
+            setCompletedLessons(lessonsObj);
+            console.log('Tải dữ liệu chapter hoàn thành từ local:', Object.keys(lessonsObj));
+            
+            // Kiểm tra xem chapter hiện tại đã hoàn thành chưa
+            if (lessonsObj[chapterId]) {
+              console.log('Chapter hiện tại đã hoàn thành theo dữ liệu local');
+              setIsCompleted(true);
+            }
+          } catch (e) {
+            console.error('Lỗi khi parse dữ liệu completedLessons từ local:', e);
+          }
+        }
+        
+        // 4. Tải tiến độ khóa học từ local
+        const savedProgress = await AsyncStorage.getItem('courseProgress');
+        if (savedProgress) {
+          try {
+            const progressObj = JSON.parse(savedProgress);
+            if (progressObj[courseId] !== undefined) {
+              console.log('Tiến độ từ local:', progressObj[courseId]);
+              setCurrentProgress(progressObj[courseId]);
+            }
+          } catch (e) {
+            console.error('Lỗi khi parse dữ liệu courseProgress từ local:', e);
+          }
+        }
       }
-    };
+    } catch (e) {
+      console.error('Lỗi tổng thể khi tải dữ liệu hoàn thành:', e);
+      setRetryCount(prev => prev + 1);
+    }
+  };
 
-    fetchChapterData();
-  }, [chapterId, courseId]);
+  // Load completion data from storage
+  useEffect(() => {
+    if (courseId) {
+      loadCompletionData();
+    }
+  }, [courseId, chapterId]);
+
+  // Fetch chapter data
+  const fetchChapterData = async () => {
+    if (!chapterId) {
+      console.log('Không có chapterId, không thể tải dữ liệu');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        console.log('Không có token, không thể tải dữ liệu');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Đang tải dữ liệu cho chapter:', chapterId);
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}/api/Chapter/get-chapter/${chapterId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data?.isSuccess && response.data.data) {
+        let videoUrl = response.data.data.video;
+        console.log('Raw video URL from API:', videoUrl);
+        
+        // Clean up the URL
+        if (videoUrl) {
+          videoUrl = videoUrl.trim();
+        }
+        
+        // Validate video URL
+        if (!isValidVideoUrl(videoUrl)) {
+          console.warn('Invalid video URL from API:', videoUrl);
+        }
+        
+        // Fix for iOS - Force HTTPS
+        if (Platform.OS === 'ios' && videoUrl && videoUrl.startsWith('http:')) {
+          videoUrl = videoUrl.replace('http:', 'https:');
+        }
+        
+        // Store chapter data with processed URL
+        const chapterData = {
+          ...response.data.data,
+          video: videoUrl,
+          videoWithCacheBuster: isValidVideoUrl(videoUrl) ? addCacheBuster(videoUrl) : null
+        };
+        
+        setChapterData(chapterData);
+        
+        // Cập nhật trạng thái chapter
+        if (response.data.data.status) {
+          setChapterStatus(response.data.data.status);
+        }
+        
+        // Kiểm tra nếu chapter đã hoàn thành
+        if (response.data.data.status === "Done") {
+          setIsCompleted(true);
+        }
+
+      } else {
+        throw new Error(response.data?.message || 'Failed to fetch chapter data');
+      }
+    } catch (error) {
+      console.error('Error fetching chapter data:', error);
+      setVideoError(true);
+      setVideoErrorMessage('Không thể tải thông tin chương học. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Fetch all chapters for the course
   const fetchCourseChapters = async (courseId, token, currentChapterId) => {
+    if (!courseId) {
+      console.warn('No courseId provided to fetchCourseChapters');
+      return;
+    }
+
     try {
       console.log('Fetching all chapters for courseId:', courseId);
       
+      // Lấy token nếu chưa có
+      if (!token) {
+        token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
+          console.error('Không có token, không thể lấy dữ liệu enrollChapters');
+          return;
+        }
+      }
+      
+      // Trước tiên, lấy enrollCourseId từ thông tin khóa học đã đăng ký
+      let enrollCourseId = null;
+      try {
+        const registerCourseResponse = await axios.get(
+          `${API_CONFIG.baseURL}/api/Course/get-course/${courseId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (registerCourseResponse.data?.isSuccess && registerCourseResponse.data.data) {
+          // Lấy enrollCourseId từ response
+          enrollCourseId = registerCourseResponse.data.data.enrollCourseId;
+          console.log('Đã lấy được enrollCourseId:', enrollCourseId);
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy enrollCourseId:', error);
+      }
+      
+      // Nếu không có enrollCourseId từ API, thử tìm từ local storage
+      if (!enrollCourseId) {
+        console.log('Không có enrollCourseId từ API, thử tìm từ local storage');
+        try {
+          // Kiểm tra trong registeredCourses
+          const registeredCourses = await AsyncStorage.getItem('registeredCourses');
+          if (registeredCourses) {
+            const coursesObj = JSON.parse(registeredCourses);
+            if (coursesObj[courseId] && coursesObj[courseId].enrollCourseId) {
+              enrollCourseId = coursesObj[courseId].enrollCourseId;
+              console.log('Tìm thấy enrollCourseId từ localStorage:', enrollCourseId);
+            }
+          }
+        } catch (error) {
+          console.error('Lỗi khi tìm enrollCourseId từ localStorage:', error);
+        }
+      }
+      
+      // Nếu tìm được enrollCourseId, gọi API lấy danh sách chapter đã đăng ký
+      if (enrollCourseId) {
+        console.log('Sử dụng API mới với enrollCourseId:', enrollCourseId);
+        const response = await axios.get(
+          `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getEnrollChaptersByEnrollCourseId.replace('{enrollCourseId}', enrollCourseId)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        console.log('EnrollChapters response từ API:', response.data);
+        
+        if (response.data?.isSuccess && response.data.data) {
+          // Chuyển đổi dữ liệu enrollChapter thành định dạng chapter
+          const enrollChapters = response.data.data;
+          
+          if (Array.isArray(enrollChapters) && enrollChapters.length > 0) {
+            // Chuyển đổi định dạng
+            const formattedChapters = enrollChapters.map(enrollChapter => ({
+              chapterId: enrollChapter.chapterId,
+              title: enrollChapter.chapterName,
+              status: enrollChapter.status,
+              enrollChapterId: enrollChapter.enrollChapterId,
+              customerId: enrollChapter.customerId,
+              enrollCourseId: enrollChapter.enrollCourseId,
+              // Thêm các trường khác nếu cần
+              duration: "10:00" // Giá trị mặc định hoặc có thể để trống
+            }));
+            
+            // Cập nhật state
+            setCourseContent(formattedChapters);
+            
+            // Cập nhật trạng thái hoàn thành dựa trên status = "Done"
+            const newCompletedLessons = {};
+            enrollChapters.forEach(enrollChapter => {
+              if (enrollChapter.status === "Done") {
+                newCompletedLessons[enrollChapter.chapterId] = true;
+              }
+            });
+            setCompletedLessons(prevState => ({...prevState, ...newCompletedLessons}));
+            
+            // Find current chapter index
+            const index = formattedChapters.findIndex(ch => ch.chapterId === currentChapterId);
+            if (index !== -1) {
+              setCurrentChapterIndex(index);
+            } else {
+              console.warn('Current chapter not found in course content');
+            }
+            
+            // Lưu enrollCourseId vào bộ nhớ cục bộ để sử dụng sau này
+            try {
+              const registeredCourses = await AsyncStorage.getItem('registeredCourses');
+              let coursesObj = registeredCourses ? JSON.parse(registeredCourses) : {};
+              if (coursesObj[courseId]) {
+                coursesObj[courseId].enrollCourseId = enrollCourseId;
+                await AsyncStorage.setItem('registeredCourses', JSON.stringify(coursesObj));
+                console.log('Đã lưu enrollCourseId vào localStorage');
+              }
+            } catch (error) {
+              console.error('Lỗi khi lưu enrollCourseId vào localStorage:', error);
+            }
+            
+            console.log('Đã chuyển đổi dữ liệu từ enrollChapters thành chapters:', formattedChapters);
+            return;
+          }
+        }
+      }
+      
+      // Nếu không có enrollCourseId hoặc không thể lấy dữ liệu từ API mới,
+      // thử gọi API cũ để lấy danh sách chapter cơ bản và hiển thị UI
+      console.log('Không tìm thấy enrollCourseId hoặc lỗi API, sử dụng API cũ như fallback');
       const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/Chapter/get-all-chapters-by-courseId`,
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllChaptersByCourseId}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -468,208 +670,131 @@ export default function CourseVideoScreen() {
         }
       );
       
-      console.log('All chapters response:', response.data);
+      console.log('Chapters response từ API cũ:', response.data);
       
       if (response.data?.isSuccess && response.data.data) {
         const chapters = response.data.data;
-        setCourseContent(chapters);
         
-        // Find current chapter index
-        const index = chapters.findIndex(ch => ch.chapterId === currentChapterId);
-        if (index !== -1) {
-          setCurrentChapterIndex(index);
+        if (Array.isArray(chapters) && chapters.length > 0) {
+          // Chuyển đổi dữ liệu để tương thích với định dạng hiển thị
+          const formattedChapters = chapters.map(chapter => ({
+            chapterId: chapter.chapterId,
+            title: chapter.title || chapter.chapterName,
+            status: EnrollChapterStatus.InProgress, // Mặc định là InProgress
+            duration: chapter.duration || "10:00"
+          }));
+          
+          setCourseContent(formattedChapters);
+          
+          // Find current chapter index
+          const index = formattedChapters.findIndex(ch => ch.chapterId === currentChapterId);
+          if (index !== -1) {
+            setCurrentChapterIndex(index);
+          } else {
+            console.warn('Current chapter not found in course content');
+          }
+          
+          console.log('Đã chuyển đổi dữ liệu từ chapters thành formattedChapters:', formattedChapters);
+        } else {
+          console.warn('No chapters found for this course');
+          setCourseContent([]);
         }
+      } else {
+        console.warn('Failed to fetch course chapters:', response.data?.message);
       }
     } catch (error) {
       console.error('Error fetching course chapters:', error);
+      // Không đặt state lỗi vì đây không phải lỗi nghiêm trọng
     }
   };
   
-  // Update progress when video is completed
-  const updateProgress = async () => {
-    if (!chapterId) {
-      console.log('No chapterId available, cannot update progress');
-      return;
-    }
-    
-    try {
-      console.log('Updating progress for chapter:', chapterId);
-      
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        console.log('No token found, cannot update progress');
-        return;
-      }
-      
-      // Call API to update progress
-      try {
-      const response = await axios.put(
-          `${API_CONFIG.baseURL}/api/RegisterCourse/${chapterId}`,
-        {},
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+  // Xử lý khi video phát hoàn tất
+  const onPlaybackStatusUpdate = (status) => {
+    if (!status || !status.durationMillis) return;
 
-        console.log('Progress update API Response:', response.data);
-
-      if (response.data?.isSuccess) {
-          console.log('Progress updated successfully');
-      } else {
-          console.warn('Backend returned error but we will save locally:', response.data?.message);
-        }
-      } catch (apiError) {
-        console.warn('API error but continuing with local save:', apiError.message);
-      }
-      
-      // Save progress locally
-      console.log('Saving progress locally for chapter:', chapterId);
-      const updatedLessons = { 
-        ...completedLessons, 
-        [chapterId]: true 
-      };
-      setCompletedLessons(updatedLessons);
-      
-      await AsyncStorage.setItem('completedLessons', JSON.stringify(updatedLessons));
-      
-      // Check if this was the last chapter and if all chapters are complete
-      if (courseContent.length > 0) {
-        const isLastChapter = currentChapterIndex === courseContent.length - 1;
-        
-        if (isLastChapter) {
-          const allChaptersCompleted = checkAllChaptersCompleted(updatedLessons);
-          if (allChaptersCompleted) {
-            setTimeout(() => {
-              Alert.alert(
-                "Khóa học hoàn thành!",
-                "Bạn đã hoàn thành tất cả các bài học. Bạn có muốn làm bài kiểm tra cuối khóa không?",
-                [
-                  { text: "Để sau", style: "cancel" },
-                  { text: "Làm ngay", onPress: () => navigateToQuiz() }
-                ]
-              );
-            }, 1000);
-          }
-        } else {
-          // Offer to navigate to next chapter
-          const nextChapter = courseContent[currentChapterIndex + 1];
-          if (nextChapter) {
-            setTimeout(() => {
-              Alert.alert(
-                "Chương học hoàn thành!",
-                "Bạn có muốn tiếp tục với chương tiếp theo không?",
-                [
-                  { text: "Để sau", style: "cancel" },
-                  { text: "Tiếp tục", onPress: () => navigateToChapter(nextChapter) }
-                ]
-              );
-            }, 1000);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error in updateProgress:', error);
-      
-      // Still try to update local storage
-      try {
-        const updatedLessons = { 
-          ...completedLessons, 
-          [chapterId]: true 
-        };
-        setCompletedLessons(updatedLessons);
-        await AsyncStorage.setItem('completedLessons', JSON.stringify(updatedLessons));
-      } catch (storageError) {
-        console.error('Failed to save local progress:', storageError);
-      }
-    }
-  };
-  
-  // Check if all chapters are completed
-  const checkAllChaptersCompleted = (currentCompletedLessons) => {
-    if (!courseContent || courseContent.length === 0) return false;
-    
-    return courseContent.every(chapter => 
-      currentCompletedLessons[chapter.chapterId] === true
-    );
-  };
-  
-  // Navigate to next chapter
-  const navigateToChapter = (chapter) => {
-    if (!chapter || !chapter.chapterId) {
-      console.error('Invalid chapter object', chapter);
-      return;
-    }
-    
-    setShouldAutoPlay(true);
-    
-    router.push({
-      pathname: '/(tabs)/course_video',
-      params: {
-        chapterId: chapter.chapterId,
-        courseId: courseId || chapter.courseId,
-        autoPlay: 'true'
-      }
-    });
-  };
-  
-  // Navigate to quiz
-  const navigateToQuiz = () => {
-    router.push({
-      pathname: '/(tabs)/course_quiz_start',
-      params: {
-        courseId: courseId || chapterData?.courseId,
-        source: 'video_completion'
-      }
-    });
-  };
-  
-  // Handle playback status updates
-  const handlePlaybackStatusUpdate = (playbackStatus) => {
-    // Only update if there's a significant change to avoid re-render loops
-    if (
-      playbackStatus.isLoaded && 
-      (
-        // Only update on these specific conditions
-        !status.isLoaded || 
-        playbackStatus.didJustFinish ||
-        Math.abs(playbackStatus.positionMillis - (status.positionMillis || 0)) > 5000 ||
-        (playbackStatus.isPlaying !== status.isPlaying && isVideoPlaying.current !== playbackStatus.isPlaying)
-      )
-    ) {
-      // Update our ref to track if video is playing
-      isVideoPlaying.current = playbackStatus.isPlaying;
-      
-      // Only update state for significant changes
-      setStatus(prevStatus => ({
-        ...prevStatus,
-        isLoaded: playbackStatus.isLoaded,
-        didJustFinish: playbackStatus.didJustFinish,
-        isPlaying: playbackStatus.isPlaying,
-        positionMillis: playbackStatus.positionMillis,
-      }));
-    }
-    
-    // Track video completion separately from state updates
-    if (
-      playbackStatus.isLoaded &&
-      playbackStatus.didJustFinish &&
-      !playbackStatus.isLooping
-    ) {
-      console.log('Video playback completed');
+    // Chỉ hiện alert khi:
+    // 1. Video đã chạy hết (positionMillis = durationMillis)
+    // 2. Chapter đang ở trạng thái InProgress
+    // 3. Chapter chưa hoàn thành (chapterStatus !== "Done")
+    if (status.positionMillis === status.durationMillis && 
+        chapterStatus === "InProgress") {
       updateProgress();
     }
   };
 
-  const handleBack = async () => {
-    if (isCompleted) {
-      await updateProgress();
-    }
+  // Handle video progress update
+  const updateProgress = async () => {
+    if (chapterStatus === "Done") return;
+
+    Alert.alert(
+      "Hoàn thành bài học",
+      "Bạn đã hoàn thành bài học này. Xác nhận để lưu tiến độ?",
+      [
+        {
+          text: "Xác nhận",
+          onPress: async () => {
+            try {
+              const token = await AsyncStorage.getItem('accessToken');
+              if (!token) return;
+
+              const customerData = await AsyncStorage.getItem('customerInfo');
+              if (!customerData) return;
+
+              const customerInfo = JSON.parse(customerData);
+              const customerId = customerInfo.customerId;
+
+              if (!customerId) return;
+
+              const response = await axios.put(
+                `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', chapterId)}`,
+                {
+                  customerId: customerId,
+                  chapterId: chapterId
+                },
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+
+              if (response.data?.isSuccess) {
+                setChapterStatus("Done");
+                Alert.alert("Thành công", "Đã cập nhật tiến độ học tập", [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      // Chuyển về màn hình course_chapter sau khi nhấn OK
+                      router.push({
+                        pathname: '/(tabs)/course_chapter',
+                        params: { 
+                          courseId,
+                          shouldRefresh: Date.now() // Thêm tham số này để trigger refresh màn hình chapter
+                        }
+                      });
+                    }
+                  }
+                ]);
+              }
+            } catch (error) {
+              console.error('Lỗi khi cập nhật tiến độ:', error);
+              Alert.alert("Lỗi", "Không thể cập nhật tiến độ. Vui lòng thử lại sau.");
+            }
+          }
+        },
+        {
+          text: "Hủy",
+          style: "cancel"
+        }
+      ]
+    );
+  };
+
+  const handleBack = () => {
     router.push({
       pathname: '/(tabs)/course_chapter',
-      params: { courseId: courseId || chapterData?.courseId }
+      params: { courseId }
     });
   };
 
@@ -711,218 +836,163 @@ export default function CourseVideoScreen() {
   }, [chapterData]);
 
   // Function to render the video player or error message
-  const renderVideoPlayer = () => {
-    // If no chapter data, show loading
-    if (!chapterData) {
-      return (
-        <View style={{width: '100%', height: '100%', backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
-          <ActivityIndicator size="large" color="#fff" />
-      </View>
-      );
+  const renderVideoComponent = (videoUrl) => {
+    // Kiểm tra và xử lý URL video
+    let processedUrl = videoUrl;
+    if (Platform.OS === 'ios') {
+      processedUrl = optimizeCloudinaryUrlForIOS(videoUrl);
     }
+    processedUrl = addCacheBuster(processedUrl);
 
-    // Check if we already have a processed URL in the ref
-    if (processedVideoUrlRef.current && 
-        processedVideoUrlRef.current.originalUrl === chapterData.video &&
-        currentRenderCycleUrl.current === processedVideoUrlRef.current.processedUrl) {
-      // We've already processed this URL in this render cycle, use the cached URL
-      return renderVideoComponent(processedVideoUrlRef.current.processedUrl);
-    }
-    
-    // Reset logged state when processing a new URL
-    hasLoggedVideoUrl.current = false;
-
-    // Get the video URL with better validation
-    let videoUrl = chapterData?.videoWithCacheBuster || chapterData?.video;
-    const originalUrl = videoUrl;
-    
-    // Check if URL is valid
-    if (!isValidVideoUrl(videoUrl)) {
-      console.error('Invalid video URL:', videoUrl);
-      // Use specific formats that work well on iOS
-      videoUrl = Platform.OS === 'ios'
-        ? 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4'
-        : 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-    }
-    
-    // For iOS, make sure we use an HTTPS URL
-    if (Platform.OS === 'ios' && videoUrl.startsWith('http:')) {
-      videoUrl = videoUrl.replace('http:', 'https:');
-    }
-    
-    // Add cache buster if not already added
-    if (!videoUrl.includes('cb=')) {
-      videoUrl = addCacheBuster(videoUrl);
-    }
-    
-    // Log the URL only once when it's first processed in this render cycle
-    if (currentRenderCycleUrl.current !== videoUrl) {
-      console.log(`[${Platform.OS}] Using video URL:`, videoUrl);
-      currentRenderCycleUrl.current = videoUrl;
-      
-      // Show iOS note only once per component mount
-      if (Platform.OS === 'ios' && !hasShownIOSNote.current) {
-        console.log('Note: iOS requires HTTPS for media playback by default. Verify HTTPS is working or add NSAllowsArbitraryLoads in Info.plist');
-        hasShownIOSNote.current = true;
-      }
-    }
-    
-    currentVideoUrl.current = videoUrl;
-    
-    // Cache the processed URL to prevent unnecessary recalculations
-    processedVideoUrlRef.current = {
-      originalUrl: originalUrl,
-      processedUrl: videoUrl
-    };
-
-    return renderVideoComponent(videoUrl);
-  };
-
-  // Update the MemoizedVideo component to properly forward the ref and handle loading
-  const MemoizedVideo = React.memo(React.forwardRef((props, ref) => {
-    const { videoUrl, onLoad, onError, onPlaybackStatusUpdate, onLoadStart, shouldAutoPlay } = props;
-    
     return (
+      <View style={styles.mainContainer}>
+        <View style={styles.videoWrapper}>
           <Video
-        ref={ref}
-        style={[styles.video, {position: 'absolute', top: 0, left: 0, bottom: 0, right: 0}]}
+            ref={videoRef}
+            style={styles.video}
             source={{
-          uri: videoUrl,
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          },
-          cache: false,
-          overrideFileExtensionAndroid: 'mp4'
+              uri: processedUrl,
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              }
             }}
             useNativeControls
             resizeMode={ResizeMode.CONTAIN}
-        shouldPlay={shouldAutoPlay}
+            shouldPlay={true}
             isLooping={false}
-        volume={1.0}
-        isMuted={false}
-        rate={1.0}
-        playsInSilentLockedModeIOS={true}
-        ignoreSilentSwitch="ignore"
-        onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-        onLoadStart={onLoadStart}
-        onLoad={onLoad}
-        onError={onError}
-      />
-    );
-  }));
-
-  // Update the renderVideoComponent function to properly use refs
-  const renderVideoComponent = (videoUrl) => {
-    return (
-      <View style={{width: '100%', height: '100%', backgroundColor: '#000'}}>
-        <MemoizedVideo 
-          ref={videoRef}
-          videoUrl={videoUrl}
-          shouldAutoPlay={shouldAutoPlay}
-          onPlaybackStatusUpdate={(status) => {
-            // Only update status if playback status changes significantly
-            if (
-              status.isLoaded && 
-              (!videoLoaded || status.didJustFinish)
-            ) {
-              setStatus(status);
-              
-              // Track video completion
-              if (status.didJustFinish && !status.isLooping) {
-                updateProgress();
-              }
-            }
-          }}
-            onLoadStart={() => {
-            if (!loading) setLoading(true);
-            }}
-            onLoad={(status) => {
-              setLoading(false);
-            
-            // Only handle load logic once
-            if (!videoLoaded) {
-              console.log(`[${Platform.OS}] Video loaded successfully`);
-              setVideoLoaded(true);
-              
-              // Give the video component time to initialize fully
-              setTimeout(() => {
-                if (videoRef.current) {
-                  videoRef.current.playAsync().catch(err => 
-                    console.log('Error playing video:', err)
-                  );
+            volume={1.0}
+            playsInSilentModeIOS={true}
+            ignoreSilentSwitch="ignore"
+            onPlaybackStatusUpdate={(status) => {
+              if (status.isLoaded) {
+                setLoading(false);
+                if (status.didJustFinish) {
+                  updateProgress();
                 }
-              }, 500);
-            }
+              }
+            }}
+            onLoad={() => {
+              setLoading(false);
+              setVideoLoaded(true);
             }}
             onError={(error) => {
-            console.error(`[${Platform.OS}] Video error:`, error);
+              console.error('Video error:', error);
               setLoading(false);
-            setVideoError(true);
-            setVideoErrorMessage('Không thể tải video. Vui lòng thử lại sau.');
-          }}
-        />
-        {loading && (
-          <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#fff" />
-            <Text style={{color: '#fff', marginTop: 10}}>Đang tải video...</Text>
-          </View>
-        )}
+              setVideoError(true);
+            }}
+          />
+
+          {loading && (
+            <View style={styles.overlay}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.loadingText}>Đang tải video...</Text>
+            </View>
+          )}
+
+          {videoError && (
+            <View style={styles.overlay}>
+              <Text style={styles.errorText}>Không thể tải video. Vui lòng thử lại sau.</Text>
+              <TouchableOpacity 
+                style={styles.retryButton}
+                onPress={retryVideo}
+              >
+                <Text style={styles.retryText}>Thử lại</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
     );
   };
 
   // Function to render content list items
   const renderChapterItem = ({ item, index }) => {
-    const isCurrentChapter = item.chapterId === params.chapterId;
-    const isCompleted = completedLessons[item.chapterId];
+    const isCurrentChapter = item.chapterId === chapterId;
+    
+    // Kiểm tra xem chương đã hoàn thành chưa từ state completedLessons
+    // Đảm bảo rằng việc hiển thị dấu tích xanh luôn phản ánh đúng trạng thái
+    const isChapterCompleted = completedLessons[item.chapterId] === true;
     
     return (
-              <TouchableOpacity 
+      <TouchableOpacity 
         style={[
-          styles.contentItem,
-          isCurrentChapter && styles.currentContentItem
+          styles.chapterButton,
+          isCurrentChapter && styles.currentChapterButton,
+          isChapterCompleted && styles.completedChapterButton
         ]}
         onPress={() => navigateToChapter(item)}
       >
-        <View style={styles.contentItemInfo}>
-          <Text style={styles.contentItemTitle}>
-            {index + 1}. {item.title}
-                  </Text>
-          <Text style={styles.contentItemMeta}>
-            {item.duration || '10:00'}
-                  </Text>
-                </View>
-        <View style={styles.contentItemStatus}>
-          {isCurrentChapter ? (
-            <View style={styles.currentCircle}>
-              <Ionicons name="play" size={16} color="#fff" />
-                </View>
-          ) : isCompleted ? (
-            <View style={styles.completedCircle}>
-              <Ionicons name="checkmark" size={18} color="#fff" />
-                </View>
-          ) : (
-            <View style={styles.incompleteCircle}>
-              <Ionicons name="lock-closed" size={14} color="#999" />
-                </View>
-          )}
-            </View>
+        <View style={styles.chapterButtonContent}>
+          <View style={styles.chapterInfo}>
+            <Text style={[
+              styles.chapterNumber, 
+              isCurrentChapter && styles.currentChapterText
+            ]}>
+              Chapter {index + 1}
+            </Text>
+            <Text style={[
+              styles.chapterTitle, 
+              isCurrentChapter && styles.currentChapterText
+            ]} numberOfLines={2}>
+              {item.title}
+            </Text>
+          </View>
+          <View style={styles.chapterStatus}>
+            {isCurrentChapter ? (
+              <View style={styles.currentIndicator}>
+                <Ionicons name="play" size={16} color="#fff" />
+              </View>
+            ) : isChapterCompleted ? (
+              <View style={styles.completedIndicator}>
+                <Ionicons name="checkmark" size={18} color="#fff" />
+              </View>
+            ) : (
+              <View style={styles.incompleteIndicator}>
+                <Ionicons name="lock-open" size={14} color="#999" />
+              </View>
+            )}
+          </View>
+        </View>
+        <Text style={styles.chapterDuration}>
+          {item.duration || '10:00'}
+        </Text>
       </TouchableOpacity>
     );
   };
 
-  // Function to retry loading the video
+  // Xử lý lỗi và thử lại video
   const retryVideo = () => {
+    console.log('Đang thử lại video...');
+    
+    // Reset các state liên quan đến video
     setVideoError(false);
-    setVideoErrorMessage('');
-    setRetryCount(prevCount => prevCount + 1);
-    // Reset URL cache to force a new fetch
-    processedVideoUrlRef.current = null;
-    // Force a re-render
-    setLoading(true);
-    // Re-fetch chapter data
-    fetchChapterData();
+    setVideoLoaded(false);
+    setHasShownAlert(false);
+    
+    // Tạo một URL mới với cache buster
+    if (chapterData && chapterData.video) {
+      const newUrlWithCacheBuster = addCacheBuster(chapterData.video);
+      
+      // Cập nhật dữ liệu chapter với URL mới
+      setChapterData(prevData => ({
+        ...prevData,
+        videoWithCacheBuster: newUrlWithCacheBuster
+      }));
+      
+      console.log('Đã tạo URL video mới với cache buster:', newUrlWithCacheBuster);
+    }
+    
+    // Tăng số lần retry
+    setRetryCount(prev => prev + 1);
+    
+    // Mô phỏng việc tải lại dữ liệu chapter nếu đã retry nhiều lần
+    if (retryCount >= 2) {
+      if (chapterId && courseId) {
+        console.log('Đã thử lại nhiều lần, tải lại dữ liệu chapter từ server...');
+        fetchCourseChapters(courseId, null, chapterId);
+      }
+    }
   };
 
   // Hook to handle screen navigation
@@ -941,6 +1011,359 @@ export default function CourseVideoScreen() {
     }, [])
   );
 
+  // Reload data when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Video screen gained focus - refreshing completion status');
+      
+      // Reload completion status
+      if (chapterId) {
+        loadCompletedLessons();
+      }
+      
+      return () => {
+        // Cleanup when screen loses focus
+        console.log('Video screen lost focus');
+      };
+    }, [chapterId, loadCompletedLessons])
+  );
+
+  // Function to update progress to the server
+  const updateProgressToServer = async () => {
+    try {
+      // Kiểm tra xem video đã xem đủ chưa
+      if (!status?.positionMillis || !status?.durationMillis || 
+          (status.positionMillis / status.durationMillis) < 0.9) {
+        console.log('Video chưa xem đủ 90%, không cập nhật tiến trình');
+        return;
+      }
+
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        console.log('Không có token, không thể cập nhật tiến trình');
+        return;
+      }
+
+      console.log('Cập nhật tiến trình cho chapter:', chapterId);
+      
+      const response = await axios.put(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', chapterId)}`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data?.isSuccess) {
+        console.log('Cập nhật tiến trình thành công:', response.data);
+        
+        // Cập nhật trạng thái hoàn thành trong local storage
+        const completedLessons = await AsyncStorage.getItem('completedLessons');
+        let lessonsObj = completedLessons ? JSON.parse(completedLessons) : {};
+        lessonsObj[chapterId] = true;
+        await AsyncStorage.setItem('completedLessons', JSON.stringify(lessonsObj));
+        
+        // Cập nhật state
+        setIsCompleted(true);
+      }
+    } catch (error) {
+      console.error('Lỗi khi cập nhật tiến trình:', error);
+    }
+  };
+
+  // Reset alert status when chapter changes
+  useEffect(() => {
+    setHasShownAlert(false);
+    if (chapterId) {
+      // Kiểm tra nếu chapter đã hoàn thành trước đó thì cập nhật trạng thái isCompleted
+      const checkIsCompleted = async () => {
+        try {
+          const token = await AsyncStorage.getItem('accessToken');
+          // Nếu muốn kiểm tra chính xác hơn, có thể gửi truy vấn kiểm tra trạng thái chapter
+          // nhưng vì không có API riêng, ta sẽ dùng dữ liệu cục bộ
+          
+          const savedLessons = await AsyncStorage.getItem('completedLessons');
+          if (savedLessons) {
+            const parsedLessons = JSON.parse(savedLessons);
+            // Nếu chapter đã hoàn thành trong local storage, cập nhật trạng thái
+            if (parsedLessons[chapterId] === true) {
+              console.log('Chapter đã hoàn thành trước đó trong local storage:', chapterId);
+              setIsCompleted(true);
+              
+              // Cập nhật lại toàn bộ danh sách bài học đã hoàn thành từ local
+              setCompletedLessons(parsedLessons);
+            }
+          }
+        } catch (error) {
+          console.error('Lỗi khi kiểm tra trạng thái hoàn thành:', error);
+        }
+      };
+      checkIsCompleted();
+    }
+  }, [chapterId]);
+
+  // Load và lưu dữ liệu bài học đã hoàn thành
+  const loadCompletedLessons = useCallback(async () => {
+    try {
+      if (!chapterId) return false;
+      
+      // Kiểm tra xem đã hoàn thành chưa để tránh load nhiều lần
+      if (isCompleted) {
+        console.log('Chapter này đã được đánh dấu là hoàn thành, bỏ qua việc load lại');
+        return false;
+      }
+      
+      const savedLessons = await AsyncStorage.getItem('completedLessons');
+      if (!savedLessons) {
+        console.log('Không có dữ liệu completedLessons trong AsyncStorage');
+        return false;
+      }
+      
+      // Tránh log liên tục dữ liệu quá lớn
+      console.log('Đang tải dữ liệu completedLessons từ AsyncStorage...');
+      
+      const parsedLessons = JSON.parse(savedLessons);
+      console.log('Chapter hiện tại:', chapterId, 'Trạng thái hoàn thành:', parsedLessons[chapterId]);
+      setCompletedLessons(parsedLessons);
+      
+      // Kiểm tra nếu chapter hiện tại đã hoàn thành
+      if (parsedLessons[chapterId]) {
+        setIsCompleted(true);
+        console.log('Chapter này đã được đánh dấu là hoàn thành');
+      } else {
+        setIsCompleted(false);
+        console.log('Chapter này chưa được đánh dấu là hoàn thành');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Lỗi khi tải dữ liệu bài học đã hoàn thành:', error);
+      return false;
+    }
+  }, [chapterId, isCompleted]);
+  
+  // Thêm hàm đánh dấu hoàn thành riêng cho chapter
+  const markChapterAsCompleted = useCallback(async () => {
+    try {
+      if (!chapterId) return false;
+      
+      console.log('Đánh dấu Chapter ' + chapterId + ' là đã hoàn thành');
+      
+      // Đọc dữ liệu hiện tại
+      let savedLessons = await AsyncStorage.getItem('completedLessons');
+      const completedData = savedLessons ? JSON.parse(savedLessons) : {};
+      
+      // Đánh dấu chapter hiện tại là đã hoàn thành
+      completedData[chapterId] = true;
+      
+      // Lưu lại vào AsyncStorage
+      await AsyncStorage.setItem('completedLessons', JSON.stringify(completedData));
+      
+      // Cập nhật state
+      setCompletedLessons(completedData);
+      setIsCompleted(true);
+      
+      console.log('Đã đánh dấu Chapter ' + chapterId + ' là đã hoàn thành và lưu vào AsyncStorage');
+      return true;
+    } catch (error) {
+      console.error('Lỗi khi đánh dấu chapter là đã hoàn thành:', error);
+      return false;
+    }
+  }, [chapterId]);
+
+  // Load data on component mount
+  useEffect(() => {
+    // Đảm bảo chỉ chạy khi có các giá trị cần thiết
+    if (!router || !chapterId) return;
+    
+    let isMounted = true;
+    const loadData = async () => {
+      console.log('Video screen mounted - Loading data for chapterId:', chapterId);
+      
+      if (isMounted) {
+        // Reset các state
+        setIsCompleted(false);
+        setHasShownAlert(false);
+        setShowBackConfirmation(false);
+        
+        // Load video và course data
+        await loadChapterDetails();
+        
+        // Fetch course content if courseId is available
+        if (courseId) {
+          await fetchCourseChapters(courseId, null, chapterId);
+        }
+        
+        // Load trạng thái hoàn thành (chỉ load 1 lần)
+        await loadCompletedLessons();
+      }
+    };
+    
+    loadData();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (videoRef.current) {
+        console.log('Video component unmounting - cleaning up');
+        try {
+          videoRef.current.unloadAsync();
+        } catch (error) {
+          console.error('Error unloading video:', error);
+        }
+      }
+    };
+  // Loại bỏ loadCompletedLessons khỏi dependency array để tránh render lặp
+  }, [chapterId, courseId, router]);
+
+  // Thêm hàm xóa thủ công tiến độ khóa học
+  const resetCourseProgress = useCallback(async () => {
+    try {
+      if (!courseId) {
+        Alert.alert("Lỗi", "Không thể xác định ID khóa học");
+        return;
+      }
+      
+      Alert.alert(
+        "Xóa tiến độ khóa học",
+        "Bạn có chắc chắn muốn xóa tiến độ khóa học này không? Hành động này không thể hoàn tác.",
+        [
+          {
+            text: "Hủy",
+            style: "cancel"
+          },
+          {
+            text: "Xóa tiến độ",
+            style: "destructive",
+            onPress: async () => {
+              setLoading(true);
+              try {
+                // Xóa dữ liệu hoàn thành của các chapter trong khóa học này
+                const completedLessons = await AsyncStorage.getItem('completedLessons');
+                if (completedLessons) {
+                  let lessonsData = JSON.parse(completedLessons);
+                  
+                  // Xóa chapter hiện tại
+                  if (chapterId) {
+                    delete lessonsData[chapterId];
+                  }
+                  
+                  // Xóa tất cả các chapter thuộc khóa học này
+                  if (courseContent && courseContent.length > 0) {
+                    courseContent.forEach(chapter => {
+                      if (chapter.chapterId) {
+                        delete lessonsData[chapter.chapterId];
+                      }
+                    });
+                  }
+                  
+                  await AsyncStorage.setItem('completedLessons', JSON.stringify(lessonsData));
+                  setCompletedLessons(lessonsData);
+                  setIsCompleted(false);
+                }
+                
+                // Xóa tiến độ của khóa học
+                const progress = await AsyncStorage.getItem('courseProgress');
+                if (progress) {
+                  let progressData = JSON.parse(progress);
+                  delete progressData[courseId];
+                  await AsyncStorage.setItem('courseProgress', JSON.stringify(progressData));
+                  setCurrentProgress(0);
+                }
+                
+                // Xóa trạng thái hoàn thành của khóa học
+                const completedCourses = await AsyncStorage.getItem('completedCourses');
+                if (completedCourses) {
+                  let coursesData = JSON.parse(completedCourses);
+                  delete coursesData[courseId];
+                  await AsyncStorage.setItem('completedCourses', JSON.stringify(coursesData));
+                }
+                
+                // Hiển thị thông báo thành công
+                Alert.alert(
+                  "Đã xóa tiến độ",
+                  "Tiến độ khóa học đã được xóa thành công. Bạn có thể bắt đầu lại từ đầu.",
+                  [{ text: "OK" }]
+                );
+                
+                // Tải lại dữ liệu trang
+                loadChapterDetails();
+                if (courseId) {
+                  fetchCourseChapters(courseId, null, chapterId);
+                }
+              } catch (error) {
+                console.error('Lỗi khi xóa tiến độ khóa học:', error);
+                Alert.alert(
+                  "Lỗi",
+                  "Không thể xóa tiến độ khóa học. Vui lòng thử lại sau.",
+                  [{ text: "OK" }]
+                );
+              } finally {
+                setLoading(false);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Lỗi khi xóa tiến độ khóa học:', error);
+    }
+  }, [courseId, chapterId, courseContent, setCompletedLessons, setIsCompleted, setCurrentProgress]);
+
+  // Thêm useEffect để lấy status của chapter khi màn hình được load
+  useEffect(() => {
+    const fetchChapterStatus = async () => {
+      if (!enrollCourseId || !chapterId) return;
+      
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) return;
+
+        // Lấy thông tin user hiện tại
+        const userData = await AsyncStorage.getItem('userData');
+        const currentUser = userData ? JSON.parse(userData) : null;
+        if (!currentUser) return;
+
+        const response = await axios.get(
+          `${API_CONFIG.baseURL}/api/RegisterCourse/get-enroll-chapters-by/${enrollCourseId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.data?.isSuccess && response.data.data) {
+          const chapters = response.data.data;
+          const currentChapter = chapters.find(c => c.chapterId === chapterId);
+          if (currentChapter) {
+            // Chỉ set status Done nếu chapter thuộc về user hiện tại
+            const isDone = currentChapter.customerId === currentUser.id && currentChapter.status === "Done";
+            setChapterStatus(isDone ? "Done" : "InProgress");
+            setIsCompleted(isDone);
+          }
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy trạng thái chapter:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChapterStatus();
+  }, [enrollCourseId, chapterId]);
+
+  // Load chapter data when chapterId changes
+  useEffect(() => {
+    if (chapterId) {
+      fetchChapterData();
+    }
+  }, [chapterId]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -951,100 +1374,52 @@ export default function CourseVideoScreen() {
           <Ionicons name="chevron-back" size={24} color="#333" />
           <Text style={styles.headerTitle}>
             {chapterData?.title || 'Đang tải...'}
-                  </Text>
-              </TouchableOpacity>
-            </View>
-            
-      {/* Video Player */}
-      <View style={styles.videoContainer}>
-        {chapterData?.video && (
-          <VideoPlayer 
-            videoUrl={optimizeCloudinaryUrlForIOS(chapterData.video) + '?cb=' + Date.now()} 
-            onComplete={updateProgress}
-            autoResetOnFocus={true}
-          />
-        )}
-              </View>
-              
-      {/* Tabs */}
-      <View style={styles.tabContainer}>
-              <TouchableOpacity 
-          style={[styles.tab, activeTab === 'content' && styles.activeTab]}
-          onPress={() => setActiveTab('content')}
-        >
-          <Text style={[styles.tabText, activeTab === 'content' && styles.activeTabText]}>
-            Course content
-                  </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-          style={[styles.tab, activeTab === 'discussion' && styles.activeTab]}
-          onPress={() => setActiveTab('discussion')}
-        >
-          <Text style={[styles.tabText, activeTab === 'discussion' && styles.activeTabText]}>
-            Discussion
-                  </Text>
-              </TouchableOpacity>
-            </View>
-            
-      {/* Content */}
-      {activeTab === 'content' ? (
-        <View style={styles.contentContainer}>
-          {courseContent.length > 0 ? (
-            <FlatList
-              data={courseContent}
-              renderItem={renderChapterItem}
-              keyExtractor={item => item.chapterId}
-              ListHeaderComponent={() => (
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>
-                    Phong Thủy Cổ Học
-                  </Text>
-                  <Text style={styles.sectionMeta}>
-                    {courseContent.length} Videos • {courseContent.reduce((total, chapter) => {
-                      const durationMatch = chapter.duration?.match(/(\d+):(\d+)/);
-                      return total + (durationMatch ? parseInt(durationMatch[1]) : 10);
-                    }, 0)} min
-                  </Text>
-                </View>
-              )}
-              ListFooterComponent={() => (
-              <TouchableOpacity 
-                  style={styles.quizItem}
-                  onPress={navigateToQuiz}
-                >
-                  <View style={styles.contentItemInfo}>
-                    <Text style={styles.contentItemTitle}>
-                      Final Quiz
-                  </Text>
-                    <Text style={styles.contentItemMeta}>
-                      20 questions • 30 min
-                  </Text>
-                </View>
-                  <View style={styles.contentItemStatus}>
-                  {completedQuizzes['final-exam'] ? (
-                      <View style={styles.completedCircle}>
-                        <Ionicons name="checkmark" size={18} color="#fff" />
-                </View>
-                  ) : (
-                      <View style={styles.incompleteCircle}>
-                        <Ionicons name="help" size={16} color="#999" />
-                </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-              )}
-            />
+          </Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Video Container */}
+      <View style={styles.mainContainer}>
+        <View style={styles.videoWrapper}>
+          {chapterData?.video ? (
+            renderVideoComponent(chapterData.video)
           ) : (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#007bff" />
+            <View style={styles.overlay}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.loadingText}>Đang tải video...</Text>
             </View>
-                  )}
-          </View>
-      ) : (
-        <View style={styles.discussionContainer}>
-          <Text style={styles.discussionText}>Discussion feature coming soon</Text>
-          </View>
-      )}
+          )}
+        </View>
+
+        {/* Chapter Information */}
+        {chapterData && (
+          <ScrollView style={styles.infoContainer}>
+            <View style={styles.chapterInfoContainer}>
+              <Text style={styles.chapterTitle}>
+                {chapterData.title || 'Không có tiêu đề'}
+              </Text>
+              
+              <View style={styles.chapterMetaInfo}>
+                <View style={styles.metaItem}>
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.metaText}>
+                    {chapterData.duration || '00:45:00'}
+                  </Text>
+                </View>
+              </View>
+
+              {chapterData.description && (
+                <View style={styles.descriptionContainer}>
+                  <Text style={styles.descriptionTitle}>Mô tả:</Text>
+                  <Text style={styles.descriptionText}>
+                    {chapterData.description}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -1052,198 +1427,234 @@ export default function CourseVideoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
+  },
+  videoContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+    overflow: 'hidden'
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#eee',
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 16,
-    marginLeft: 5,
-    fontWeight: '500',
-    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
   },
-  videoContainer: {
-    width: '100%',
-    aspectRatio: 16 / 9,
+  chapterInfoContainer: {
+    backgroundColor: '#fff',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  chapterTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  chapterMetaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaText: {
+    marginLeft: 8,
+    fontSize: 15,
+    color: '#666',
+  },
+  descriptionContainer: {
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  descriptionTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  descriptionText: {
+    fontSize: 15,
+    color: '#666',
+    lineHeight: 22,
+  },
+  errorContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  loaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  playerContainer: {
+    flex: 1,
     backgroundColor: '#000',
     position: 'relative',
-    overflow: 'hidden',
-    zIndex: 1,
   },
   video: {
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: '#000',
   },
-  loaderContainer: {
+  overlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  activeTab: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 2,
-    borderBottomColor: '#8B0000',
-  },
-  tabText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  activeTabText: {
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  discussionContainer: {
-    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  discussionText: {
+  loadingText: {
+    color: '#fff',
     fontSize: 16,
-    color: '#666',
+    marginTop: 10,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 16,
     textAlign: 'center',
+    marginBottom: 20,
   },
-  sectionHeader: {
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  videoInfo: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
-  sectionTitle: {
+  videoTitle: {
     fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  courseTitle: {
+    fontSize: 16,
+    color: '#fff',
+  },
+  chapterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  chapterButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chapterInfo: {
+    flexDirection: 'column',
+    flex: 1,
+  },
+  chapterNumber: {
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
   },
-  sectionMeta: {
-    fontSize: 14,
+  chapterTitle: {
+    fontSize: 16,
     color: '#666',
-    marginTop: 4,
   },
-  contentItem: {
+  chapterStatus: {
     flexDirection: 'row',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
     alignItems: 'center',
   },
-  currentContentItem: {
-    backgroundColor: '#f5f8ff',
+  currentIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  contentItemInfo: {
-    flex: 1,
-  },
-  contentItemTitle: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 4,
-  },
-  contentItemMeta: {
-    fontSize: 12,
-    color: '#666',
-  },
-  contentItemStatus: {
-    width: 24,
-    height: 24,
-    marginLeft: 12,
-  },
-  completedCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  completedIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  currentCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#8B0000',
+  incompleteIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#999',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  incompleteCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  quizItem: {
-    flexDirection: 'row',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    alignItems: 'center',
-    backgroundColor: '#fff8f8',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  videoErrorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f8f8',
-    padding: 20,
-  },
-  videoErrorText: {
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 20,
-  },
-  videoErrorSubtext: {
+  chapterDuration: {
     fontSize: 14,
     color: '#666',
-    textAlign: 'center',
-    marginBottom: 16,
   },
-  retryButton: {
-    flexDirection: 'row',
-    backgroundColor: '#007bff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-    alignItems: 'center',
+  currentChapterButton: {
+    backgroundColor: '#f0f0f0',
   },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    marginLeft: 8,
+  completedChapterButton: {
+    backgroundColor: '#e0e0e0',
+  },
+  currentChapterText: {
+    fontWeight: 'bold',
+  },
+  mainContainer: {
+    flex: 1,
+  },
+  videoWrapper: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+    position: 'relative',
+  },
+  infoContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
   },
 });

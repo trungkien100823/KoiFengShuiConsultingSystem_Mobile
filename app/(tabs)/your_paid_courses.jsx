@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -21,6 +22,7 @@ export default function YourPaidCoursesScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [paidCourses, setPaidCourses] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchPaidCourses();
@@ -57,8 +59,14 @@ export default function YourPaidCoursesScreen() {
       );
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchPaidCourses();
+  }, []);
 
   const handleCoursePress = (course) => {
     router.push({
@@ -115,7 +123,12 @@ export default function YourPaidCoursesScreen() {
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Courses</Text>
-        <View style={styles.menuButton} />
+        <TouchableOpacity 
+          onPress={onRefresh}
+          style={styles.refreshButton}
+        >
+          <Ionicons name="refresh" size={24} color="#FFF" />
+        </TouchableOpacity>
       </View>
 
       {isLoading ? (
@@ -124,7 +137,17 @@ export default function YourPaidCoursesScreen() {
           <Text style={styles.loadingText}>Đang tải danh sách khóa học...</Text>
         </View>
       ) : (
-        <ScrollView style={styles.content}>
+        <ScrollView 
+          style={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#8B0000"]}
+              tintColor="#8B0000"
+            />
+          }
+        >
           {paidCourses.length > 0 ? (
             paidCourses.map((course, index) => (
               <CourseCard key={index} course={course} />
@@ -134,6 +157,12 @@ export default function YourPaidCoursesScreen() {
               <Text style={styles.emptyText}>
                 Bạn chưa có khóa học nào
               </Text>
+              <TouchableOpacity 
+                style={styles.browseButton} 
+                onPress={() => router.push('/(tabs)/courses')}
+              >
+                <Text style={styles.browseButtonText}>Xem khóa học</Text>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
@@ -163,6 +192,9 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   menuButton: {
+    padding: 8,
+  },
+  refreshButton: {
     padding: 8,
   },
   content: {
@@ -241,5 +273,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+    marginBottom: 16,
+  },
+  browseButton: {
+    backgroundColor: '#8B0000',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 10,
+  },
+  browseButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
   },
 }); 

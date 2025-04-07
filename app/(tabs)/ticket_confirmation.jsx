@@ -81,19 +81,27 @@ export default function TicketConfirmation() {
     return unsubscribe;
   }, [navigation, route]);
 
+  // Thêm hàm refresh để gọi lại các API
+  const refreshScreen = async () => {
+    setIsLoading(true);
+    try {
+      await fetchCurrentUser();
+      await fetchWorkshopDetails();
+    } catch (error) {
+      console.error('Lỗi khi refresh màn hình:', error);
+      Alert.alert(
+        "Thông báo",
+        "Không thể tải lại thông tin. Vui lòng thử lại sau."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       console.log('Ticket confirmation screen focused - refreshing data');
-      
-      // Always fetch fresh data when screen is focused
-      const refreshData = async () => {
-        setIsLoading(true);
-        await fetchCurrentUser();
-        await fetchWorkshopDetails();
-      };
-      
-      refreshData();
-      
+      refreshScreen();
       return () => {
         console.log('Ticket confirmation screen blurred');
       };
@@ -175,10 +183,11 @@ export default function TicketConfirmation() {
         return false;
       }
       
-      // Instead of using a dedicated verification endpoint,
-      // use the current-user endpoint to check if token is valid
+      console.log('Đang xác thực token với endpoint current-user');
+      
+      // Sử dụng endpoint current-user trực tiếp giống như trong online_booking.jsx
       const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/Account/profile`, // Or use another endpoint that exists
+        `${API_CONFIG.baseURL}/api/Account/current-user`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -186,10 +195,13 @@ export default function TicketConfirmation() {
         }
       );
       
-      // If we get a successful response, the token is valid
-      console.log('Token verification successful via profile endpoint');
-      return true;
+      // Nếu có phản hồi, token hợp lệ
+      if (response.data) {
+        console.log('Token verification successful');
+        return true;
+      }
       
+      return false;
     } catch (error) {
       console.error('Token verification error:', error);
       
@@ -228,9 +240,11 @@ export default function TicketConfirmation() {
         return;
       }
       
-      // Make the API call to get current user data
+      console.log('Đang gọi API để lấy thông tin người dùng hiện tại');
+      
+      // Sử dụng endpoint current-user trực tiếp giống như trong online_booking.jsx
       const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/Account/profile`,
+        `${API_CONFIG.baseURL}/api/Account/current-user`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -241,22 +255,22 @@ export default function TicketConfirmation() {
       
       console.log('Current user API response:', JSON.stringify(response.data));
       
-      // Handle the API response structure correctly
-      if (response.data && response.data.isSuccess) {
-        const userData = response.data.data;
+      // Xử lý dữ liệu trả về từ API
+      if (response.data) {
+        // Update the UI with user data - Trích xuất đúng dữ liệu như trong online_booking.jsx
+        setCustomerName(response.data.fullName || response.data.userName || '');
+        setPhoneNumber(response.data.phoneNumber || '');
+        setEmail(response.data.email || '');
         
-        // Update the UI with user data
-        setCustomerName(userData.fullName || userData.displayName || userData.username || '');
-        setPhoneNumber(userData.phoneNumber || '');
-        setEmail(userData.email || '');
-        
-        console.log('User profile loaded successfully:', userData.fullName);
+        console.log('User profile loaded successfully:', response.data.fullName);
       } else {
-        console.error('Failed to get user profile:', response.data?.message);
-        Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng');
+        console.error('Failed to get user data: No data returned');
+        Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng. Vui lòng thử lại sau.');
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       
       // Check for authentication errors
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
