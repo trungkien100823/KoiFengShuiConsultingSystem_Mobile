@@ -241,7 +241,7 @@ export default function OfflinePaymentScreen() {
               )}
             </View>
           </View>
-          <View style={{ height: 80 }} />
+          <View style={{ height: 20 }} />
           <View style={styles.priceSection}>
             <Text style={styles.priceLabel}>Chi tiết thanh toán</Text>
             <View style={styles.priceRow}>
@@ -300,6 +300,7 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1, 
     position: 'relative', 
+    paddingBottom: 60,
   },
   header: {
     flexDirection: 'row',
@@ -483,7 +484,6 @@ const styles = StyleSheet.create({
   priceSection: {
     padding: 20,
     backgroundColor: 'rgba(139, 0, 0, 0.1)',
-    borderRadius: 12,
     marginBottom: 20,
   },
   priceLabel: {

@@ -7,7 +7,8 @@ import {
   ImageBackground,
   SafeAreaView,
   ScrollView,
-  Alert
+  Alert,
+  FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -15,6 +16,7 @@ import { SelectList } from 'react-native-dropdown-select-list';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Define utility functions at the module level so they're accessible everywhere
 const formatDateString = (date) => {
@@ -36,16 +38,24 @@ const getDayName = (date) => {
 const formatDisplayDate = (dateString) => {
   if (!dateString) return '';
   
-  // Check if dateString is in YYYY-MM-DD format
+  // Check if dateString is in YYYY-MM-DD format (from API)
   if (dateString.includes('-')) {
     const parts = dateString.split('-');
     if (parts.length === 3) {
       // Convert YYYY-MM-DD to DD/MM/YYYY
       return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
+  } 
+  // Check if dateString is in MM/DD/YYYY format (from internal selection)
+  else if (dateString.includes('/')) {
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      // Convert MM/DD/YYYY to DD/MM/YYYY for display
+      return `${parts[1]}/${parts[0]}/${parts[2]}`;
+    }
   }
   
-  // Already in DD/MM/YYYY format or something else
+  // Return original format if no conversion needed
   return dateString;
 };
 
@@ -117,7 +127,7 @@ const SimpleDatePicker = ({ onSelectDate, selectedDate }) => {
               styles.monthText,
               selectedDate === item.dateString && styles.selectedDateText
             ]}>
-              {item.month}/{item.year}
+              {item.day}/{item.month}/{item.year}
             </Text>
           </TouchableOpacity>
         )}
@@ -248,20 +258,27 @@ export default function OnlineScheduleScreen() {
     return endTimeOptions;
   };
   
-  // Fix the selectDate function to ensure we get complete date information
-  const selectDate = (item) => {
-    const dateString = `${currentMonth + 1}/${item.dateString}/${currentYear}`;
-    console.log('Selected date:', dateString);
+  // Modify the date selection logic to properly handle date selection
+  const selectDate = (day) => {
+    if (!day) return; // Skip if null (empty cell)
     
+    // Create a proper date string in MM/DD/YYYY format
+    const dateString = `${currentMonth + 1}/${day}/${currentYear}`;
+    
+    // Create a date object for the selected date
+    const selectedDate = new Date(currentYear, currentMonth, day);
+    
+    // Set the selected date and date object
     setSelectedDate(dateString);
     setSelectedDateObj({
       dateString: dateString,
-      day: parseInt(item.dateString),
+      day: day,
       month: currentMonth + 1,
-      year: currentYear
+      year: currentYear,
+      fullDate: selectedDate
     });
     
-    // Reset time selections
+    // Reset time selections when a new date is selected
     setSelectedStartTime(null);
     setSelectedEndTime(null);
   };
@@ -430,119 +447,361 @@ export default function OnlineScheduleScreen() {
     setDates(generateDates());
   }, []);
 
+  // Add this function to render calendar dates with the required styling
+  const renderCalendarDates = () => {
+    const dates = generateCalendarDates();
+    
+    return (
+      <View style={styles.calendarGrid}>
+        {dates.map((day, index) => {
+          if (day === null) {
+            // Empty cell for padding at start of month
+            return <View key={`empty-${index}`} style={styles.dateCell} />;
+          }
+          
+          // Check if it's today
+          const isToday = day === currentDay && 
+                           currentMonth === currentMonthActual && 
+                           currentYear === currentYearActual;
+          
+          // Check if it's a past date
+          const isPastDate = (currentYear < currentYearActual) || 
+            (currentYear === currentYearActual && currentMonth < currentMonthActual) || 
+            (currentYear === currentYearActual && currentMonth === currentMonthActual && day < currentDay);
+          
+          // Check if it's a booked date
+          const isBookedDate = fullyBookedDates.includes(day);
+          
+          // Check if it's selected
+          const dateString = `${currentMonth + 1}/${day}/${currentYear}`;
+          const isSelected = selectedDate === dateString;
+          
+          return (
+            <TouchableOpacity
+              key={`day-${day}`}
+              style={[
+                styles.dateCell,
+                isPastDate && styles.pastDateCell
+              ]}
+              onPress={() => {
+                if (!isPastDate && !isBookedDate) {
+                  selectDate(day);
+                }
+              }}
+              disabled={isPastDate || isBookedDate}
+            >
+              <View style={[
+                styles.dateCellInner,
+                isToday && styles.todayCell,
+                isSelected && styles.selectedCell,
+                isBookedDate && styles.bookedCell
+              ]}>
+                <Text style={[
+                  styles.dateText,
+                  isToday && styles.todayText,
+                  isSelected && styles.selectedText,
+                  isPastDate && styles.pastDateText,
+                  isBookedDate && styles.bookedText
+                ]}>
+                  {day}
+                </Text>
+              </View>
+              {isBookedDate && (
+                <View style={styles.bookedIndicator} />
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
-    <ImageBackground 
-      source={require('../../assets/images/feng shui.png')}
-      style={styles.container}
-      imageStyle={styles.backgroundImage}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.fixedHeader}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)/online_booking')}
-          >
-            <Ionicons name="chevron-back-circle" size={32} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Đặt lịch tư vấn{'\n'}trực tuyến</Text>
-        </View>
-
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.content}
-        >
-          <Text style={styles.sectionTitle}>Đặt lịch tư vấn</Text>
-
-          <View style={styles.calendar}>
-            <View style={styles.monthSelector}>
-              <TouchableOpacity onPress={handlePrevMonth}>
-                <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.monthText}>
-                {months[currentMonth]} {currentYear}
-              </Text>
-              <TouchableOpacity onPress={handleNextMonth}>
-                <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.calendarGrid}>
-              <View style={styles.weekDays}>
-                <Text style={styles.weekDay}>CN</Text>
-                <Text style={styles.weekDay}>T2</Text>
-                <Text style={styles.weekDay}>T3</Text>
-                <Text style={styles.weekDay}>T4</Text>
-                <Text style={styles.weekDay}>T5</Text>
-                <Text style={styles.weekDay}>T6</Text>
-                <Text style={styles.weekDay}>T7</Text>
-              </View>
-
-              <View style={styles.dates}>
-                {generateCalendarDates().map((date, index) => (
-                  <View key={index} style={styles.dateCell}>
-                    {date && (
-                      <TouchableOpacity
-                        style={getDateStyle(date)}
-                        onPress={() => selectDate({dateString: date.toString()})}
-                      >
-                        <Text style={styles.dateText}>{date}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))}
-              </View>
-            </View>
+    <View style={styles.container}>
+      <ImageBackground 
+        source={require('../../assets/images/feng shui.png')} 
+        style={styles.backgroundContainer}
+        imageStyle={styles.backgroundImage}
+      >
+        <LinearGradient
+          colors={['rgba(26,0,0,0.9)', 'rgba(139,0,0,0.7)']}
+          style={styles.gradient}
+        />
+        
+        {/* Enhanced Header */}
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.push('/(tabs)/online_booking')}
+            >
+              <Ionicons name="arrow-back-circle" size={36} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Đặt lịch tư vấn</Text>
           </View>
 
-          {selectedDate && (
-            <View style={styles.timeSection}>
-              <Text style={styles.dateSelected}>
-                Ngày đã chọn: {formatDisplayDate(selectedDate)}
-              </Text>
-              
-              <View style={styles.timeSelectionContainer}>
-                <Text style={styles.timeLabel}>Giờ bắt đầu</Text>
-                <SelectList
-                  setSelected={handleStartTimeChange}
-                  data={startTimeOptions}
-                  save="key"
-                  placeholder="Chọn giờ bắt đầu"
-                  boxStyles={styles.selectBox}
-                  dropdownStyles={styles.dropdown}
-                  inputStyles={styles.selectText}
-                  dropdownTextStyles={styles.dropdownText}
-                  search={false}
-                />
-              </View>
-              
-              {selectedStartTime && (
-                <View style={[styles.timeSelectionContainer, {marginTop: 16}]}>
-                  <Text style={styles.timeLabel}>Giờ kết thúc</Text>
-                  <SelectList
-                    setSelected={setSelectedEndTime}
-                    data={getEndTimeOptions(selectedStartTime)}
-                    save="key"
-                    placeholder="Chọn giờ kết thúc"
-                    boxStyles={styles.selectBox}
-                    dropdownStyles={styles.dropdown}
-                    inputStyles={styles.selectText}
-                    dropdownTextStyles={styles.dropdownText}
-                    search={false}
-                  />
-                </View>
-              )}
-            </View>
-          )}
-
-          <TouchableOpacity 
-            style={styles.continueButton}
-            onPress={handleSubmit}
+          <ScrollView 
+            style={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.continueButtonText}>Đặt lịch</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    </ImageBackground>
+            {/* Calendar Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Chọn ngày</Text>
+              
+              <View style={styles.calendarContainer}>
+                {/* Month Navigation */}
+                <View style={styles.monthNavigation}>
+                  <TouchableOpacity 
+                    style={styles.monthButton}
+                    onPress={handlePrevMonth}
+                  >
+                    <Ionicons name="chevron-back-circle" size={28} color="#8B0000" />
+                  </TouchableOpacity>
+                  
+                  <Text style={styles.monthYearText}>
+                    {months[currentMonth]} {currentYear}
+                  </Text>
+                  
+                  <TouchableOpacity 
+                    style={styles.monthButton}
+                    onPress={handleNextMonth}
+                  >
+                    <Ionicons name="chevron-forward-circle" size={28} color="#8B0000" />
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Weekday headers */}
+                <View style={styles.weekdayHeader}>
+                  {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((day, i) => (
+                    <Text key={i} style={styles.weekdayText}>{day}</Text>
+                  ))}
+                </View>
+                
+                {/* Date Grid */}
+                <View style={styles.dateGrid}>
+                  {generateCalendarDates().map((day, index) => {
+                    if (day === null) {
+                      return <View key={`empty-${index}`} style={styles.dateCell} />;
+                    }
+                    
+                    // Check if it's today
+                    const isToday = day === currentDay && 
+                      currentMonth === currentMonthActual && 
+                      currentYear === currentYearActual;
+                    
+                    // Check if it's a past date
+                    const isPastDate = (currentYear < currentYearActual) || 
+                      (currentYear === currentYearActual && currentMonth < currentMonthActual) || 
+                      (currentYear === currentYearActual && currentMonth === currentMonthActual && day < currentDay);
+                    
+                    // Check if it's a booked date
+                    const isBookedDate = fullyBookedDates.includes(day);
+                    
+                    // Check if it's selected
+                    const dateString = `${currentMonth + 1}/${day}/${currentYear}`;
+                    const isSelected = selectedDate === dateString;
+                    
+                    return (
+                      <TouchableOpacity
+                        key={`day-${day}`}
+                        style={[
+                          styles.dateCell,
+                          isPastDate && styles.pastDateCell
+                        ]}
+                        onPress={() => {
+                          if (!isPastDate && !isBookedDate) {
+                            selectDate(day);
+                          }
+                        }}
+                        disabled={isPastDate || isBookedDate}
+                      >
+                        <View style={[
+                          styles.dateCellInner,
+                          isToday && styles.todayCell,
+                          isSelected && styles.selectedCell,
+                          isBookedDate && styles.bookedCell
+                        ]}>
+                          <Text style={[
+                            styles.dateText,
+                            isToday && styles.todayText,
+                            isSelected && styles.selectedText,
+                            isPastDate && styles.pastDateText,
+                            isBookedDate && styles.bookedText
+                          ]}>
+                            {day}
+                          </Text>
+                        </View>
+                        {isBookedDate && (
+                          <View style={styles.bookedIndicator} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+            
+            {/* Time Selection Card */}
+            {selectedDate && (
+              <View style={styles.timeSelectionCard}>
+                <Text style={styles.cardTitle}>Chọn thời gian tư vấn</Text>
+                
+                {/* Selected Date Display */}
+                <View style={styles.selectedDateBanner}>
+                  <LinearGradient
+                    colors={['#8B0000', '#600000']}
+                    start={[0, 0]}
+                    end={[1, 0]}
+                    style={styles.dateBannerGradient}
+                  >
+                    <Ionicons name="calendar" size={22} color="#FFFFFF" />
+                    <Text style={styles.selectedDateText}>
+                      {formatDisplayDate(selectedDate)}
+                    </Text>
+                  </LinearGradient>
+                </View>
+                
+                {/* Start Time Selection */}
+                <View style={styles.timeSelectionSection}>
+                  <View style={styles.timeLabelContainer}>
+                    <Ionicons name="time-outline" size={18} color="#8B0000" />
+                    <Text style={styles.timeLabel}>Thời gian bắt đầu</Text>
+                  </View>
+                  
+                  {/* Horizontal Time Slot Picker */}
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.timeSlotScrollView}
+                    contentContainerStyle={styles.timeSlotContainer}
+                  >
+                    {startTimeOptions.map((timeOption) => (
+                      <TouchableOpacity
+                        key={timeOption.key}
+                        style={[
+                          styles.timeSlotCard,
+                          selectedStartTime === timeOption.key && styles.timeSlotCardSelected
+                        ]}
+                        onPress={() => handleStartTimeChange(timeOption.key)}
+                      >
+                        <LinearGradient
+                          colors={selectedStartTime === timeOption.key ? 
+                            ['#8B0000', '#600000'] : 
+                            ['#F8F8F8', '#F0F0F0']}
+                          style={styles.timeSlotGradient}
+                        >
+                          <Text style={[
+                            styles.timeSlotText,
+                            selectedStartTime === timeOption.key && styles.timeSlotTextSelected
+                          ]}>
+                            {timeOption.value}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                
+                {/* End Time Selection - Only show when start time is selected */}
+                {selectedStartTime && (
+                  <View style={styles.timeSelectionSection}>
+                    <View style={styles.timeLabelContainer}>
+                      <Ionicons name="time-outline" size={18} color="#8B0000" />
+                      <Text style={styles.timeLabel}>Thời gian kết thúc</Text>
+                    </View>
+                    
+                    {/* Horizontal End Time Slot Picker */}
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.timeSlotScrollView}
+                      contentContainerStyle={styles.timeSlotContainer}
+                    >
+                      {getEndTimeOptions(selectedStartTime).map((timeOption) => (
+                        <TouchableOpacity
+                          key={timeOption.key}
+                          style={[
+                            styles.timeSlotCard,
+                            selectedEndTime === timeOption.key && styles.timeSlotCardSelected
+                          ]}
+                          onPress={() => setSelectedEndTime(timeOption.key)}
+                        >
+                          <LinearGradient
+                            colors={selectedEndTime === timeOption.key ? 
+                              ['#8B0000', '#600000'] : 
+                              ['#F8F8F8', '#F0F0F0']}
+                            style={styles.timeSlotGradient}
+                          >
+                            <Text style={[
+                              styles.timeSlotText,
+                              selectedEndTime === timeOption.key && styles.timeSlotTextSelected
+                            ]}>
+                              {timeOption.value}
+                            </Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+                
+                {/* Booking Summary - Show when all selections are made */}
+                {selectedDate && selectedStartTime && selectedEndTime && (
+                  <View style={styles.bookingSummaryContainer}>
+                    <LinearGradient
+                      colors={['rgba(139,0,0,0.05)', 'rgba(139,0,0,0.15)']}
+                      style={styles.summaryGradient}
+                    >
+                      <View style={styles.summaryHeader}>
+                        <Ionicons name="checkmark-circle" size={24} color="#8B0000" />
+                        <Text style={styles.summaryTitle}>Thông tin lịch hẹn</Text>
+                      </View>
+                      
+                      <View style={styles.summaryDetails}>
+                        <View style={styles.summaryRow}>
+                          <Ionicons name="calendar-outline" size={18} color="#8B0000" />
+                          <Text style={styles.summaryText}>Ngày: {formatDisplayDate(selectedDate)}</Text>
+                        </View>
+                        
+                        <View style={styles.summaryRow}>
+                          <Ionicons name="time-outline" size={18} color="#8B0000" />
+                          <Text style={styles.summaryText}>Thời gian: {selectedStartTime} - {selectedEndTime}</Text>
+                        </View>
+                        
+                        <View style={styles.summaryRow}>
+                          <Ionicons name="hourglass-outline" size={18} color="#8B0000" />
+                          <Text style={styles.summaryText}>
+                            Thời lượng: {calculateDuration(selectedStartTime, selectedEndTime)} phút
+                          </Text>
+                        </View>
+                      </View>
+                    </LinearGradient>
+                  </View>
+                )}
+              </View>
+            )}
+            
+            {/* Book Button */}
+            <TouchableOpacity
+              style={[
+                styles.bookButton,
+                (!selectedDate || !selectedStartTime || !selectedEndTime) && styles.bookButtonDisabled
+              ]}
+              onPress={handleSubmit}
+              disabled={!selectedDate || !selectedStartTime || !selectedEndTime}
+            >
+              <LinearGradient
+                colors={['#8B0000', '#6B0000']}
+                style={styles.bookButtonGradient}
+              >
+                <Text style={styles.bookButtonText}>Xác nhận đặt lịch</Text>
+                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </ImageBackground>
+    </View>
   );
 }
 
@@ -551,178 +810,309 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1A0000',
   },
+  backgroundContainer: {
+    flex: 1,
+  },
   backgroundImage: {
-    opacity: 0.3,
+    opacity: 0.25,
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   safeArea: {
     flex: 1,
   },
-  fixedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
+  header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingTop: 50,
     paddingHorizontal: 20,
-    paddingTop: 70,
-    paddingBottom: 30,
-    backgroundColor: 'rgba(26, 0, 0, 0)',
+    paddingBottom: 20,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 5,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    marginLeft: 15,
+  },
+  scrollContent: {
     flex: 1,
-    textAlign: 'right',
-    marginLeft: 10,
-    lineHeight: 32,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
-  scrollView: {
-    flex: 1,
-    marginTop: 120,
-  },
-  content: {
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 20,
-  },
-  calendar: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 20,
-    marginBottom: 20,
-  },
-  monthSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    marginBottom: 15,
-  },
-  monthText: {
-    color: '#FFFFFF',
+  cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#1A0000',
+    marginBottom: 16,
   },
-  calendarGrid: {
-    width: '100%',
-    marginTop: 10,
+  calendarContainer: {
+    marginTop: 5,
   },
-  weekDays: {
+  monthNavigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    marginLeft: -10,
-    marginBottom: 15,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 5,
   },
-  weekDay: {
-    color: '#FFFFFF',
+  monthButton: {
+    padding: 5,
+  },
+  monthYearText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A0000',
+  },
+  weekdayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  weekdayText: {
     fontSize: 14,
-    opacity: 0.8,
-    width: 43,
+    fontWeight: '500',
+    color: '#666666',
+    width: 30,
     textAlign: 'center',
-    marginLeft: -1,
   },
-  dates: {
+  dateGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
+    marginTop: 10,
   },
   dateCell: {
-    width: '14.28%', // 100% / 7 days
+    width: '14.28%',
     aspectRatio: 1,
-    marginBottom: 5,
-    padding: 2,
+    padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dateCircle: {
-    width: '100%',
+  dateCellInner: {
+    width: '80%',
     aspectRatio: 1,
+    borderRadius: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 100,
   },
   dateText: {
+    fontSize: 14,
+    color: '#333333',
+  },
+  todayCell: {
+    borderWidth: 2,
+    borderColor: '#8B0000',
+  },
+  todayText: {
+    color: '#8B0000',
+    fontWeight: 'bold',
+  },
+  selectedCell: {
+    backgroundColor: '#8B0000',
+  },
+  selectedText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  pastDateCell: {
+    opacity: 0.5,
+  },
+  pastDateText: {
+    color: '#999999',
+  },
+  bookedCell: {
+    backgroundColor: '#FFF0F0',
+  },
+  bookedText: {
+    color: '#FF6B6B',
+  },
+  bookedIndicator: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FF6B6B',
+  },
+  dateSelectedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  dateSelectedText: {
+    fontSize: 16,
+    color: '#333333',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  timeSelectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  selectedDateBanner: {
+    marginVertical: 16,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  dateBannerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  selectedDateText: {
     color: '#FFFFFF',
     fontSize: 16,
-    textAlign: 'center',
-    width: 40,
+    fontWeight: '600',
+    marginLeft: 10,
   },
-  selected: {
-    backgroundColor: '#FF0008',
+  timeSelectionSection: {
+    marginBottom: 20,
   },
-  timeSection: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  dateSelected: {
-    fontSize: 16,
-    color: '#8B0000',
-    marginBottom: 16,
-  },
-  timeSelectionContainer: {
-    marginBottom: 8,
+  timeLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   timeLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
-    marginBottom: 8,
+    color: '#333333',
+    marginLeft: 8,
   },
-  selectBox: {
-    borderColor: '#ddd',
-    backgroundColor: '#f5f5f5',
+  timeSlotScrollView: {
+    marginTop: 10,
   },
-  dropdown: {
-    borderColor: '#ddd',
-    backgroundColor: '#f5f5f5',
+  timeSlotContainer: {
+    paddingBottom: 10,
   },
-  selectText: {
-    color: '#333',
-  },
-  dropdownText: {
-    color: '#333',
-  },
-  continueButton: {
-    backgroundColor: '#FF0008',  // Red color matching your theme
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
-    marginTop: 20,
-    marginHorizontal: 20,
-    marginBottom: 20,
+  timeSlotCard: {
+    marginRight: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  continueButtonText: {
+  timeSlotGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  timeSlotCardSelected: {
+    transform: [{scale: 1.05}],
+  },
+  timeSlotText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333333',
+  },
+  timeSlotTextSelected: {
     color: '#FFFFFF',
-    fontSize: 18,
     fontWeight: 'bold',
   },
+  bookingSummaryContainer: {
+    marginTop: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  summaryGradient: {
+    borderRadius: 12,
+    padding: 16,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#8B0000',
+    marginLeft: 10,
+  },
+  summaryDetails: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  summaryText: {
+    color: '#333333',
+    fontSize: 15,
+    marginLeft: 10,
+    fontWeight: '500',
+  },
+  bookButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 8,
+    marginBottom: 30,
+  },
+  bookButtonGradient: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  bookButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  bookButtonDisabled: {
+    opacity: 0.6,
+  },
 });
+
+// Add this helper function somewhere in your component
+const calculateDuration = (startTime, endTime) => {
+  if (!startTime || !endTime) return 0;
+  
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  
+  const startMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
+  
+  return endMinutes - startMinutes;
+};
