@@ -18,6 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function OfflineBookingScreen() {
   const router = useRouter();
@@ -30,6 +31,12 @@ export default function OfflineBookingScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState(params.startDate || null);
+
+  // Get today's date for reference
+  const today = new Date();
+  const currentDay = today.getDate();
+  const currentMonthActual = today.getMonth();
+  const currentYearActual = today.getFullYear();
 
   const months = [
     "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
@@ -191,89 +198,163 @@ export default function OfflineBookingScreen() {
     }
   }, [params.packageId, params.selectedPrice, params.shouldCompleteBooking]);
 
+  // Format a date for display
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return '';
+    
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    
+    return dateString;
+  };
+
   return (
-    <ImageBackground 
-      source={require('../../assets/images/feng shui.png')}
-      style={styles.container}
-      imageStyle={styles.backgroundImage}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView 
-            style={styles.scrollView}
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.header}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => router.push('/(tabs)/OfflineOnline')}
-              >
-                <Ionicons name="chevron-back-circle" size={32} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Đặt lịch tư vấn{'\n'}trực tiếp</Text>
-            </View>
-            
-            <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
-
-            {/* Thêm calendar vào đây */}
-            <View style={styles.calendar}>
-              <View style={styles.monthSelector}>
-                <TouchableOpacity onPress={handlePrevMonth}>
-                  <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+    <View style={styles.container}>
+      <ImageBackground 
+        source={require('../../assets/images/feng shui.png')}
+        style={styles.backgroundContainer}
+        imageStyle={styles.backgroundImage}
+      >
+        <LinearGradient
+          colors={['rgba(26,0,0,0.9)', 'rgba(139,0,0,0.7)']}
+          style={styles.gradient}
+        />
+        
+        <SafeAreaView style={styles.safeArea}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView 
+              style={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Enhanced Header */}
+              <View style={styles.header}>
+                <TouchableOpacity 
+                  style={styles.backButton}
+                  onPress={() => router.push('/(tabs)/OfflineOnline')}
+                >
+                  <Ionicons name="arrow-back-circle" size={36} color="#FFFFFF" />
                 </TouchableOpacity>
-                <Text style={styles.monthText}>
-                  {months[currentMonth]} {currentYear}
-                </Text>
-                <TouchableOpacity onPress={handleNextMonth}>
-                  <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Đặt lịch tư vấn trực tiếp</Text>
               </View>
-
-              <View style={styles.calendarGrid}>
-                <View style={styles.weekDays}>
-                  <Text style={styles.weekDay}>CN</Text>
-                  <Text style={styles.weekDay}>T2</Text>
-                  <Text style={styles.weekDay}>T3</Text>
-                  <Text style={styles.weekDay}>T4</Text>
-                  <Text style={styles.weekDay}>T5</Text>
-                  <Text style={styles.weekDay}>T6</Text>
-                  <Text style={styles.weekDay}>T7</Text>
-                </View>
-
-                <View style={styles.dates}>
-                  {generateCalendarDates().map((date, index) => (
-                    <View key={index} style={styles.dateCell}>
-                      {date && (
+              
+              {/* Calendar Card */}
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Chọn ngày tư vấn</Text>
+                
+                <View style={styles.calendarContainer}>
+                  {/* Month Navigation */}
+                  <View style={styles.monthNavigation}>
+                    <TouchableOpacity 
+                      style={styles.monthButton}
+                      onPress={handlePrevMonth}
+                    >
+                      <Ionicons name="chevron-back-circle" size={28} color="#8B0000" />
+                    </TouchableOpacity>
+                    
+                    <Text style={styles.monthYearText}>
+                      {months[currentMonth]} {currentYear}
+                    </Text>
+                    
+                    <TouchableOpacity 
+                      style={styles.monthButton}
+                      onPress={handleNextMonth}
+                    >
+                      <Ionicons name="chevron-forward-circle" size={28} color="#8B0000" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Weekday headers */}
+                  <View style={styles.weekdayHeader}>
+                    {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((day, i) => (
+                      <Text key={i} style={styles.weekdayText}>{day}</Text>
+                    ))}
+                  </View>
+                  
+                  {/* Date Grid */}
+                  <View style={styles.dateGrid}>
+                    {generateCalendarDates().map((day, index) => {
+                      if (day === null) {
+                        return <View key={`empty-${index}`} style={styles.dateCell} />;
+                      }
+                      
+                      const isToday = day === currentDay && 
+                        currentMonth === currentMonthActual && 
+                        currentYear === currentYearActual;
+                      
+                      const isPastDate = (currentYear < currentYearActual) || 
+                        (currentYear === currentYearActual && currentMonth < currentMonthActual) || 
+                        (currentYear === currentYearActual && currentMonth === currentMonthActual && day < currentDay);
+                      
+                      const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const isSelected = selectedDate === dateString;
+                      
+                      return (
                         <TouchableOpacity
-                          style={getDateStyle(date)}
-                          onPress={() => selectDate(date)}
+                          key={`day-${day}`}
+                          style={[
+                            styles.dateCell,
+                            isPastDate && styles.pastDateCell
+                          ]}
+                          onPress={() => selectDate(day)}
+                          disabled={isPastDate}
                         >
-                          <Text style={styles.dateText}>{date}</Text>
+                          <View style={[
+                            styles.dateCellInner,
+                            isToday && styles.todayCell,
+                            isSelected && styles.selectedCell,
+                          ]}>
+                            <Text style={[
+                              styles.dateText,
+                              isToday && styles.todayText,
+                              isSelected && styles.selectedText,
+                              isPastDate && styles.pastDateText,
+                            ]}>
+                              {day}
+                            </Text>
+                          </View>
                         </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
+                      );
+                    })}
+                  </View>
+                </View>
+                
+                {/* Selected Date Display */}
+                {selectedDate && (
+                  <View style={styles.dateSelectedContainer}>
+                    <Ionicons name="calendar" size={20} color="#8B0000" />
+                    <Text style={styles.dateSelectedText}>
+                      Ngày đã chọn: {formatDisplayDate(selectedDate)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              
+              {/* Description Card */}
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Thông tin khách hàng</Text>
+                
+                <View style={styles.descriptionContainer}>
+                  <Text style={styles.descriptionLabel}>Mô tả nhu cầu tư vấn*</Text>
+                  <TextInput
+                    style={styles.descriptionInput}
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Vui lòng nhập chi tiết nhu cầu tư vấn của bạn"
+                    placeholderTextColor="#999"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
                 </View>
               </View>
-            </View>
-
-            <View style={styles.formContainer}>
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={styles.textArea}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Mô tả nhu cầu tư vấn*"
-                  multiline
-                  numberOfLines={4}
-                  placeholderTextColor="#FFFFFF80"
-                />
-              </View>
-
+              
+              {/* Submit Button */}
               {isSubmitting ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#8B0000" />
+                  <ActivityIndicator size="large" color="#FFFFFF" />
                   <Text style={styles.loadingText}>Đang xử lý...</Text>
                 </View>
               ) : (
@@ -282,16 +363,22 @@ export default function OfflineBookingScreen() {
                   onPress={handleContinue}
                   disabled={isSubmitting}
                 >
-                  <Text style={styles.submitButtonText}>
-                    {params.packageId ? 'Hoàn tất đặt lịch' : 'Chọn gói tư vấn'}
-                  </Text>
+                  <LinearGradient
+                    colors={['#8B0000', '#6B0000']}
+                    style={styles.submitButtonGradient}
+                  >
+                    <Text style={styles.submitButtonText}>
+                      {params.packageId ? 'Hoàn tất đặt lịch' : 'Chọn gói tư vấn'}
+                    </Text>
+                    <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                  </LinearGradient>
                 </TouchableOpacity>
               )}
-            </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </SafeAreaView>
-    </ImageBackground>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </SafeAreaView>
+      </ImageBackground>
+    </View>
   );
 }
 
@@ -300,162 +387,197 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1A0000',
   },
+  backgroundContainer: {
+    flex: 1,
+  },
   backgroundImage: {
-    opacity: 0.3,
+    opacity: 0.25,
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   safeArea: {
     flex: 1,
   },
-  scrollView: {
+  scrollContent: {
     flex: 1,
-  },
-  content: {
-    padding: 20,
-    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 30,
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingBottom: 20,
   },
   backButton: {
-    marginTop: 5,
+    padding: 5,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    textAlign: 'right',
-    flex: 0.8,
-    lineHeight: 32,
+    marginLeft: 15,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  formContainer: {
-    width: '100%',
-  },
-  formGroup: {
-    marginBottom: 20,
-  },
-  input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    color: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  textArea: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    color: '#FFFFFF',
-    minHeight: 120,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  submitButton: {
-    backgroundColor: '#8B0000',
-    borderRadius: 25,
-    padding: 15,
-    alignItems: 'center',
-    marginTop: 20,
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 5,
   },
-  submitButtonText: {
-    color: '#FFFFFF',
+  cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#1A0000',
+    marginBottom: 16,
   },
-  loadingContainer: {
-    alignItems: 'center',
-    marginTop: 20
+  calendarContainer: {
+    marginTop: 5,
   },
-  loadingText: {
-    color: '#FFFFFF',
-    marginTop: 10,
-    fontSize: 16
-  },
-  calendar: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 20,
-    marginBottom: 20,
-  },
-  monthSelector: {
+  monthNavigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    marginBottom: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 5,
   },
-  monthText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
+  monthButton: {
+    padding: 5,
   },
-  calendarGrid: {
-    width: '100%',
-    marginTop: 10,
+  monthYearText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A0000',
   },
-  weekDays: {
+  weekdayHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    marginLeft: -10,
-    marginBottom: 15,
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
-  weekDay: {
-    color: '#FFFFFF',
+  weekdayText: {
     fontSize: 14,
-    opacity: 0.8,
-    width: 43,
+    fontWeight: '500',
+    color: '#666666',
+    width: 30,
     textAlign: 'center',
-    marginLeft: -1,
   },
-  dates: {
+  dateGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
+    marginTop: 10,
   },
   dateCell: {
     width: '14.28%',
     aspectRatio: 1,
-    marginBottom: 5,
-    padding: 2,
+    padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dateCircle: {
-    width: '100%',
+  dateCellInner: {
+    width: '80%',
     aspectRatio: 1,
+    borderRadius: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 100,
   },
   dateText: {
+    fontSize: 14,
+    color: '#333333',
+  },
+  todayCell: {
+    borderWidth: 2,
+    borderColor: '#8B0000',
+  },
+  todayText: {
+    color: '#8B0000',
+    fontWeight: 'bold',
+  },
+  selectedCell: {
+    backgroundColor: '#8B0000',
+  },
+  selectedText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  pastDateCell: {
+    opacity: 0.5,
+  },
+  pastDateText: {
+    color: '#999999',
+  },
+  dateSelectedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  dateSelectedText: {
+    fontSize: 15,
+    color: '#333333',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  descriptionContainer: {
+    marginBottom: 8,
+  },
+  descriptionLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333333',
+    marginBottom: 8,
+  },
+  descriptionInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 120,
+    backgroundColor: '#F9F9F9',
+    color: '#333333',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#FFFFFF',
+    marginLeft: 10,
+  },
+  submitButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 8,
+    marginBottom: 30,
+  },
+  submitButtonGradient: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    textAlign: 'center',
-    width: 40,
+    fontWeight: 'bold',
+    marginRight: 8,
   },
-  selected: {
-    backgroundColor: '#FF0008',
-  }
 });
