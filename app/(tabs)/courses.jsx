@@ -11,7 +11,8 @@ import {
   StatusBar,
   FlatList,
   ActivityIndicator,
-  Alert
+  Alert,
+  Dimensions
 } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +21,9 @@ import { useRouter } from 'expo-router';
 import { API_CONFIG } from '../../constants/config';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function CoursesScreen() {
   const navigation = useNavigation();
@@ -123,16 +127,30 @@ export default function CoursesScreen() {
         });
       }}
     >
-      <Image 
-        source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/buddha.png')}
-        style={styles.featuredImage} 
-      />
-      <View style={styles.cardOverlay}>
-        <Text style={styles.featuredTitle}>{item.courseName}</Text>
-        <Text style={styles.authorText}>{item.categoryName}</Text>
-        <Text style={styles.priceText}>
-          {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Miễn phí'}
-        </Text>
+      <View style={styles.cardInner}>
+        <Image 
+          source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/buddha.png')}
+          style={styles.featuredImage} 
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.imageOverlay}
+        />
+        <View style={styles.cardContent}>
+          <Text style={styles.featuredTitle}>{item.courseName}</Text>
+          <View style={styles.courseStats}>
+            <View style={styles.statItem}>
+              <Ionicons name="book-outline" size={14} color="#FFF" />
+              <Text style={styles.statText}>{item.categoryName}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="pricetag-outline" size={14} color="#FFF" />
+              <Text style={styles.priceText}>
+                {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -182,13 +200,15 @@ export default function CoursesScreen() {
         }
       }}
     >
-      <Image 
-        source={require('../../assets/images/buddha.png')}
-        style={styles.categoryImage} 
-      />
-      <View style={styles.categoryOverlay}>
+      <LinearGradient
+        colors={['#8B0000', '#600000']}
+        start={[0.0, 0.0]}
+        end={[1.0, 1.0]}
+        style={styles.categoryGradient}
+      >
         <Text style={styles.categoryTitle}>{item.categoryName}</Text>
-      </View>
+        <Ionicons name="chevron-forward" size={16} color="#FFF" style={styles.categoryIcon} />
+      </LinearGradient>
     </TouchableOpacity>
   );
 
@@ -205,16 +225,30 @@ export default function CoursesScreen() {
         });
       }}
     >
-      <Image 
-        source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/buddha.png')}
-        style={styles.topCourseImage} 
-      />
-      <View style={styles.cardOverlay}>
-        <Text style={styles.topCourseTitle}>{item.courseName}</Text>
-        <Text style={styles.authorText}>{item.categoryName}</Text>
-        <Text style={styles.priceText}>
-          {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Miễn phí'}
-        </Text>
+      <View style={styles.cardInner}>
+        <Image 
+          source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/buddha.png')}
+          style={styles.topCourseImage} 
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.imageOverlay}
+        />
+        <View style={styles.cardContent}>
+          <Text style={styles.topCourseTitle}>{item.courseName}</Text>
+          <View style={styles.courseStats}>
+            <View style={styles.statItem}>
+              <Ionicons name="book-outline" size={14} color="#FFF" />
+              <Text style={styles.statText}>{item.categoryName}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="pricetag-outline" size={14} color="#FFF" />
+              <Text style={styles.priceText}>
+                {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -223,31 +257,35 @@ export default function CoursesScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Fixed Header Section */}
-      <View style={styles.fixedHeader}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Text style={styles.greeting}>Hi, {userName}</Text>
-            <Text style={styles.subGreeting}>Choose your course today</Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons name="cart-outline" size={35} color="#8B0000" style={{ marginTop: 20, marginRight: 5 }} />
-          </TouchableOpacity>
+      <LinearGradient
+        colors={['rgba(139,0,0,0.05)', 'rgba(255,255,255,0)']}
+        style={styles.backgroundGradient}
+      />
+      
+      {/* Modern Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerSubtitle}>Hi, {userName}</Text>
+          <Text style={styles.headerTitle}>Learn Your Path</Text>
         </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search courses"
-              placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            <Ionicons name="search" size={20} color="#666" />
+        <TouchableOpacity style={styles.cartButton}>
+          <View style={styles.cartButtonCircle}>
+            <Ionicons name="cart-outline" size={22} color="#8B0000" />
           </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Enhanced Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color="#8B0000" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search courses..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
       </View>
 
@@ -256,10 +294,20 @@ export default function CoursesScreen() {
           <ActivityIndicator size="large" color="#8B0000" />
         </View>
       ) : (
-        <ScrollView style={styles.scrollContent}>
-          {/* Best Seller Courses - Luôn hiển thị đầu tiên */}
+        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Best Seller Courses Section */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Best Seller Courses</Text>
+            <View style={styles.sectionHeader}>
+              <LinearGradient
+                colors={['#8B0000', '#600000']}
+                start={[0, 0]}
+                end={[1, 0]}
+                style={styles.sectionTitleGradient}
+              >
+                <Text style={styles.sectionTitle}>Best Seller Courses</Text>
+              </LinearGradient>
+            </View>
+            
             {featuredCourses.length > 0 && (
               <FlatList
                 data={featuredCourses}
@@ -267,14 +315,24 @@ export default function CoursesScreen() {
                 keyExtractor={item => item.courseId?.toString()}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.featuredList}
+                contentContainerStyle={styles.horizontalList}
               />
             )}
           </View>
           
-          {/* Categories - Luôn ở giữa */}
+          {/* Categories Section */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Categories</Text>
+            <View style={styles.sectionHeader}>
+              <LinearGradient
+                colors={['#8B0000', '#600000']}
+                start={[0, 0]}
+                end={[1, 0]}
+                style={styles.sectionTitleGradient}
+              >
+                <Text style={styles.sectionTitle}>Categories</Text>
+              </LinearGradient>
+            </View>
+            
             {categories.length > 0 && (
               <FlatList
                 data={categories}
@@ -282,14 +340,24 @@ export default function CoursesScreen() {
                 keyExtractor={item => item.categoryId?.toString()}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoriesList}
+                contentContainerStyle={styles.horizontalList}
               />
             )}
           </View>
           
-          {/* Top Rated Courses - Luôn ở cuối */}
+          {/* Top Rated Courses Section */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Top Rated Courses</Text>
+            <View style={styles.sectionHeader}>
+              <LinearGradient
+                colors={['#8B0000', '#600000']}
+                start={[0, 0]}
+                end={[1, 0]}
+                style={styles.sectionTitleGradient}
+              >
+                <Text style={styles.sectionTitle}>Top Rated Courses</Text>
+              </LinearGradient>
+            </View>
+            
             {topCourses.length > 0 && (
               <FlatList
                 data={topCourses}
@@ -297,10 +365,13 @@ export default function CoursesScreen() {
                 keyExtractor={item => item.courseId?.toString()}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.topCoursesList}
+                contentContainerStyle={styles.horizontalList}
               />
             )}
           </View>
+          
+          {/* Bottom spacer for tab bar */}
+          <View style={{height: 100}} />
         </ScrollView>
       )}
 
@@ -314,46 +385,63 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  fixedHeader: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 200,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
-  headerContent: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 30,
-    fontWeight: 'bold',
+  headerSubtitle: {
+    fontSize: 14,
     color: '#8B0000',
-    marginTop: 10,
-    marginBottom: 4,
+    fontWeight: '500',
   },
-  subGreeting: {
-    fontSize: 16,
-    color: '#666',
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  cartButton: {
+    padding: 5,
+  },
+  cartButtonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(139,0,0,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   searchBar: {
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
     alignItems: 'center',
-    paddingHorizontal: 12,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    height: 40,
+    borderColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchIcon: {
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
@@ -364,103 +452,144 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionContainer: {
-    marginTop: 24,
+    marginBottom: 30,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  sectionTitleGradient: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#8B0000',
-    marginBottom: 12,
-    paddingHorizontal: 16,
+    color: '#FFF',
   },
-  featuredList: {
-    paddingLeft: 16,
+  horizontalList: {
+    paddingLeft: 20,
+    paddingRight: 10,
   },
+  // Featured Course Card styles
   featuredCard: {
-    width: 220,
-    height: 240,
-    borderRadius: 10,
+    width: width * 0.7,
+    height: 200,
+    marginRight: 15,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginRight: 16,
-    backgroundColor: '#fff',
-    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 5,
+    backgroundColor: '#FFF',
+  },
+  cardInner: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
   },
   featuredImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  cardOverlay: {
+  imageOverlay: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
+    height: '100%',
+  },
+  cardContent: {
+    position: 'absolute',
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 8,
+    left: 0,
+    right: 0,
+    padding: 16,
   },
   featuredTitle: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
-  categoriesList: {
-    paddingLeft: 16,
+  courseStats: {
+    marginTop: 8,
   },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  statText: {
+    fontSize: 14,
+    color: '#FFF',
+    marginLeft: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
+  },
+  priceText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginLeft: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
+  },
+  // Category Card styles
   categoryCard: {
     width: 160,
     height: 80,
-    borderRadius: 12,
+    marginRight: 15,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginRight: 16,
-    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  categoryImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  categoryOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
+  categoryGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 10,
+    padding: 15,
   },
   categoryTitle: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 24,
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
   },
-  topCoursesList: {
-    paddingLeft: 16,
-    paddingBottom: 100,
+  categoryIcon: {
+    marginLeft: 5,
   },
+  // Top Course Card styles
   topCourseCard: {
-    width: 220,
-    height: 250,
-    borderRadius: 10,
+    width: width * 0.6,
+    height: 180,
+    marginRight: 15,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginRight: 16,
-    backgroundColor: '#fff',
-    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 5,
+    backgroundColor: '#FFF',
   },
   topCourseImage: {
     width: '100%',
@@ -469,19 +598,12 @@ const styles = StyleSheet.create({
   },
   topCourseTitle: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  authorText: {
-    color: '#fff',
-    fontSize: 10,
-    marginTop: 4,
-  },
-  priceText: {
-    color: '#fff',
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 4,
+    marginBottom: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   loadingContainer: {
     flex: 1,

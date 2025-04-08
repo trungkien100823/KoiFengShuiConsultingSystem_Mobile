@@ -187,13 +187,13 @@ export default function CourseChapterScreen() {
       if (savedChapters) {
         const parsedChapters = JSON.parse(savedChapters);
         setCompletedLessons(parsedChapters);
-      }
-      
-      // Load completed quizzes
-      const savedQuizzes = await AsyncStorage.getItem('completedQuizzes');
-      if (savedQuizzes) {
-        setCompletedQuizzes(JSON.parse(savedQuizzes));
-      }
+        }
+        
+        // Load completed quizzes
+        const savedQuizzes = await AsyncStorage.getItem('completedQuizzes');
+        if (savedQuizzes) {
+          setCompletedQuizzes(JSON.parse(savedQuizzes));
+        }
       
       // Load course progress - ưu tiên giá trị từ API nếu có
       const savedProgress = await AsyncStorage.getItem('courseProgress');
@@ -250,7 +250,7 @@ export default function CourseChapterScreen() {
       // Tính toán lại tiến độ học tập để hiển thị
       calculateProgress();
       
-    } catch (error) {
+      } catch (error) {
       console.error('Lỗi khi tải dữ liệu cục bộ:', error);
     }
   };
@@ -271,22 +271,22 @@ export default function CourseChapterScreen() {
         
         setRefreshing(true);
         try {
-          const token = await AsyncStorage.getItem('accessToken');
-          if (!token) {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
             console.log('Không có token');
             setRefreshing(false);
-            return;
-          }
+          return;
+        }
 
           console.log('CourseChapterScreen - Fetching course details for courseId:', courseId);
           
           // Gọi API lấy thông tin khóa học
           const courseResponse = await axios.get(
             `${API_CONFIG.baseURL}/api/Course/get-details-for-mobile/${courseId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
               }
             }
           );
@@ -321,7 +321,7 @@ export default function CourseChapterScreen() {
             if (hasEnrollCourseId) {
               console.log('Người dùng đã đăng ký khóa học, lấy danh sách enrollchapters');
               await fetchChapters(courseId, token, courseData.enrollCourseId);
-            } else {
+        } else {
               console.log('Người dùng chưa đăng ký khóa học này');
               setChapters([]);
               setCurrentProgress(0);
@@ -334,7 +334,7 @@ export default function CourseChapterScreen() {
               [{ text: "Đóng" }]
             );
           }
-        } catch (error) {
+      } catch (error) {
           console.error('Lỗi khi tải dữ liệu:', error);
           if (error.response) {
             console.log('Chi tiết lỗi:', {
@@ -342,12 +342,12 @@ export default function CourseChapterScreen() {
               data: error.response.data
             });
           }
-          Alert.alert(
+        Alert.alert(
             "Lỗi",
             "Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại sau.",
             [{ text: "Đóng" }]
-          );
-        } finally {
+        );
+      } finally {
           if (isActive) {
             setRefreshing(false);
           }
@@ -410,7 +410,7 @@ export default function CourseChapterScreen() {
           setCurrentProgress(progress);
           
           return true;
-        } else {
+    } else {
           console.log('Dữ liệu chapter không phải là mảng:', enrollChapters);
           return false;
         }
@@ -428,13 +428,13 @@ export default function CourseChapterScreen() {
     const checkRegistration = async () => {
       if (!courseId || !chapters || chapters.length === 0 || hasCheckedRegistration.current) return;
       
-      try {
-        const token = await AsyncStorage.getItem('accessToken');
-        if (!token) {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
           console.log('Không tìm thấy token, không thể kiểm tra đăng ký');
-          return;
-        }
-        
+        return;
+      }
+
         // Đánh dấu đã kiểm tra đăng ký
         hasCheckedRegistration.current = true;
         
@@ -607,11 +607,11 @@ export default function CourseChapterScreen() {
           const chapterData = chapterResponse.data.data;
           
           // Chuyển đến trang video với đầy đủ thông tin cần thiết
-          router.push({
+      router.push({
             pathname: '/course_video',
-            params: {
+        params: {
               courseId: courseId,
-              chapterId: chapter.chapterId,
+          chapterId: chapter.chapterId,
               enrollCourseId: chapter.enrollCourseId,
               enrollChapterId: chapter.enrollChapterId,
               videoUrl: chapterData.videoUrl,
@@ -622,7 +622,7 @@ export default function CourseChapterScreen() {
         } else {
           Alert.alert("Lỗi", "Không thể tải thông tin bài học");
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Lỗi khi lấy thông tin chapter:', error);
         Alert.alert("Lỗi", "Không thể tải thông tin bài học");
       }
@@ -635,7 +635,7 @@ export default function CourseChapterScreen() {
       );
     }
   };
-
+  
   const navigateToLesson = (lessonId, chapterId) => {
     // Tìm enrollCourseId từ các nguồn khác nhau
     let enrollCourseId = '';
@@ -727,8 +727,8 @@ export default function CourseChapterScreen() {
   // Then update the renderFinalExamButton function to use this check
   const renderFinalExamButton = () => {
     const allChaptersCompleted = checkAllChaptersCompleted();
-    
-    return (
+
+  return (
       <TouchableOpacity 
         style={[
           styles.finalExamContainer,
@@ -1019,7 +1019,7 @@ export default function CourseChapterScreen() {
       const isCompleted = chapter.status === "Done";
       
       return (
-        <TouchableOpacity 
+          <TouchableOpacity 
           key={chapter.chapterId}
           style={[
             styles.chapterItem,
@@ -1032,8 +1032,8 @@ export default function CourseChapterScreen() {
               <Text style={styles.chapterTitle}>
                 Chapter {index + 1}: {chapter.title}
               </Text>
-            </View>
-            
+        </View>
+
             <View style={styles.statusContainer}>
               {isCompleted ? (
                 <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
@@ -1056,17 +1056,17 @@ export default function CourseChapterScreen() {
             {courseInfo.courseName || 'Chưa có tên khóa học'}
           </Text>
           {courseInfo.rating && (
-            <View style={styles.ratingContainer}>
+          <View style={styles.ratingContainer}>
               <Text style={styles.ratingText}>
                 {courseInfo.rating}
               </Text>
               <View style={styles.starsContainer}>
-                <Ionicons name="star" size={16} color="#FFD700" />
-                <Ionicons name="star" size={16} color="#FFD700" />
-                <Ionicons name="star" size={16} color="#FFD700" />
-                <Ionicons name="star" size={16} color="#FFD700" />
-                <Ionicons name="star-half" size={16} color="#FFD700" />
-              </View>
+            <Ionicons name="star" size={16} color="#FFD700" />
+            <Ionicons name="star" size={16} color="#FFD700" />
+            <Ionicons name="star" size={16} color="#FFD700" />
+            <Ionicons name="star" size={16} color="#FFD700" />
+            <Ionicons name="star-half" size={16} color="#FFD700" />
+          </View>
             </View>
           )}
         </View>
@@ -1079,19 +1079,19 @@ export default function CourseChapterScreen() {
             </View>
           ) : (
             <>
-              <Image 
-                source={
+          <Image 
+            source={
                   courseInfo.imageUrl 
                     ? { uri: courseInfo.imageUrl }
-                    : require('../../assets/images/koi_image.jpg')
-                }
-                style={styles.fishImage}
-                resizeMode="cover"
-              />
-              
-              <View style={styles.section}>
+                : require('../../assets/images/koi_image.jpg')
+            }
+            style={styles.fishImage}
+            resizeMode="cover"
+          />
+          
+          <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Thông tin khóa học:</Text>
-                <Text style={styles.descriptionText}>
+            <Text style={styles.descriptionText}>
                   {courseInfo.description || 'Chưa có mô tả'}
                 </Text>
                 
@@ -1102,8 +1102,8 @@ export default function CourseChapterScreen() {
                       <Ionicons name="list" size={18} color="#FFD700" />
                       <Text style={styles.statText}>
                         {courseInfo.totalChapters} chương
-                      </Text>
-                    </View>
+            </Text>
+          </View>
                   )}
                   
                   {courseInfo.totalQuestions != null && (
@@ -1121,7 +1121,7 @@ export default function CourseChapterScreen() {
                       <Text style={styles.statText}>
                         {courseInfo.totalDuration}
                       </Text>
-                    </View>
+              </View>
                   )}
 
                   {courseInfo.enrolledStudents != null && (
@@ -1130,8 +1130,8 @@ export default function CourseChapterScreen() {
                       <Text style={styles.statText}>
                         {courseInfo.enrolledStudents} học viên
                       </Text>
-                    </View>
-                  )}
+                </View>
+              )}
                 </View>
 
                 {!isRegistered && courseInfo.price != null && (
@@ -1139,9 +1139,9 @@ export default function CourseChapterScreen() {
                     <Text style={styles.priceText}>
                       Giá: {courseInfo.price.toLocaleString()} VNĐ
                     </Text>
-                  </View>
-                )}
               </View>
+                )}
+                </View>
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Nội dung khóa học</Text>
@@ -1167,21 +1167,21 @@ export default function CourseChapterScreen() {
         
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
+            <TouchableOpacity 
             onPress={handleBackNavigation} 
             style={styles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
+            </TouchableOpacity>
+            
+              <TouchableOpacity 
             onPress={resetCourseProgress}
             style={styles.resetButton}
           >
             <Ionicons name="refresh" size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
+              </TouchableOpacity>
+          </View>
+          
         {renderCourseInfo()}
       </SafeAreaView>
     </ImageBackground>

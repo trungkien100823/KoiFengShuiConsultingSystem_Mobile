@@ -448,7 +448,7 @@ export default function CourseVideoScreen() {
   }, [courseId, chapterId]);
 
   // Fetch chapter data
-  const fetchChapterData = async () => {
+    const fetchChapterData = async () => {
     if (!chapterId) {
       console.log('Không có chapterId, không thể tải dữ liệu');
       setLoading(false);
@@ -456,23 +456,23 @@ export default function CourseVideoScreen() {
     }
 
     try {
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
         console.log('Không có token, không thể tải dữ liệu');
         setLoading(false);
-        return;
-      }
+          return;
+        }
 
       console.log('Đang tải dữ liệu cho chapter:', chapterId);
-      const response = await axios.get(
+        const response = await axios.get(
         `${API_CONFIG.baseURL}/api/Chapter/get-chapter/${chapterId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
           }
-        }
-      );
+        );
 
       if (response.data?.isSuccess && response.data.data) {
         let videoUrl = response.data.data.video;
@@ -512,18 +512,18 @@ export default function CourseVideoScreen() {
           setIsCompleted(true);
         }
 
-      } else {
+        } else {
         throw new Error(response.data?.message || 'Failed to fetch chapter data');
-      }
-    } catch (error) {
+        }
+      } catch (error) {
       console.error('Error fetching chapter data:', error);
       setVideoError(true);
       setVideoErrorMessage('Không thể tải thông tin chương học. Vui lòng thử lại sau.');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
+      } finally {
+        setLoading(false);
+      }
+    };
+
   // Fetch all chapters for the course
   const fetchCourseChapters = async (courseId, token, currentChapterId) => {
     if (!courseId) {
@@ -733,8 +733,8 @@ export default function CourseVideoScreen() {
         {
           text: "Xác nhận",
           onPress: async () => {
-            try {
-              const token = await AsyncStorage.getItem('accessToken');
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
               if (!token) return;
 
               const customerData = await AsyncStorage.getItem('customerInfo');
@@ -745,21 +745,21 @@ export default function CourseVideoScreen() {
 
               if (!customerId) return;
 
-              const response = await axios.put(
+      const response = await axios.put(
                 `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', chapterId)}`,
                 {
                   customerId: customerId,
                   chapterId: chapterId
                 },
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                }
-              );
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
-              if (response.data?.isSuccess) {
+      if (response.data?.isSuccess) {
                 setChapterStatus("Done");
                 Alert.alert("Thành công", "Đã cập nhật tiến độ học tập", [
                   {
@@ -776,8 +776,8 @@ export default function CourseVideoScreen() {
                     }
                   }
                 ]);
-              }
-            } catch (error) {
+      }
+    } catch (error) {
               console.error('Lỗi khi cập nhật tiến độ:', error);
               Alert.alert("Lỗi", "Không thể cập nhật tiến độ. Vui lòng thử lại sau.");
             }
@@ -883,12 +883,12 @@ export default function CourseVideoScreen() {
             }}
           />
 
-          {loading && (
+        {loading && (
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#fff" />
               <Text style={styles.loadingText}>Đang tải video...</Text>
-            </View>
-          )}
+          </View>
+        )}
 
           {videoError && (
             <View style={styles.overlay}>
@@ -899,9 +899,9 @@ export default function CourseVideoScreen() {
               >
                 <Text style={styles.retryText}>Thử lại</Text>
               </TouchableOpacity>
-            </View>
+                </View>
           )}
-        </View>
+                </View>
       </View>
     );
   };
@@ -915,7 +915,7 @@ export default function CourseVideoScreen() {
     const isChapterCompleted = completedLessons[item.chapterId] === true;
     
     return (
-      <TouchableOpacity 
+              <TouchableOpacity 
         style={[
           styles.chapterButton,
           isCurrentChapter && styles.currentChapterButton,
@@ -925,39 +925,39 @@ export default function CourseVideoScreen() {
       >
         <View style={styles.chapterButtonContent}>
           <View style={styles.chapterInfo}>
-            <Text style={[
+                  <Text style={[
               styles.chapterNumber, 
               isCurrentChapter && styles.currentChapterText
-            ]}>
+                  ]}>
               Chapter {index + 1}
-            </Text>
-            <Text style={[
+                  </Text>
+                  <Text style={[
               styles.chapterTitle, 
               isCurrentChapter && styles.currentChapterText
             ]} numberOfLines={2}>
               {item.title}
-            </Text>
-          </View>
+                  </Text>
+                </View>
           <View style={styles.chapterStatus}>
             {isCurrentChapter ? (
               <View style={styles.currentIndicator}>
                 <Ionicons name="play" size={16} color="#fff" />
-              </View>
+                </View>
             ) : isChapterCompleted ? (
               <View style={styles.completedIndicator}>
                 <Ionicons name="checkmark" size={18} color="#fff" />
-              </View>
+            </View>
             ) : (
               <View style={styles.incompleteIndicator}>
                 <Ionicons name="lock-open" size={14} color="#999" />
-              </View>
+                </View>
             )}
-          </View>
-        </View>
+                </View>
+              </View>
         <Text style={styles.chapterDuration}>
           {item.duration || '10:00'}
-        </Text>
-      </TouchableOpacity>
+                  </Text>
+              </TouchableOpacity>
     );
   };
 
@@ -1374,10 +1374,10 @@ export default function CourseVideoScreen() {
           <Ionicons name="chevron-back" size={24} color="#333" />
           <Text style={styles.headerTitle}>
             {chapterData?.title || 'Đang tải...'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
+                  </Text>
+              </TouchableOpacity>
+            </View>
+            
       {/* Video Container */}
       <View style={styles.mainContainer}>
         <View style={styles.videoWrapper}>
@@ -1387,17 +1387,17 @@ export default function CourseVideoScreen() {
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#fff" />
               <Text style={styles.loadingText}>Đang tải video...</Text>
-            </View>
+                </View>
           )}
-        </View>
-
+              </View>
+              
         {/* Chapter Information */}
         {chapterData && (
           <ScrollView style={styles.infoContainer}>
             <View style={styles.chapterInfoContainer}>
               <Text style={styles.chapterTitle}>
                 {chapterData.title || 'Không có tiêu đề'}
-              </Text>
+                  </Text>
               
               <View style={styles.chapterMetaInfo}>
                 <View style={styles.metaItem}>
@@ -1406,7 +1406,7 @@ export default function CourseVideoScreen() {
                     {chapterData.duration || '00:45:00'}
                   </Text>
                 </View>
-              </View>
+                </View>
 
               {chapterData.description && (
                 <View style={styles.descriptionContainer}>
@@ -1416,8 +1416,8 @@ export default function CourseVideoScreen() {
                   </Text>
                 </View>
               )}
-            </View>
-          </ScrollView>
+        </View>
+      </ScrollView>
         )}
       </View>
     </SafeAreaView>
