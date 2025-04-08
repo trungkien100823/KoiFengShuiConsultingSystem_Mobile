@@ -16,6 +16,21 @@ export default function ConsultingScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedTab, setSelectedTab] = useState(consultingCategories[0]);
   const [sortVisible, setSortVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Hàm xử lý tìm kiếm
+  const handleSearch = (text) => {
+    setSearchQuery(text);
+  };
+
+  // Hàm lọc Master theo từ khóa tìm kiếm
+  const filterConsultants = (consultants) => {
+    if (!searchQuery.trim()) return consultants;
+    
+    return consultants.filter(consultant => 
+      consultant.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
 
   useEffect(() => {
     fetchConsultants();
@@ -87,8 +102,10 @@ export default function ConsultingScreen() {
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <TextInput
-            placeholder="Tìm kiếm ở đây"
+            placeholder="Tìm kiếm Master..."
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={handleSearch}
           />
           <Ionicons name="search" size={20} color="#666" />
         </View>
@@ -100,78 +117,124 @@ export default function ConsultingScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.carouselContainer}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#8B0000" />
-            <Text style={styles.loadingText}>Loading consultants...</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchConsultants}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : consultants && consultants.length > 0 ? (
-          <>
-            <ScrollView 
-              horizontal
-              pagingEnabled
-              snapToInterval={cardWidth + 20}
-              decelerationRate="fast"
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-              onMomentumScrollEnd={handleScroll}
-            >
-              {consultants.map((consultant, index) => {
-                
-                return (
-                  <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
-                    <TouchableOpacity 
-                      style={styles.consultantCard}
-                      onPress={() => router.push({
-                        pathname: '/consultant_details',
-                        params: { consultantId: consultant.id }
-                      })}
-                    >
-                      <Text style={styles.consultantTitle}>{consultant.title || 'Master'}</Text>
-                      <Image 
-                        source={consultant.image} 
-                        style={styles.consultantImage}
-                        resizeMode="cover" 
-                      />
-                      <View style={styles.cardContent}>
-                        <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
-                      </View>
-                      <View style={styles.ratingContainer}>
-                        {renderStars(consultant.rating || 0)}
-                        <Text style={styles.ratingText}>{(consultant.rating || 0).toFixed(1)}/5.0</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </ScrollView>
-            
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={styles.bookButton}
-                onPress={() => router.push({
-                  pathname: '/(tabs)/OfflineOnline',
-                  params: { consultantId: consultants[activeIndex]?.id }
-                })}
-              >
-                <Text style={styles.bookButtonText}>Book now</Text>
+      <ScrollView style={{flex: 1}} showsVerticalScrollIndicator={false}>
+        <View style={styles.carouselContainer}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#8B0000" />
+              <Text style={styles.loadingText}>Loading consultants...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={fetchConsultants}>
+                <Text style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
             </View>
-          </>
-        ) : (
-          <View style={styles.noDataContainer}>
-            <Text style={styles.noDataText}>No consultants available</Text>
-          </View>
-        )}
-      </View>
+          ) : consultants && consultants.length > 0 ? (
+            <>
+              {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
+              {searchQuery.trim() !== '' && (
+                <View style={styles.searchResultsContainer}>
+                  <Text style={styles.searchResultsTitle}>Searching Masters</Text>
+                  {filterConsultants(consultants).length > 0 ? (
+                    <ScrollView 
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.searchScrollContent}
+                    >
+                      {filterConsultants(consultants).map((consultant, index) => (
+                        <View key={`search-${consultant.id || index}`} style={styles.searchConsultantWrapper}>
+                          <TouchableOpacity 
+                            style={styles.searchConsultantCard}
+                            onPress={() => router.push({
+                              pathname: '/consultant_details',
+                              params: { consultantId: consultant.id }
+                            })}
+                          >
+                            <Text style={styles.searchConsultantTitle}>{consultant.title || 'Master'}</Text>
+                            <Image 
+                              source={consultant.image} 
+                              style={styles.searchConsultantImage}
+                              resizeMode="cover" 
+                            />
+                            <View style={styles.cardContent}>
+                              <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
+                            </View>
+                            <View style={styles.ratingContainer}>
+                              {renderStars(consultant.rating || 0)}
+                              <Text style={styles.ratingText}>{(consultant.rating || 0).toFixed(1)}/5.0</Text>
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <View style={styles.emptySearchResults}>
+                      <Text style={styles.emptySearchText}>Không tìm thấy Master nào phù hợp</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              <ScrollView 
+                horizontal
+                pagingEnabled
+                snapToInterval={cardWidth + 20}
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                onMomentumScrollEnd={handleScroll}
+              >
+                {consultants.map((consultant, index) => {
+                  
+                  return (
+                    <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
+                      <TouchableOpacity 
+                        style={styles.consultantCard}
+                        onPress={() => router.push({
+                          pathname: '/consultant_details',
+                          params: { consultantId: consultant.id }
+                        })}
+                      >
+                        <Text style={styles.consultantTitle}>{consultant.title || 'Master'}</Text>
+                        <Image 
+                          source={consultant.image} 
+                          style={styles.consultantImage}
+                          resizeMode="cover" 
+                        />
+                        <View style={styles.cardContent}>
+                          <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
+                        </View>
+                        <View style={styles.ratingContainer}>
+                          {renderStars(consultant.rating || 0)}
+                          <Text style={styles.ratingText}>{(consultant.rating || 0).toFixed(1)}/5.0</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity 
+                  style={styles.bookButton}
+                  onPress={() => router.push({
+                    pathname: '/(tabs)/OfflineOnline',
+                    params: { consultantId: consultants[activeIndex]?.id }
+                  })}
+                >
+                  <Text style={styles.bookButtonText}>Book now</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <View style={styles.noDataContainer}>
+              <Text style={styles.noDataText}>No consultants available</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
       
       <CustomTabBar />
     </View>
@@ -182,7 +245,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingBottom: 80,
   },
   header: {
     flexDirection: 'row',
@@ -257,7 +319,7 @@ const styles = StyleSheet.create({
   consultantWrapper: {
     marginLeft: -10,
     marginRight: 20,
-    height: 450,
+    height: 420,
   },
   consultantCard: {
     backgroundColor: '#FFFFFF',
@@ -288,7 +350,7 @@ const styles = StyleSheet.create({
   },
   consultantImage: {
     width: '100%',
-    height: 350,
+    height: 320,
   },
   cardContent: {
     padding: 10,
@@ -372,5 +434,66 @@ const styles = StyleSheet.create({
   noDataText: {
     fontSize: 16,
     color: '#666',
+  },
+  searchResultsContainer: {
+    marginBottom: 15,
+    paddingHorizontal: 5,
+  },
+  searchResultsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B0000',
+    marginBottom: 10,
+    paddingHorizontal: 5,
+    borderLeftWidth: 3,
+    borderLeftColor: '#8B0000',
+    paddingLeft: 8,
+  },
+  searchScrollContent: {
+    paddingBottom: 10,
+  },
+  searchConsultantWrapper: {
+    marginRight: 10,
+    height: 280,
+    width: width * 0.43,
+  },
+  searchConsultantCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 5,
+    height: '100%',
+  },
+  searchConsultantTitle: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: '#8B0000',
+    color: '#FFFFFF',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    zIndex: 1,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  searchConsultantImage: {
+    width: '100%',
+    height: 180,
+  },
+  emptySearchResults: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 100,
+  },
+  emptySearchText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   }
 });

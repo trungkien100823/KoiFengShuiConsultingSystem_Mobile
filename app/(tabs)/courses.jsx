@@ -219,6 +219,20 @@ export default function CoursesScreen() {
     </TouchableOpacity>
   );
 
+  // Hàm xử lý tìm kiếm
+  const handleSearch = (text) => {
+    setSearchQuery(text);
+  };
+
+  // Hàm lọc khóa học theo từ khóa tìm kiếm
+  const filterCourses = (courses) => {
+    if (!searchQuery.trim()) return courses;
+    
+    return courses.filter(course => 
+      course.courseName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -241,10 +255,10 @@ export default function CoursesScreen() {
           <View style={styles.searchBar}>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search courses"
+              placeholder="Tìm kiếm khóa học..."
               placeholderTextColor="#999"
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={handleSearch}
             />
             <Ionicons name="search" size={20} color="#666" />
           </View>
@@ -257,6 +271,35 @@ export default function CoursesScreen() {
         </View>
       ) : (
         <ScrollView style={styles.scrollContent}>
+          {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
+          {searchQuery.trim() !== '' && (
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Searching courses</Text>
+              {isLoading ? (
+                <ActivityIndicator size="large" color="#8B0000" />
+              ) : (
+                <FlatList
+                  horizontal
+                  data={[
+                    ...filterCourses(featuredCourses), 
+                    ...filterCourses(topCourses)
+                  ].filter((course, index, self) => 
+                    index === self.findIndex((c) => c.courseId === course.courseId)
+                  )}
+                  renderItem={renderFeaturedCourse}
+                  keyExtractor={(item, index) => `search-${item.courseId}-${index}`}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.featuredList}
+                  ListEmptyComponent={
+                    <View style={styles.emptySearchResults}>
+                      <Text style={styles.emptySearchText}>Không tìm thấy khóa học nào phù hợp</Text>
+                    </View>
+                  }
+                />
+              )}
+            </View>
+          )}
+
           {/* Best Seller Courses - Luôn hiển thị đầu tiên */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Best Seller Courses</Text>
@@ -487,5 +530,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptySearchResults: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 250,
+  },
+  emptySearchText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });

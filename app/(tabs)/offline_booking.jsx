@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -14,7 +14,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
@@ -37,6 +37,25 @@ export default function OfflineBookingScreen() {
   const currentDay = today.getDate();
   const currentMonthActual = today.getMonth();
   const currentYearActual = today.getFullYear();
+
+  // Thêm useFocusEffect để reset state khi màn hình được focus lại
+  useFocusEffect(
+    useCallback(() => {
+      // Reset các state khi màn hình được focus lại
+      setSelectedDate(null);
+      setDescription('');
+      setCurrentMonth(new Date().getMonth());
+      setCurrentYear(new Date().getFullYear());
+      
+      // Xóa dữ liệu đã lưu trong AsyncStorage nếu có
+      AsyncStorage.removeItem('offlineBookingDescription');
+      AsyncStorage.removeItem('offlineBookingDate');
+      
+      return () => {
+        // Cleanup function (nếu cần)
+      };
+    }, [])
+  );
 
   const months = [
     "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",

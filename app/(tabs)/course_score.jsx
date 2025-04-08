@@ -21,13 +21,13 @@ const { width } = Dimensions.get('window');
 export default function CourseScoreScreen() {
   const router = useRouter();
   const { 
-    quizId = 'section1-quiz', 
-    score = '0', 
-    source = 'chapter',
-    totalQuestions = '10',
-    correctAnswers = '0',
-    timeSpent = '0',
-    percentage = '0',
+    quizId, 
+    score, 
+    source,
+    totalQuestions,
+    correctAnswers,
+    timeSpent,
+    percentage,
     courseId
   } = useLocalSearchParams();
   
@@ -47,11 +47,21 @@ export default function CourseScoreScreen() {
     'final': 'Kết thúc khóa học',
   };
   
+  // Thêm hàm format thời gian
+  const formatTime = (seconds) => {
+    if (!seconds || isNaN(seconds)) {
+      return "0:00";
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   // Parse numeric values from params
-  const numericScore = parseFloat(score);
-  const numericTotalQuestions = parseInt(totalQuestions);
-  const numericCorrectAnswers = parseInt(correctAnswers);
-  const numericTimeSpent = parseInt(timeSpent);
+  const numericScore = parseFloat(score || 0);
+  const numericTotalQuestions = parseInt(totalQuestions || 0);
+  const numericCorrectAnswers = parseInt(correctAnswers || 0);
+  const numericTimeSpent = parseInt(timeSpent || 0);
 
   useEffect(() => {
     const loadScoreData = async () => {
@@ -210,8 +220,8 @@ export default function CourseScoreScreen() {
           <View style={[styles.scoreCircle, isPassed ? styles.scoreCirclePassed : styles.scoreCircleFailed]}>
             <Text style={styles.scoreText}>
               {scoreData 
-                ? `${scoreData.correctAnswers}/${scoreData.totalQuestions}`
-                : `${correctAnswers}/${totalQuestions}`
+                ? `${scoreData.percentage}%`
+                : `${percentage}%`
               }
             </Text>
           </View>
@@ -240,7 +250,9 @@ export default function CourseScoreScreen() {
           
           <View style={styles.statCard}>
             <Ionicons name="time-outline" size={24} color="#FF9800" style={styles.statIcon} />
-            <Text style={styles.statValue}>{numericTimeSpent} phút</Text>
+            <Text style={styles.statValue}>
+              {formatTime(numericTimeSpent)}
+            </Text>
             <Text style={styles.statLabel}>Thời gian hoàn thành</Text>
           </View>
           
@@ -269,22 +281,11 @@ export default function CourseScoreScreen() {
       {/* Action Buttons */}
       <View style={styles.actionButtonsContainer}>
         <TouchableOpacity 
-          style={[styles.actionButton, styles.shareButton, hasSharedResult && styles.disabledButton]}
-          onPress={handleShareResult}
-          disabled={hasSharedResult}
-        >
-          <Ionicons name="share-social-outline" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>
-            {hasSharedResult ? 'Đã chia sẻ' : 'Chia sẻ kết quả'}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.returnButton]}
+          style={styles.continueButton}
           onPress={handleReturnToCourse}
         >
-          <Ionicons name="arrow-forward-outline" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>Tiếp tục học</Text>
+          <Text style={styles.continueButtonText}>Tiếp tục học</Text>
+          <Ionicons name="arrow-forward-circle" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -443,37 +444,32 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     marginTop: 'auto',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
+    alignItems: 'center',
   },
-  actionButton: {
+  continueButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 6,
-  },
-  shareButton: {
     backgroundColor: '#8B0000',
-    opacity: 0.8,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
+    borderRadius: 30,
+    width: '90%',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
-  returnButton: {
-    backgroundColor: '#8B0000',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  actionButtonText: {
+  continueButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginLeft: 8,
+    marginRight: 8,
   },
 });

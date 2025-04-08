@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
 
@@ -28,70 +29,87 @@ export default function CourseQuizStartScreen() {
   const [quizTitle, setQuizTitle] = useState('');
   const [hasCompletedQuiz, setHasCompletedQuiz] = useState(false);
 
-  // Fetch quiz data from API
-  useEffect(() => {
-    const fetchQuizData = async () => {
-      try {
-        setLoading(true);
-        
-        const token = await AsyncStorage.getItem('accessToken');
-        
-        if (!token) {
-          throw new Error('Vui lòng đăng nhập để xem bài kiểm tra');
-        }
+  // Thêm hàm tính thời gian dựa trên số câu hỏi
+  const calculateTimeLimit = (questionCount) => {
+    if (!questionCount || questionCount <= 0) return 0; // 0 phút = không giới hạn
+    if (questionCount <= 20) return 15;
+    if (questionCount <= 40) return 30;
+    if (questionCount <= 60) return 60;
+    if (questionCount > 60) return "Không giới hạn thời gian";
+    return 0; // 0 phút = không giới hạn
+  };
 
-        // Tạo key duy nhất cho mỗi user và quiz
-        const userQuizKey = `${token}_${courseId}_completed`;
-        
-        // Kiểm tra trạng thái hoàn thành từ AsyncStorage với key của user
-        const completedQuizzes = await AsyncStorage.getItem(userQuizKey);
-        if (completedQuizzes) {
-          const quizzes = JSON.parse(completedQuizzes);
-          setHasCompletedQuiz(!!quizzes);
-        } else {
-          setHasCompletedQuiz(false);
-        }
-        
-        const response = await fetch(
-          `${API_CONFIG.baseURL}/api/Quiz/by-course/${courseId}`,
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        
-        const result = await response.json();
-        
-        if (result.isSuccess && result.data) {
-          setQuizData(result.data);
-          
-          if (result.data.quizId) {
-            setQuizId(result.data.quizId);
-          }
-          
-          if (result.data.title) {
-            setQuizTitle(result.data.title);
-          }
-        } else {
-          setError(result.message || 'Không thể tải thông tin bài kiểm tra');
-        }
-      } catch (err) {
-        setError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
+  const fetchQuizData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = await AsyncStorage.getItem('accessToken');
+      
+      if (!token) {
+        throw new Error('Vui lòng đăng nhập để xem bài kiểm tra');
       }
-    };
 
-    if (courseId) {
-      fetchQuizData();
-    } else {
-      setError('Thiếu thông tin khóa học');
+      // Tạo key duy nhất cho mỗi user và quiz
+      const userQuizKey = `${token}_${courseId}_completed`;
+      
+      // Kiểm tra trạng thái hoàn thành từ AsyncStorage với key của user
+      const completedQuizzes = await AsyncStorage.getItem(userQuizKey);
+      if (completedQuizzes) {
+        const quizzes = JSON.parse(completedQuizzes);
+        setHasCompletedQuiz(!!quizzes);
+      } else {
+        setHasCompletedQuiz(false);
+      }
+      
+      const response = await fetch(
+        `${API_CONFIG.baseURL}/api/Quiz/by-course/${courseId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const result = await response.json();
+      
+      // Chỉ log khi cần debug
+      // console.log('Quiz API Response:', result);
+      
+      if (result.isSuccess && result.data) {
+        // console.log('Quiz Data:', result.data);
+        setQuizData(result.data);
+        
+        if (result.data.quizId) {
+          setQuizId(result.data.quizId);
+        }
+        
+        if (result.data.title) {
+          setQuizTitle(result.data.title);
+        }
+
+        // Chỉ log khi cần debug
+        // console.log('Question Count:', result.data.questionCount);
+      } else {
+        setError(result.message || 'Không thể tải thông tin bài kiểm tra');
+      }
+    } catch (err) {
+      setError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+    } finally {
       setLoading(false);
     }
   }, [courseId]);
+
+  // Thêm useFocusEffect để re-fetch dữ liệu khi màn hình được focus
+  useFocusEffect(
+    useCallback(() => {
+      // Chỉ log khi cần debug
+      // console.log('Screen focused, fetching quiz data...');
+      fetchQuizData();
+    }, [fetchQuizData])
+  );
 
   // Handle back button
   const handleBack = () => {
@@ -171,7 +189,7 @@ export default function CourseQuizStartScreen() {
         
         <View style={styles.quizInfoCard}>
           <Text style={styles.sectionHeading}>Mô tả</Text>
-          <Text style={styles.description}>{quizData?.description || 'Chưa có mô tả cho bài kiểm tra này'}</Text>
+          <Text style={styles.quizDescription}>{quizData?.description || 'Chưa có mô tả cho bài kiểm tra này'}</Text>
           
           <View style={styles.divider} />
           
@@ -181,31 +199,27 @@ export default function CourseQuizStartScreen() {
               <Ionicons name="time-outline" size={20} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Thời gian</Text>
-                <Text style={styles.detailValue}>{quizData?.timeLimit || 'Chưa cập nhật'}</Text>
+                <Text style={styles.detailValue}>
+                  {calculateTimeLimit(quizData?.questionCount) === 0 
+                    ? 'Không giới hạn thời gian'
+                    : `${calculateTimeLimit(quizData?.questionCount)} phút`}
+                </Text>
               </View>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="help-circle-outline" size={20} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Số câu hỏi</Text>
-                <Text style={styles.detailValue}>{quizData?.totalQuestions || 'Chưa cập nhật'}</Text>
+                <Text style={styles.detailValue}>{quizData?.questionCount}</Text>
               </View>
             </View>
           </View>
-          
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
               <Ionicons name="trophy-outline" size={20} color="#666" />
               <View style={styles.detailTextContainer}>
-                <Text style={styles.detailLabel}>Điểm đạt</Text>
-                <Text style={styles.detailValue}>{quizData?.passingScore || 'Chưa cập nhật'}</Text>
-              </View>
-            </View>
-            <View style={styles.detailItem}>
-              <Ionicons name="repeat-outline" size={20} color="#666" />
-              <View style={styles.detailTextContainer}>
-                <Text style={styles.detailLabel}>Số lần làm</Text>
-                <Text style={styles.detailValue}>{quizData?.maxAttempts || 'Không giới hạn'}</Text>
+                <Text style={styles.detailLabel}>Điểm cần đạt</Text>
+                <Text style={styles.detailValue}>{quizData?.passingScore || '80%'}</Text>
               </View>
             </View>
           </View>
@@ -215,14 +229,10 @@ export default function CourseQuizStartScreen() {
           <Text style={styles.instructionTitle}>Hướng dẫn làm bài</Text>
           <View style={styles.instructionItem}>
             <Text style={styles.instructionNumber}>1</Text>
-            <Text style={styles.instructionText}>Trả lời tất cả các câu hỏi trong thời gian quy định</Text>
-          </View>
-          <View style={styles.instructionItem}>
-            <Text style={styles.instructionNumber}>2</Text>
             <Text style={styles.instructionText}>Bạn có thể dùng nút Previous và Next để di chuyển giữa các câu hỏi</Text>
           </View>
           <View style={styles.instructionItem}>
-            <Text style={styles.instructionNumber}>3</Text>
+            <Text style={styles.instructionNumber}>2</Text>
             <Text style={styles.instructionText}>Kết quả sẽ được hiển thị ngay sau khi bạn hoàn thành bài kiểm tra</Text>
           </View>
         </View>
@@ -321,9 +331,10 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 12,
   },
-  description: {
-    fontSize: 15,
+  quizDescription: {
+    fontSize: 16,
     color: '#666',
+    marginBottom: 16,
     lineHeight: 22,
   },
   divider: {
