@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -11,7 +11,7 @@ import {
   FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SelectList } from 'react-native-dropdown-select-list';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
@@ -150,6 +150,28 @@ export default function OnlineScheduleScreen() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [dates, setDates] = useState([]);
   const [allDates, setAllDates] = useState([]); // Store all generated dates
+
+  // Thêm useFocusEffect để reset state khi màn hình được focus lại
+  useFocusEffect(
+    useCallback(() => {
+      // Reset các state khi màn hình được focus lại
+      setSelectedDate(null);
+      setSelectedDateObj(null);
+      setSelectedStartTime(null);
+      setSelectedEndTime(null);
+      setCurrentMonth(new Date().getMonth());
+      setCurrentYear(new Date().getFullYear());
+      
+      // Xóa dữ liệu đã lưu trong AsyncStorage nếu có
+      AsyncStorage.removeItem('onlineBookingDate');
+      AsyncStorage.removeItem('onlineBookingStartTime');
+      AsyncStorage.removeItem('onlineBookingEndTime');
+      
+      return () => {
+        // Cleanup function (nếu cần)
+      };
+    }, [])
+  );
 
   // Get today's actual date
   const today = new Date();

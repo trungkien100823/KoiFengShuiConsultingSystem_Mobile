@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { paymentService } from '../../constants/paymentService';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -44,9 +45,17 @@ export default function CoursePaymentScreen() {
   // Thêm state cho loading user info
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
-  useEffect(() => {
-    fetchCurrentUser();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Payment screen is focused - re-fetching data');
+      setIsLoadingUser(true);
+      fetchCurrentUser();
+      return () => {
+        // Cleanup khi màn hình mất focus
+        console.log('Payment screen lost focus');
+      };
+    }, [])
+  );
 
   const fetchCurrentUser = async () => {
     try {

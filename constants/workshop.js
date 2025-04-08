@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { BASE_URL } from './config';
+import { Alert } from 'react-native';
 
 // Tạo instance axios với cấu hình mặc định
 const axiosInstance = axios.create({
@@ -29,36 +30,37 @@ export const workshopService = {
 
         // Kiểm tra và xử lý response
         if (response.data) {
-          console.log('Trending workshops data:', response.data);
+          if (!response.data.data || response.data.data.length === 0) {
+            Alert.alert('Thông báo', 'Không tìm thấy trending workshops');
+          }
           return response.data;
         }
         throw new Error('Không có dữ liệu trả về từ API');
 
       } catch (error) {
-        console.error('Chi tiết lỗi khi lấy trending workshops:', {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data
-        });
-
         if (error.code === 'ECONNABORTED') {
-          throw new Error('Timeout - Vui lòng kiểm tra kết nối mạng');
+          Alert.alert('Lỗi kết nối', 'Timeout - Vui lòng kiểm tra kết nối mạng');
         }
         
         if (error.response) {
           switch (error.response.status) {
             case 404:
-              throw new Error('Không tìm thấy API endpoint');
+              Alert.alert('Lỗi', 'Không tìm thấy API endpoint');
+              break;
             case 401:
-              throw new Error('Token không hợp lệ hoặc đã hết hạn');
+              Alert.alert('Lỗi xác thực', 'Token không hợp lệ hoặc đã hết hạn');
+              break;
             case 403:
-              throw new Error('Không có quyền truy cập');
+              Alert.alert('Lỗi quyền truy cập', 'Không có quyền truy cập');
+              break;
             default:
-              throw new Error(`Lỗi server: ${error.response.status}`);
+              Alert.alert('Lỗi server', `Lỗi server: ${error.response.status}`);
           }
+        } else {
+          Alert.alert('Lỗi kết nối', 'Lỗi kết nối đến server');
         }
         
-        throw new Error('Lỗi kết nối đến server');
+        throw error;
       }
     },
   
@@ -80,6 +82,10 @@ export const workshopService = {
           // Lấy dữ liệu từ response
           let workshops = response.data.data || [];
 
+          if (workshops.length === 0) {
+            Alert.alert('Thông báo', 'Không tìm thấy newest workshops');
+          }
+
           // Sort workshops chỉ theo createdDate giảm dần
           workshops = workshops.sort((a, b) => {
             const dateA = new Date(a.createdDate);
@@ -87,7 +93,6 @@ export const workshopService = {
             return dateB - dateA; // Sort giảm dần (mới nhất lên đầu)
           });
 
-          console.log('Newest workshops đã sort theo createdDate:', workshops);
           return {
             ...response.data,
             data: workshops
@@ -96,15 +101,31 @@ export const workshopService = {
         throw new Error('Không có dữ liệu trả về từ API');
 
       } catch (error) {
-        console.error('Chi tiết lỗi khi lấy newest workshops:', {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data
-        });
-
         if (error.response?.status === 500) {
-          console.log('Server error response:', error.response.data);
+          Alert.alert('Lỗi server', 'Lỗi xử lý dữ liệu từ server');
           return { data: [] };
+        }
+
+        if (error.code === 'ECONNABORTED') {
+          Alert.alert('Lỗi kết nối', 'Timeout - Vui lòng kiểm tra kết nối mạng');
+        }
+        
+        if (error.response) {
+          switch (error.response.status) {
+            case 404:
+              Alert.alert('Lỗi', 'Không tìm thấy API endpoint');
+              break;
+            case 401:
+              Alert.alert('Lỗi xác thực', 'Token không hợp lệ hoặc đã hết hạn');
+              break;
+            case 403:
+              Alert.alert('Lỗi quyền truy cập', 'Không có quyền truy cập');
+              break;
+            default:
+              Alert.alert('Lỗi server', `Lỗi server: ${error.response.status}`);
+          }
+        } else {
+          Alert.alert('Lỗi kết nối', 'Lỗi kết nối đến server');
         }
 
         throw error;
