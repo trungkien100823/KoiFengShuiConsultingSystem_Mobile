@@ -9,8 +9,7 @@ import {
   TextInput, 
   FlatList,
   ActivityIndicator,
-  Alert,
-  Dimensions
+  Alert 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,9 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { workshopService } from '../../constants/workshop';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 
-const { width } = Dimensions.get('window');
-
-// Enhanced workshop card component
+// Component hiển thị một workshop
 const WorkshopCard = ({ workshop }) => {
   const navigation = useNavigation();
   
@@ -47,37 +44,30 @@ const WorkshopCard = ({ workshop }) => {
         });
       }}
     >
-      <View style={styles.cardInner}>
-        <View style={styles.imageContainer}>
-          <Image
-            source={workshop.image}
-            style={styles.workshopImage}
-            resizeMode="cover"
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)']}
-            style={styles.imageOverlay}
-          />
-        </View>
-        <View style={styles.contentContainer}>
-          <Text style={styles.workshopTitle} numberOfLines={2}>{workshop.title}</Text>
-          <View style={styles.workshopDetails}>
-            <View style={styles.detailItem}>
-              <Ionicons name="calendar-outline" size={16} color="#8B0000" />
-              <Text style={styles.detailText}>{workshop.date}</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Ionicons name="location-outline" size={16} color="#8B0000" />
-              <Text style={styles.detailText}>{workshop.location}</Text>
-            </View>
-          </View>
+      {/* Rest of your component remains the same */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={workshop.image}
+          style={styles.workshopImage}
+          resizeMode="cover"
+        />
+      </View>
+      <View style={styles.workshopInfo}>
+        <Text style={styles.workshopTitle} numberOfLines={2}>{workshop.title}</Text>
+        <View style={styles.workshopDetails}>
+          <Text style={styles.workshopDate}>
+            <Ionicons name="calendar-outline" size={14} color="#666" /> {workshop.date}
+          </Text>
+          <Text style={styles.workshopLocation}>
+            <Ionicons name="location-outline" size={14} color="#666" /> {workshop.location}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
   );
 };
 
-// Enhanced workshop section component
+// Component hiển thị một phần (section) với tiêu đề và danh sách workshops
 const WorkshopSection = ({ title, workshops, loading }) => {
   if (loading) {
     return (
@@ -85,9 +75,7 @@ const WorkshopSection = ({ title, workshops, loading }) => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{title}</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B0000" />
-        </View>
+        <ActivityIndicator size="large" color="#AE1D1D" />
       </View>
     );
   }
@@ -95,14 +83,7 @@ const WorkshopSection = ({ title, workshops, loading }) => {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <LinearGradient
-          colors={['#8B0000', '#600000']}
-          start={[0, 0]}
-          end={[1, 0]}
-          style={styles.sectionTitleGradient}
-        >
-          <Text style={styles.sectionTitle}>{title}</Text>
-        </LinearGradient>
+        <Text style={styles.sectionTitle}>{title}</Text>
       </View>
       <FlatList
         horizontal
@@ -250,7 +231,7 @@ export default function Workshop() {
     return unsubscribe;
   }, [navigation]);
 
-  // Enhanced retry button
+  // Thêm retry button khi có lỗi
   const RetryButton = () => (
     <TouchableOpacity 
       style={styles.retryButton}
@@ -259,38 +240,31 @@ export default function Workshop() {
         fetchWorkshops();
       }}
     >
-      <LinearGradient
-        colors={['#8B0000', '#600000']}
-        style={styles.retryButtonGradient}
-      >
-        <Text style={styles.retryButtonText}>Thử lại</Text>
-        <Ionicons name="refresh" size={16} color="#FFF" style={{marginLeft: 6}} />
-      </LinearGradient>
+      <Text style={styles.retryButtonText}>Thử lại</Text>
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['rgba(139,0,0,0.05)', 'rgba(255,255,255,0)']}
-        style={styles.backgroundGradient}
-      />
-      
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>Discover</Text>
-          <Text style={styles.headerTitle}>What Suits You?</Text>
+      <ScrollView>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>What Suit You?</Text>
+          <TouchableOpacity style={styles.moreButton}>
+            <Ionicons name="ellipsis-horizontal" size={24} color="#333" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.moreButton}>
-          <View style={styles.moreButtonCircle}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#8B0000" />
+
+        {/* Hiển thị lỗi nếu có */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <RetryButton />
           </View>
-        </TouchableOpacity>
-      </View>
-    {/* Search Bar */}
-    <View style={styles.searchContainer}>
+        )}
+        
+        <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#8B0000" style={styles.searchIcon} />
+            <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search workshops..."
@@ -298,37 +272,23 @@ export default function Workshop() {
             />
           </View>
         </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
         
-
-        {/* Error Message */}
-        {error && (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={32} color="#8B0000" />
-            <Text style={styles.errorText}>{error}</Text>
-            <RetryButton />
-          </View>
-        )}
-        
-        {/* Workshop Sections */}
         <WorkshopSection 
-          title="Workshop nổi bật" 
+          title="Trending Workshops" 
           workshops={trendingWorkshops}
           loading={loading}
         />
 
         <WorkshopSection 
-          title="Workshop mới nhất" 
+          title="Newest Workshops" 
           workshops={newestWorkshops}
           loading={loading}
         />
-        
-        {/* Bottom spacer */}
-        <View style={{height: 100}} />
       </ScrollView>
       
-      {/* Keep CustomTabBar as is */}
+      {/* Thêm CustomTabBar vào đây */}
       <CustomTabBar />
+      
     </SafeAreaView>
   );
 }
@@ -338,25 +298,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 10,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#8B0000',
-    fontWeight: '500',
   },
   headerTitle: {
     fontSize: 24,
@@ -366,35 +314,22 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: 5,
   },
-  moreButtonCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139,0,0,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   searchContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    backgroundColor: '#f2f2f2',
+    borderRadius: 25,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: '#ddd',
   },
   searchIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
@@ -402,131 +337,96 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   section: {
-    marginBottom: 30,
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  sectionTitleGradient: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFF',
-  },
-  viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewAllText: {
-    fontSize: 14,
-    color: '#8B0000',
-    marginRight: 4,
+    color: '#000',
   },
   workshopList: {
-    paddingLeft: 20,
-    paddingRight: 10,
+    paddingLeft: 16,
+    paddingRight: 8,
   },
   workshopListReversed: {
     flexDirection: 'row-reverse',
-    paddingLeft: 10,
-    paddingRight: 20,
+    paddingLeft: 8,
+    paddingRight: 16,
   },
   workshopCard: {
-    width: width * 0.65,
-    marginRight: 15,
-    marginBottom: 5,
-    borderRadius: 16,
+    width: 180,
+    marginRight: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    backgroundColor: '#FFF',
-  },
-  cardInner: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   imageContainer: {
-    height: 140,
-    position: 'relative',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    overflow: 'hidden',
   },
   workshopImage: {
     width: '100%',
-    height: '100%',
+    height: 120,
     backgroundColor: '#f0f0f0',
   },
-  imageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-  },
-  contentContainer: {
-    padding: 16,
+  workshopInfo: {
+    padding: 12,
   },
   workshopTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 6,
     color: '#000',
-    lineHeight: 22,
   },
   workshopDetails: {
-    marginTop: 8,
+    marginTop: 4,
   },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  detailText: {
-    fontSize: 14,
+  workshopDate: {
+    fontSize: 12,
     color: '#666',
-    marginLeft: 8,
+    marginBottom: 4,
   },
-  loadingContainer: {
-    padding: 30,
+  workshopLocation: {
+    fontSize: 12,
+    color: '#666',
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   errorContainer: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: 'rgba(139,0,0,0.05)',
-    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
   },
   errorText: {
-    color: '#8B0000',
-    marginVertical: 10,
+    color: '#FF0000',
+    marginBottom: 10,
     textAlign: 'center',
-    fontSize: 15,
   },
   retryButton: {
-    borderRadius: 8,
-    overflow: 'hidden',
+    backgroundColor: '#AE1D1D',
+    padding: 10,
+    borderRadius: 5,
     marginTop: 10,
-  },
-  retryButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
   },
   retryButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
-    fontSize: 15,
   },
 });

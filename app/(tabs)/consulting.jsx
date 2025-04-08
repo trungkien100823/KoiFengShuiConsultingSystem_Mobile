@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 import { consultingCategories, consultingAPI, consultants as fallbackConsultants } from '../../constants/consulting';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 const cardWidth = width * 0.8;
@@ -17,7 +16,6 @@ export default function ConsultingScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedTab, setSelectedTab] = useState(consultingCategories[0]);
   const [sortVisible, setSortVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchConsultants();
@@ -80,55 +78,43 @@ export default function ConsultingScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>Tư vấn</Text>
-          <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
-        </View>
-        <TouchableOpacity style={styles.moreButton}>
-          <View style={styles.moreButtonCircle}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#8B0000" />
-          </View>
+        <Text style={styles.title}>Bạn Thích Gì?</Text>
+        <TouchableOpacity style={styles.menuButton}>
+          <Ionicons name="ellipsis-horizontal" size={24} color="black" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#8B0000" style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
             placeholder="Tìm kiếm ở đây"
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
+            style={styles.searchInput}
           />
+          <Ionicons name="search" size={20} color="#666" />
         </View>
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setSortVisible(true)}
+        >
+          <Ionicons name="filter" size={32} color="#8B0000" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.carouselContainer}>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#8B0000" />
-            <Text style={styles.loadingText}>Đang tải danh sách chuyên gia...</Text>
+            <Text style={styles.loadingText}>Loading consultants...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={50} color="#8B0000" style={styles.errorIcon} />
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={fetchConsultants}>
-              <LinearGradient
-                colors={['#8B0000', '#600000']}
-                start={[0, 0]}
-                end={[1, 0]}
-                style={styles.retryButtonGradient}
-              >
-                <Text style={styles.retryButtonText}>Thử lại</Text>
-              </LinearGradient>
+              <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : consultants && consultants.length > 0 ? (
           <>
-
-            
             <ScrollView 
               horizontal
               pagingEnabled
@@ -138,52 +124,35 @@ export default function ConsultingScreen() {
               contentContainerStyle={styles.scrollContent}
               onMomentumScrollEnd={handleScroll}
             >
-              {consultants.map((consultant, index) => (
-                <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
-                  <TouchableOpacity 
-                    style={styles.consultantCard}
-                    onPress={() => router.push({
-                      pathname: '/consultant_details',
-                      params: { consultantId: consultant.id }
-                    })}
-                  >
-                    <View style={styles.imageWrapper}>
+              {consultants.map((consultant, index) => {
+                
+                return (
+                  <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
+                    <TouchableOpacity 
+                      style={styles.consultantCard}
+                      onPress={() => router.push({
+                        pathname: '/consultant_details',
+                        params: { consultantId: consultant.id }
+                      })}
+                    >
+                      <Text style={styles.consultantTitle}>{consultant.title || 'Master'}</Text>
                       <Image 
                         source={consultant.image} 
                         style={styles.consultantImage}
                         resizeMode="cover" 
                       />
-                      <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.7)']}
-                        style={styles.imageGradient}
-                      />
-                      <Text style={styles.consultantTitle}>{consultant.title || 'Master'}</Text>
-                    </View>
-                    
-                    <View style={styles.cardContent}>
-                      <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
-                      
-                      <View style={styles.ratingContainer}>
-                        <View style={styles.starsContainer}>
-                          {renderStars(consultant.rating || 0)}
-                        </View>
-                        <Text style={styles.ratingText}>
-                          {(consultant.rating || 0).toFixed(1)}/5.0
-                        </Text>
+                      <View style={styles.cardContent}>
+                        <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
                       </View>
-                      
-                      {consultant.specialty && (
-                        <View style={styles.specialtyContainer}>
-                          <Ionicons name="star" size={16} color="#8B0000" />
-                          <Text style={styles.specialtyText}>{consultant.specialty}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              ))}
+                      <View style={styles.ratingContainer}>
+                        {renderStars(consultant.rating || 0)}
+                        <Text style={styles.ratingText}>{(consultant.rating || 0).toFixed(1)}/5.0</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </ScrollView>
-            
             
             <View style={styles.buttonContainer}>
               <TouchableOpacity 
@@ -193,23 +162,13 @@ export default function ConsultingScreen() {
                   params: { consultantId: consultants[activeIndex]?.id }
                 })}
               >
-                <LinearGradient
-                  colors={['#8B0000', '#600000']}
-                  start={[0, 0]}
-                  end={[1, 0]}
-                  style={styles.bookButtonGradient}
-                >
-                  <Text style={styles.bookButtonText}>Đặt lịch ngay</Text>
-                  <Ionicons name="calendar-outline" size={20} color="#FFFFFF" style={styles.bookButtonIcon} />
-                </LinearGradient>
+                <Text style={styles.bookButtonText}>Book now</Text>
               </TouchableOpacity>
             </View>
           </>
         ) : (
           <View style={styles.noDataContainer}>
-            <Ionicons name="person-outline" size={60} color="#e0e0e0" />
-            <Text style={styles.noDataTitle}>Không tìm thấy chuyên gia</Text>
-            <Text style={styles.noDataText}>Vui lòng thử lại sau</Text>
+            <Text style={styles.noDataText}>No consultants available</Text>
           </View>
         )}
       </View>
@@ -229,232 +188,189 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    marginTop: 30,
+    padding: 20,
+    paddingTop: 60,
+    backgroundColor: '#fff',
+    zIndex: 1,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
-  },
-  headerTitle: {
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#8B0000',
   },
-  moreButton: {
-    padding: 8,
-  },
-  moreButtonCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
+  menuButton: {
+    padding: 5,
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 15,
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
     alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  searchIcon: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 25,
+    paddingHorizontal: 15,
     marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#333',
+    paddingVertical: 8,
   },
-  carouselContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
+  filterButton: {
+    padding: 8,
+    marginRight: -8,
   },
-  sectionHeader: {
+  tabContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+  tab: {
+    marginRight: 20,
+    paddingBottom: 5,
   },
-  sectionCount: {
-    fontSize: 14,
+  selectedTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#8B0000',
+  },
+  tabText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  selectedTabText: {
     color: '#8B0000',
     fontWeight: '500',
   },
+  carouselContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
   scrollContent: {
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingRight: -30,
+    paddingBottom: 20,
   },
   consultantWrapper: {
+    marginLeft: -10,
     marginRight: 20,
     height: 450,
   },
   consultantCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 15,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowRadius: 10,
+    elevation: 10,
     height: '100%',
-  },
-  imageWrapper: {
-    position: 'relative',
-    height: 320,
-  },
-  consultantImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    marginRight: 20,
   },
   consultantTitle: {
     position: 'absolute',
-    top: 16,
-    left: 16,
+    top: 15,
+    left: 15,
     backgroundColor: '#8B0000',
     color: '#FFFFFF',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    zIndex: 1,
     fontSize: 12,
     fontWeight: 'bold',
-    overflow: 'hidden',
+  },
+  consultantImage: {
+    width: '100%',
+    height: 350,
   },
   cardContent: {
-    padding: 16,
+    padding: 10,
   },
   consultantName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 5,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    marginRight: 6,
+    paddingHorizontal: 10,
+    paddingBottom: 5,
   },
   ratingText: {
+    marginLeft: 5,
     fontSize: 14,
     color: '#666',
   },
-  specialtyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  specialtyText: {
-    fontSize: 14,
-    color: '#555',
-    marginLeft: 8,
-    flex: 1,
-  },
-
   buttonContainer: {
-    marginVertical: 16,
+    padding: 5,
+    marginLeft: 10,
+    marginBottom: 30,
+    alignItems: 'flex-start',
   },
   bookButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: -100
-  },
-  bookButtonGradient: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 14,
+    backgroundColor: '#8B0000',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    minWidth: 120,
   },
   bookButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  bookButtonIcon: {
-    marginLeft: 8,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    minHeight: 300,
   },
   loadingText: {
-    marginTop: 12,
-    color: '#8B0000',
+    marginTop: 10,
     fontSize: 16,
+    color: '#666',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-  },
-  errorIcon: {
-    marginBottom: 16,
+    minHeight: 300,
   },
   errorText: {
+    marginBottom: 20,
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 20,
   },
   retryButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  retryButtonGradient: {
+    backgroundColor: '#8B0000',
     paddingVertical: 10,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
+    borderRadius: 8,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: 'white',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   noDataContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-  },
-  noDataTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
+    minHeight: 300,
   },
   noDataText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
-    textAlign: 'center',
   }
 });
