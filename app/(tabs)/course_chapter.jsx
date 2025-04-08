@@ -423,7 +423,7 @@ export default function CourseChapterScreen() {
     }
   };
   
-  // Kiểm tra nếu người dùng đã đăng ký khóa học
+  // Sửa lại useEffect kiểm tra đăng ký
   useEffect(() => {
     const checkRegistration = async () => {
       if (!courseId || !chapters || chapters.length === 0 || hasCheckedRegistration.current) return;
@@ -448,10 +448,9 @@ export default function CourseChapterScreen() {
         console.log('Kiểm tra đăng ký khóa học bằng chapterId đầu tiên:', firstChapterId);
         
         try {
-          // Gửi request đến RegisterCourse API để kiểm tra
-          const testResponse = await axios.put(
-            `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', firstChapterId)}`,
-            {},  // Empty body
+          // Gọi API lấy thông tin chapter để kiểm tra đăng ký
+          const chapterResponse = await axios.get(
+            `${API_CONFIG.baseURL}/api/Chapter/get-chapter/${firstChapterId}`,
             {
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -460,57 +459,14 @@ export default function CourseChapterScreen() {
             }
           );
           
-          console.log('Kết quả kiểm tra đăng ký:', JSON.stringify(testResponse.data));
-          
-          // Kiểm tra message "Chương học đã hoàn thành!"
-          if (testResponse.data?.message === "Chương học đã hoàn thành!") {
-            console.log('Chapter đã hoàn thành, đánh dấu tất cả chapter là Done');
-            
-            // Đánh dấu tất cả chapter là Done
-            const updatedChapters = chapters.map(chapter => ({
-              ...chapter,
-              status: EnrollChapterStatus.Done
-            }));
-            setChapters(updatedChapters);
-            
-            // Cập nhật tiến độ 100%
-            setCurrentProgress(100);
-            setCourseCompleted(true);
-            
-            // Lưu tiến độ vào AsyncStorage một lần duy nhất
-            try {
-              const updates = await Promise.all([
-                AsyncStorage.setItem('courseProgress', JSON.stringify({ [courseId]: 100 })),
-                AsyncStorage.setItem('completedCourses', JSON.stringify({
-                  [courseId]: {
-                    completedAt: new Date().toISOString(),
-                    percentage: 100
-                  }
-                })),
-                AsyncStorage.setItem('registeredCourses', JSON.stringify({
-                  [courseId]: {
-                    isRegistered: true,
-                    timestamp: new Date().toISOString(),
-                    percentage: 100,
-                    status: "Done"
-                  }
-                }))
-              ]);
-              
-              console.log('Đã lưu tất cả trạng thái hoàn thành vào AsyncStorage');
-            } catch (error) {
-              console.error('Lỗi khi lưu trạng thái:', error);
-            }
-            
+          if (chapterResponse.data?.isSuccess) {
             setIsRegistered(true);
-            hasCheckedCompletion.current = true;
-            return;
+          } else {
+            setIsRegistered(false);
           }
-          
-          // Các xử lý khác nếu cần...
-          
         } catch (error) {
           console.error('Lỗi khi kiểm tra đăng ký khóa học:', error);
+          setIsRegistered(false);
         }
       } catch (error) {
         console.error('Lỗi khi kiểm tra đăng ký khóa học:', error);
@@ -890,117 +846,6 @@ export default function CourseChapterScreen() {
     }
   }, [courseId, chapters]);
 
-  // Hàm cập nhật tiến độ khóa học lên server
-  const updateCourseProgressToServer = async () => {
-    if (!courseId || !chapters || chapters.length === 0) {
-      console.log('Không thể cập nhật tiến độ: Thiếu courseId hoặc danh sách chapter');
-      return 0;
-    }
-
-    console.log('Đang cập nhật tiến độ khóa học lên server, courseId:', courseId);
-    
-    try {
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        console.log('Không có token, không thể cập nhật tiến độ lên server');
-        return 0;
-      }
-
-      // Lấy chapter cuối cùng của khóa học để cập nhật tiến độ
-      const lastChapter = chapters[chapters.length - 1];
-      if (!lastChapter || !lastChapter.chapterId) {
-        console.log('Không tìm thấy chapter cuối cùng để cập nhật tiến độ');
-        return 0;
-      }
-
-      // Gọi API RegisterCourse để cập nhật tiến độ
-      const response = await axios.put(
-        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', lastChapter.chapterId)}`,
-        {},  // Empty body
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('Kết quả cập nhật tiến độ từ server:', response.data);
-
-      if (response.data?.isSuccess) {
-        // Lấy phần trăm tiến độ mới từ kết quả trả về
-        const newPercentage = response.data.data?.percentage || 0;
-        console.log('Tiến độ mới từ server:', newPercentage + '%');
-
-        // Cập nhật tiến độ vào state
-        setCurrentProgress(newPercentage);
-
-        // Lưu tiến độ mới vào AsyncStorage
-        const savedProgress = await AsyncStorage.getItem('courseProgress');
-        let progressObj = savedProgress ? JSON.parse(savedProgress) : {};
-        progressObj[courseId] = newPercentage;
-        await AsyncStorage.setItem('courseProgress', JSON.stringify(progressObj));
-        
-        // Lưu tiến độ vào thông tin đăng ký khóa học
-        const registeredCourses = await AsyncStorage.getItem('registeredCourses');
-        let coursesObj = registeredCourses ? JSON.parse(registeredCourses) : {};
-        if (coursesObj[courseId]) {
-          coursesObj[courseId].percentage = newPercentage;
-          
-          // Kiểm tra và cập nhật enrollCourseId nếu có
-          if (response.data.data?.enrollCourseId && !coursesObj[courseId].enrollCourseId) {
-            coursesObj[courseId].enrollCourseId = response.data.data.enrollCourseId;
-            console.log('Cập nhật enrollCourseId từ API tiến độ:', response.data.data.enrollCourseId);
-          }
-          
-          await AsyncStorage.setItem('registeredCourses', JSON.stringify(coursesObj));
-        }
-
-        // Kiểm tra nếu khóa học đã hoàn thành 100%
-        if (newPercentage === 100) {
-          setCourseCompleted(true);
-          
-          // Lưu trạng thái hoàn thành khóa học
-          const completedCourses = await AsyncStorage.getItem('completedCourses');
-          let coursesObj = completedCourses ? JSON.parse(completedCourses) : {};
-          coursesObj[courseId] = {
-            completedAt: new Date().toISOString(),
-            percentage: 100
-          };
-          await AsyncStorage.setItem('completedCourses', JSON.stringify(coursesObj));
-          console.log('Đã lưu trạng thái hoàn thành khóa học vào AsyncStorage');
-        }
-
-        return newPercentage;
-      } else {
-        // Nếu không thành công, quay lại tiến độ đã lưu trong local
-        const savedProgress = await AsyncStorage.getItem('courseProgress');
-        if (savedProgress) {
-          const progress = JSON.parse(savedProgress);
-          if (progress[courseId]) {
-            return progress[courseId];
-          }
-        }
-        
-        console.error('Lỗi khi cập nhật tiến độ:', response.data?.message);
-        return calculateProgress(); // Trả về tiến độ tính toán từ local
-      }
-    } catch (error) {
-      console.error('Lỗi khi gọi API cập nhật tiến độ:', error);
-      
-      // Nếu có lỗi, quay lại tiến độ đã lưu trong local
-      const savedProgress = await AsyncStorage.getItem('courseProgress');
-      if (savedProgress) {
-        const progress = JSON.parse(savedProgress);
-        if (progress[courseId]) {
-          return progress[courseId];
-        }
-      }
-      
-      return calculateProgress(); // Trả về tiến độ tính toán từ local
-    }
-  };
-
   // Sửa lại renderChapterList để chỉ hiển thị số Chapter và ChapterName
   const renderChapterList = useCallback(() => {
     if (!chapters || chapters.length === 0) {
@@ -1172,13 +1017,6 @@ export default function CourseChapterScreen() {
             style={styles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            onPress={resetCourseProgress}
-            style={styles.resetButton}
-          >
-            <Ionicons name="refresh" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
 

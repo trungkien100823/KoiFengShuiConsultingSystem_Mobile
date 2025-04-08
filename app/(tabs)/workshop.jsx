@@ -106,7 +106,22 @@ export default function Workshop() {
   const [newestWorkshops, setNewestWorkshops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigation = useNavigation();
+
+  // Hàm xử lý tìm kiếm
+  const handleSearch = (text) => {
+    setSearchQuery(text);
+  };
+
+  // Hàm lọc workshop theo từ khóa tìm kiếm
+  const filterWorkshops = (workshops) => {
+    if (!searchQuery.trim()) return workshops;
+    
+    return workshops.filter(workshop => 
+      workshop.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
 
   const fetchWorkshops = async () => {
     try {
@@ -115,13 +130,10 @@ export default function Workshop() {
       
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
-        console.log('Token không tồn tại, chuyển hướng đến trang đăng nhập');
+        Alert.alert('Lỗi xác thực', 'Token không tồn tại, vui lòng đăng nhập lại');
         navigation.navigate('login');
         return;
       }
-  
-      // Log token để debug
-      console.log('Token hiện tại:', token.substring(0, 10) + '...');
       
       // Định nghĩa cấu hình yêu cầu chung
       const config = {
@@ -135,33 +147,23 @@ export default function Workshop() {
       const trendingUrl = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.trendingWorkshop}`;
       const newestUrl = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.newestWorkshop}`;
       
-      console.log('Đang gọi API trending:', trendingUrl);
-      console.log('Đang gọi API newest:', newestUrl);
-  
       // Gọi APIs riêng biệt không dùng Promise.all để xác định lỗi chính xác hơn
       let trendingData = [];
       let newestData = [];
       
       try {
         const trendingResponse = await axios.get(trendingUrl, config);
-        console.log('Trạng thái response trending:', trendingResponse.status);
         trendingData = trendingResponse.data?.data || [];
       } catch (trendingError) {
-        console.error('Lỗi chi tiết khi lấy trending workshops:', trendingError);
-        // Không đặt error state ở đây, tiếp tục thử API thứ hai
+        // Không hiển thị log lỗi
       }
       
       try {
         const newestResponse = await axios.get(newestUrl, config);
-        console.log('Trạng thái response newest:', newestResponse.status);
         newestData = newestResponse.data?.data || [];
       } catch (newestError) {
-        console.error('Lỗi chi tiết khi lấy newest workshops:', newestError);
-        // Không đặt error state ở đây
+        // Không hiển thị log lỗi
       }
-  
-      console.log('Dữ liệu trending thô:', trendingData);
-      console.log('Dữ liệu newest thô:', newestData);
   
       // Xử lý dữ liệu workshop
       const processWorkshopData = (workshop) => {
@@ -183,7 +185,7 @@ export default function Workshop() {
             image: require('../../assets/images/buddha.png') // Tạm thời dùng ảnh mặc định
           };
         } catch (error) {
-          console.error('Lỗi xử lý workshop:', error);
+          // Không hiển thị log lỗi
           return null;
         }
       };
@@ -197,8 +199,14 @@ export default function Workshop() {
         ? newestData.map(processWorkshopData).filter(Boolean)
         : [];
   
-      console.log('Số lượng trending workshops đã xử lý:', processedTrending.length);
-      console.log('Số lượng newest workshops đã xử lý:', processedNewest.length);
+      // Kiểm tra và hiển thị alert khi không có dữ liệu
+      if (processedTrending.length === 0) {
+        Alert.alert('Thông báo', 'Không tìm thấy trending workshops');
+      }
+      
+      if (processedNewest.length === 0) {
+        Alert.alert('Thông báo', 'Không tìm thấy newest workshops');  
+      }
   
       // Cập nhật state ngay cả khi một trong các API thất bại
       setTrendingWorkshops(processedTrending);
@@ -210,7 +218,7 @@ export default function Workshop() {
       }
   
     } catch (error) {
-      console.error('Lỗi tổng quát khi tải workshops:', error);
+      // Không hiển thị log lỗi
       setError(
         error.response?.data?.message || 
         error.message || 
@@ -267,11 +275,39 @@ export default function Workshop() {
             <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search workshops..."
+              placeholder="Tìm kiếm workshop..."
               placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={handleSearch}
             />
           </View>
         </View>
+        
+        {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
+        {searchQuery.trim() !== '' && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Searching workshops</Text>
+            </View>
+            {loading ? (
+              <ActivityIndicator size="large" color="#AE1D1D" />
+            ) : (
+              <FlatList
+                horizontal
+                data={[...filterWorkshops(trendingWorkshops), ...filterWorkshops(newestWorkshops)]}
+                renderItem={({ item }) => <WorkshopCard workshop={item} />}
+                keyExtractor={(item, index) => `search-${item.id}-${index}`}
+                contentContainerStyle={styles.workshopList}
+                showsHorizontalScrollIndicator={false}
+                ListEmptyComponent={
+                  <View style={styles.emptySearchResults}>
+                    <Text style={styles.emptySearchText}>Không tìm thấy workshop nào phù hợp</Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        )}
         
         <WorkshopSection 
           title="Trending Workshops" 
@@ -428,5 +464,16 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
+  },
+  emptySearchResults: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 250,
+  },
+  emptySearchText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });

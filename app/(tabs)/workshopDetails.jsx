@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -13,7 +13,7 @@ import {
   Dimensions,
   Platform
 } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { workshopDetailsService } from '../../constants/workshopDetails';
@@ -94,10 +94,13 @@ const WorkshopDetailsScreen = () => {
     }
   };
   
-  // Gọi fetchData khi component mount hoặc workshopId thay đổi
-  useEffect(() => {
-    fetchData();
-  }, [workshopId, imageId]);
+  // Thay thế useEffect bằng useFocusEffect
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Màn hình được focus, đang fetch dữ liệu...');
+      fetchData();
+    }, [workshopId, imageId])
+  );
   
   const getImageForId = (id) => {
     if (id === '1' || id === '2' || id === '3') {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { API_CONFIG } from '../../constants/config';
 
 const { width, height } = Dimensions.get('window');
@@ -30,6 +31,7 @@ export default function CourseQuizScreen() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [initialTimeInSeconds, setInitialTimeInSeconds] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [score, setScore] = useState(0);
   const [questions, setQuestions] = useState([]);
@@ -123,14 +125,33 @@ export default function CourseQuizScreen() {
     ];
   };
 
-  // Modify your useEffect to explicitly call fetchQuestions
-  useEffect(() => {
-    // Set chapters as completed without checking API
-    setChaptersCompleted(true);
-    
-    // Explicitly call fetchQuestions
-    fetchQuestions();
-  }, []);
+  // Thêm useFocusEffect để re-fetch dữ liệu khi màn hình được focus
+  useFocusEffect(
+    useCallback(() => {
+      // Reset state
+      setCurrentQuestionIndex(0);
+      setSelectedAnswers({});
+      setQuizCompleted(false);
+      setScore(0);
+      setLoading(true);
+      setError(null);
+
+      // Clear timer if it exists
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+
+      // Fetch questions again
+      fetchQuestions();
+
+      // Cleanup when screen loses focus
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      };
+    }, [quizId])
+  );
 
   // Add a timeout function to wrap fetch calls
   const fetchWithTimeout = async (url, options, timeoutMs = API_CONFIG.timeout) => {
@@ -189,7 +210,16 @@ export default function CourseQuizScreen() {
     }));
   };
 
-  // Make sure we're correctly processing the questions from the API
+  const calculateTimeLimit = (questionCount) => {
+    if (!questionCount) return 0;
+    if (questionCount <= 20) return 15;
+    if (questionCount <= 40) return 30;
+    if (questionCount <= 60) return 60;
+    if (questionCount > 80) return "Không giới hạn thời gian";
+    return 0;
+  };
+
+  // Fetch questions
   const fetchQuestions = async () => {
     try {
       setLoading(true);
@@ -229,15 +259,18 @@ export default function CourseQuizScreen() {
       if (result.isSuccess && Array.isArray(result.data)) {
         // Initialize timer based on number of questions
         const questionCount = result.data.length;
-        // Allow approximately 1 minute per question, minimum 10 minutes
-        const timeInMinutes = Math.max(10, Math.min(questionCount, 30));
-        setTimeRemaining(timeInMinutes * 60);
+        const timeLimit = calculateTimeLimit(questionCount);
+        const timeLimitInSeconds = timeLimit * 60; // Chuyển đổi phút thành giây
+        setTimeRemaining(timeLimitInSeconds);
+        setInitialTimeInSeconds(timeLimitInSeconds);
         
         // Process questions from API
         setQuestions(result.data);
         
-        // Start the timer
-        startTimer();
+        // Start the timer only if there is a time limit
+        if (timeLimit > 0) {
+          startTimer();
+        }
       } else {
         console.error('API returned invalid data format:', result);
         throw new Error('Invalid quiz data received');
@@ -251,8 +284,13 @@ export default function CourseQuizScreen() {
         console.log('Using fallback questions due to error');
         const fallbackQuestions = getFallbackQuestions();
         setQuestions(fallbackQuestions);
-        setTimeRemaining(30 * 60); // 30 minutes
-        startTimer();
+        const timeLimit = calculateTimeLimit(fallbackQuestions.length);
+        const timeLimitInSeconds = timeLimit * 60;
+        setTimeRemaining(timeLimitInSeconds);
+        setInitialTimeInSeconds(timeLimitInSeconds);
+        if (timeLimit > 0) {
+          startTimer();
+        }
       }
     } finally {
       setLoading(false);
@@ -274,7 +312,9 @@ export default function CourseQuizScreen() {
     }
     
     // Set new timer
-    setTimeRemaining(quizTimeLimits[quizId] * 60); // Convert minutes to seconds
+    const initialTime = quizTimeLimits[quizId] * 60; // Convert minutes to seconds
+    setTimeRemaining(initialTime);
+    setInitialTimeInSeconds(initialTime);
     setLoading(false);
 
     // Start timer
@@ -330,6 +370,15 @@ export default function CourseQuizScreen() {
     try {
       // Stop timer
       clearInterval(timerRef.current);
+      
+      // Tính thời gian hoàn thành (giây)
+      const timeSpentInSeconds = initialTimeInSeconds - timeRemaining;
+      
+      console.log('Time values:', {
+        initialTime: initialTimeInSeconds,
+        remainingTime: timeRemaining, 
+        timeSpent: timeSpentInSeconds
+      });
       
       // Format answers for API submission
       const answerIds = Object.entries(selectedAnswers).map(([index, answerId]) => {
@@ -396,7 +445,8 @@ export default function CourseQuizScreen() {
             score: apiResult.correctAnswers.toString(),
             correctAnswers: apiResult.correctAnswers.toString(),
             totalQuestions: apiResult.totalQuestions.toString(),
-            percentage: percentage.toString()
+            percentage: percentage.toString(),
+            timeSpent: timeSpentInSeconds.toString()
           }
         });
       } else {
@@ -441,7 +491,8 @@ export default function CourseQuizScreen() {
             score: correctAnswers.toString(),
             correctAnswers: correctAnswers.toString(),
             totalQuestions: totalQuestions.toString(),
-            percentage: percentage.toString()
+            percentage: percentage.toString(),
+            timeSpent: timeSpentInSeconds.toString()
           }
         });
       }
@@ -470,7 +521,20 @@ export default function CourseQuizScreen() {
         { 
           text: "Thoát", 
           style: "destructive",
-          onPress: () => router.push('/(tabs)/course_chapter')
+          onPress: () => {
+            // Clear timer if it's running
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
+            // Navigate back to quiz start screen with courseId
+            router.replace({
+              pathname: "/(tabs)/course_quiz_start",
+              params: { 
+                courseId: courseId,
+                shouldRefresh: Date.now()
+              }
+            });
+          }
         }
       ]
     );
@@ -481,7 +545,9 @@ export default function CourseQuizScreen() {
     // Reset all quiz state
     setCurrentQuestionIndex(0);
     setSelectedAnswers({});
-    setTimeRemaining(quizTimeLimits[quizId] * 60);
+    const initialTime = quizTimeLimits[quizId] * 60;
+    setTimeRemaining(initialTime);
+    setInitialTimeInSeconds(initialTime);
     setQuizCompleted(false);
     setScore(0);
     setQuestions([]);
@@ -608,13 +674,6 @@ export default function CourseQuizScreen() {
     );
   }
 
-  console.log('Quiz state:', {
-    questionsLength: questions.length,
-    loading,
-    error,
-    currentIndex: currentQuestionIndex
-  });
-
   const renderQuestion = () => {
     const currentQuestion = questions[currentQuestionIndex];
     
@@ -622,8 +681,8 @@ export default function CourseQuizScreen() {
       return <Text style={styles.errorText}>Question not found</Text>;
     }
     
-    // Add debug log to see question structure
-    console.log('Current question structure:', JSON.stringify(currentQuestion));
+    // Chỉ log khi cần debug
+    // console.log('Current question structure:', JSON.stringify(currentQuestion));
     
     return (
       <View style={styles.questionContainer}>
@@ -656,7 +715,6 @@ export default function CourseQuizScreen() {
             ))}
           </View>
         ) : (
-          // Fallback for when answers array is missing or different format
           <View style={styles.answerContainer}>
             {currentQuestion.options && currentQuestion.options.map((option, index) => (
               <TouchableOpacity
@@ -678,11 +736,19 @@ export default function CourseQuizScreen() {
                 )}
               </TouchableOpacity>
             ))}
-      </View>
+          </View>
         )}
       </View>
     );
   };
+
+  // Chỉ log khi cần thiết
+  // console.log('Quiz state:', {
+  //   questionsLength: questions.length,
+  //   loading,
+  //   error,
+  //   currentIndex: currentQuestionIndex
+  // });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -690,30 +756,12 @@ export default function CourseQuizScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+        <TouchableOpacity onPress={handleBack}>
+          <Ionicons name="close" size={24} color="#333" />
         </TouchableOpacity>
         
         <View style={styles.titleContainer}>
           <Text style={styles.headerTitle}>{quizTitles[quizId]}</Text>
-          
-          {isTestMode && (
-            <View style={styles.testControlsContainer}>
-              <TouchableOpacity 
-                style={styles.reloadButton}
-                onPress={handleReloadQuiz}
-              >
-                <Ionicons name="refresh" size={22} color="#fff" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.resetButton}
-                onPress={resetAllProgress}
-              >
-                <Ionicons name="trash-outline" size={22} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </View>
       
