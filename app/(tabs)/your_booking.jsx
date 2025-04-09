@@ -136,10 +136,8 @@ const YourBooking = () => {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0',
-            'If-None-Match': '', // Bỏ qua ETag cache
-            'If-Modified-Since': '0' // Bỏ qua time-based cache
+            'X-Mobile-App': 'true'
           },
-          // Thêm axios config để không cache
           timeout: 30000,
           cache: false,
           withCredentials: false

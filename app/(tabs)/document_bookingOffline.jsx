@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
@@ -25,14 +26,28 @@ const DocumentBookingOffline = () => {
   const [loading, setLoading] = useState(true);
   const [documentUrl, setDocumentUrl] = useState(null);
   const [bookingStatus, setBookingStatus] = useState(null);
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
   const [documentId, setDocumentId] = useState(null);
-  const [documentStatus, setDocumentStatus] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [bookingDetailVisible, setBookingDetailVisible] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   useEffect(() => {
-    if (params.id) {
+    if (params.id && isFirstLoad) {
       fetchBookingData();
+      setIsFirstLoad(false);
     }
-  }, [params.id]);
+  }, [params.id, isFirstLoad]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (params.id && !isFirstLoad) {
+        fetchBookingData();
+      }
+    }, [params.id, isFirstLoad])
+  );
 
   useEffect(() => {
     console.log('Current document status:', bookingStatus);
@@ -65,22 +80,31 @@ const DocumentBookingOffline = () => {
       }
 
       // Fetch document data
-      const documentResponse = await axios.get(
-        `${API_CONFIG.baseURL}/api/FengShuiDocument/document/${params.id}`, 
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      try {
+        const documentResponse = await axios.get(
+          `${API_CONFIG.baseURL}/api/FengShuiDocument/document/${params.id}`, 
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
           }
+        );
+
+        if (documentResponse.data && documentResponse.data.isSuccess) {
+          setDocumentUrl(documentResponse.data.data.documentUrl);
+          setDocumentId(documentResponse.data.data.documentId);
         }
-      );
-
-      console.log('Document Response:', JSON.stringify(documentResponse.data, null, 2));
-
-      if (documentResponse.data && documentResponse.data.isSuccess) {
-        setDocumentUrl(documentResponse.data.data.documentUrl);
-        setDocumentId(documentResponse.data.data.documentId);
-        setDocumentStatus(documentResponse.data.data.status);
+      } catch (error) {
+        console.error('Error fetching document:', error);
+        console.error('Error response:', error.response?.data);
+        // Không hiển thị alert lỗi nếu document chưa được tạo
+        if (error.response?.status !== 404) {
+          Alert.alert(
+            "Lỗi",
+            "Không thể tải tài liệu. Vui lòng thử lại sau."
+          );
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -114,7 +138,6 @@ const DocumentBookingOffline = () => {
               // Log để debug
               console.log('Rejecting document with ID:', params.id);
               console.log('Current booking status:', bookingStatus);
-              console.log('Current document status:', documentStatus);
               
               if (bookingStatus.trim().toLowerCase() === 'documentconfirmedbymanager') {
                 // Gọi API lấy document ID và status
@@ -232,123 +255,152 @@ const DocumentBookingOffline = () => {
   };
 
   const handleApprove = async () => {
-    try {
-      const token = await getAuthToken();
-      let response;
+    Alert.alert(
+      "Xác nhận",
+      "Bạn có chắc chắn muốn đồng ý hồ sơ này?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel"
+        },
+        {
+          text: "Đồng ý",
+          style: "default",
+          onPress: async () => {
+            try {
+              const token = await getAuthToken();
+              let response;
 
-      // Log để debug
-      console.log('Approving document with ID:', params.id);
-      console.log('Current booking status:', bookingStatus);
+              // Log để debug
+              console.log('Approving document with ID:', params.id);
+              console.log('Current booking status:', bookingStatus);
 
-      if (bookingStatus.trim().toLowerCase() === 'documentconfirmedbymanager') {
-        // Gọi API lấy document ID
-        const documentResponse = await axios.get(
-          `${API_CONFIG.baseURL}/api/FengShuiDocument/document/${params.id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
+              if (bookingStatus.trim().toLowerCase() === 'documentconfirmedbymanager') {
+                // Gọi API lấy document ID
+                const documentResponse = await axios.get(
+                  `${API_CONFIG.baseURL}/api/FengShuiDocument/document/${params.id}`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+
+                console.log('Document Response:', JSON.stringify(documentResponse.data, null, 2));
+
+                if (!documentResponse.data?.isSuccess) {
+                  throw new Error(documentResponse.data?.message || 'Không thể lấy thông tin document');
+                }
+
+                const documentId = documentResponse.data.data.documentId;
+                if (!documentId) {
+                  throw new Error('Document ID không tồn tại trong response');
+                }
+
+                console.log('Document ID:', documentId);
+
+                const url = `${API_CONFIG.baseURL}/api/FengShuiDocument/${documentId}/confirm-by-customer`;
+                console.log('Calling API:', url);
+                
+                response = await axios.put(
+                  url,
+                  {
+                    bookingOfflineId: params.id
+                  },
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+              } else {
+                const url = `${API_CONFIG.baseURL}/api/FengShuiDocument/approve-document/${params.id}`;
+                console.log('Calling API:', url);
+                
+                response = await axios.put(
+                  url,
+                  {},
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+              }
+              
+              console.log('API Response:', response.data);
+              
+              if (response.data && response.data.isSuccess) {
+                Alert.alert("Thành công", response.data.message || "Đã đồng ý hồ sơ", [
+                  {
+                    text: "OK",
+                    onPress: () => router.push('/(tabs)/your_booking')
+                  }
+                ]);
+              } else {
+                throw new Error(response.data?.message || 'Có lỗi xảy ra');
+              }
+            } catch (error) {
+              console.error('Lỗi xác nhận hồ sơ:', error);
+              console.error('Error response:', error.response?.data);
+              Alert.alert("Lỗi", error.response?.data?.message || error.message || "Không thể đồng ý hồ sơ. Vui lòng thử lại sau.");
             }
           }
-        );
-
-        console.log('Document Response:', JSON.stringify(documentResponse.data, null, 2));
-
-        if (!documentResponse.data?.isSuccess) {
-          throw new Error(documentResponse.data?.message || 'Không thể lấy thông tin document');
         }
-
-        const documentId = documentResponse.data.data.documentId;
-        if (!documentId) {
-          throw new Error('Document ID không tồn tại trong response');
-        }
-
-        console.log('Document ID:', documentId);
-
-        const url = `${API_CONFIG.baseURL}/api/FengShuiDocument/${documentId}/confirm-by-customer`;
-        console.log('Calling API:', url);
-        
-        response = await axios.put(
-          url,
-          {
-            bookingOfflineId: params.id
-          },
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      } else {
-        const url = `${API_CONFIG.baseURL}/api/FengShuiDocument/approve-document/${params.id}`;
-        console.log('Calling API:', url);
-        
-        response = await axios.put(
-          url,
-          {},
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-      
-      console.log('API Response:', response.data);
-      
-      if (response.data && response.data.isSuccess) {
-        Alert.alert("Thành công", response.data.message || "Đã đồng ý hồ sơ", [
-          {
-            text: "OK",
-            onPress: () => router.push('/(tabs)/your_booking')
-          }
-        ]);
-      } else {
-        throw new Error(response.data?.message || 'Có lỗi xảy ra');
-      }
-    } catch (error) {
-      console.error('Lỗi xác nhận hồ sơ:', error);
-      console.error('Error response:', error.response?.data);
-      Alert.alert("Lỗi", error.response?.data?.message || error.message || "Không thể đồng ý hồ sơ. Vui lòng thử lại sau.");
-    }
+      ]
+    );
   };
 
   const renderActionButtons = () => {
     if (!bookingStatus) return null;
 
     const status = bookingStatus.trim().toLowerCase();
+    console.log('Current document status:', status);
 
-    // Hiển thị nút khi trạng thái là documentconfirmedbymanager hoặc documentconfirmedbycustomer
-    switch (status) {
-      case 'documentconfirmedbymanager':
-        return (
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.approveButton]}
-              onPress={handleApprove}
-            >
-              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-              <Text style={styles.buttonText}>Đồng ý</Text>
-            </TouchableOpacity>
+    // Log chi tiết hơn để debug
+    console.log('Comparing document status:', {
+      status: status,
+      isDocumentConfirmedByManager: status === 'documentconfirmedbymanager' || status.includes('documentconfirmedbymanager'),
+      isDocumentConfirmedByCustomer: status === 'documentconfirmedbycustomer' || status.includes('documentconfirmedbycustomer'),
+      isAttachmentPendingRejected: status === 'attachmentpendingrejected' || status.includes('attachmentpendingrejected'),
+      isCompleted: status === 'completed' || status.includes('completed')
+    });
 
-            <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton]}
-              onPress={handleReject}
-            >
-              <Ionicons name="close-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-              <Text style={styles.buttonText}>Từ chối</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      
-      case 'documentconfirmedbycustomer':
-      case 'attachmentpendingrejected':
-      case 'completed':
-      default:
-        return null;
+    // Hiển thị nút Đồng ý và Từ chối khi trạng thái là DocumentConfirmedByManager
+    if (status === 'documentconfirmedbymanager' || status.includes('documentconfirmedbymanager')) {
+      return (
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.approveButton]}
+            onPress={handleApprove}
+          >
+            <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Đồng ý</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.rejectButton]}
+            onPress={handleReject}
+          >
+            <Ionicons name="close-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Từ chối</Text>
+          </TouchableOpacity>
+        </View>
+      );
     }
+
+    // Hiển thị thông tin trạng thái nếu không khớp với bất kỳ trường hợp nào
+    if (!status.includes('documentconfirmedbymanager') && 
+        !status.includes('documentconfirmedbycustomer') && 
+        !status.includes('attachmentpendingrejected') && 
+        !status.includes('completed')) {
+      console.log('Unhandled document status:', status);
+    }
+
+    return null;
   };
 
   const renderDocument = () => {
@@ -459,6 +511,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom: 10,
