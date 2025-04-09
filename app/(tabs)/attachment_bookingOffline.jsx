@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
@@ -26,15 +27,26 @@ const AttachmentBookingOffline = () => {
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [attachmentId, setAttachmentId] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingDetailVisible, setBookingDetailVisible] = useState(false);
 
   useEffect(() => {
-    if (params.id) {
+    if (params.id && isFirstLoad) {
       fetchBookingData();
+      setIsFirstLoad(false);
     }
-  }, [params.id]);
+  }, [params.id, isFirstLoad]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (params.id && !isFirstLoad) {
+        fetchBookingData();
+      }
+    }, [params.id, isFirstLoad])
+  );
 
   useEffect(() => {
     if (bookingStatus) {

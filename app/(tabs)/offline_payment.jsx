@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -39,9 +40,11 @@ export default function OfflinePaymentScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
-  useEffect(() => {
-    fetchCurrentUser();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchCurrentUser();
+    }, [])
+  );
 
   const fetchCurrentUser = async () => {
     try {
