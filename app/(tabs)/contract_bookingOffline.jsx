@@ -14,6 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
@@ -33,12 +34,23 @@ const ContractBookingOffline = () => {
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   useEffect(() => {
-    if (params.id) {
+    if (params.id && isFirstLoad) {
       fetchBookingData();
+      setIsFirstLoad(false);
     }
-  }, [params.id]);
+  }, [params.id, isFirstLoad]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (params.id && !isFirstLoad) {
+        fetchBookingData();
+      }
+    }, [params.id, isFirstLoad])
+  );
 
   useEffect(() => {
     if (bookingStatus?.trim().toLowerCase() === 'firstpaymentpendingconfirm') {
@@ -48,6 +60,19 @@ const ContractBookingOffline = () => {
       );
     }
   }, [bookingStatus]);
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchBookingData();
+      Alert.alert("Thành công", "Đã cập nhật dữ liệu mới");
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      Alert.alert("Lỗi", "Không thể cập nhật dữ liệu. Vui lòng thử lại sau.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const fetchBookingData = async () => {
     try {
@@ -468,9 +493,8 @@ const ContractBookingOffline = () => {
       isContractConfirmedByManager: status === 'contractconfirmedbymanager' || status.includes('contractconfirmedbymanager')
     });
 
-    // Hiển thị nút Ký hợp đồng khi booking ở trạng thái ContractConfirmedByCustomer hoặc VerifyingOTP
-    // Sử dụng includes thay vì === để tránh sai sót do khoảng trắng hoặc chữ hoa/thường
-    if (status.includes('contractconfirmedbycustomer') || status.includes('verifyingotp')) {
+    // Hiển thị nút Ký hợp đồng khi booking ở trạng thái ContractConfirmedByCustomer
+    if (status === 'contractconfirmedbycustomer' || status.includes('contractconfirmedbycustomer')) {
       return (
         <View style={styles.buttonRow}>
           <TouchableOpacity
@@ -484,7 +508,23 @@ const ContractBookingOffline = () => {
       );
     }
 
-    if (status.includes('contractconfirmedbymanager')) {
+    // Hiển thị nút Ký hợp đồng khi booking ở trạng thái VerifyingOTP
+    if (status === 'verifyingotp' || status.includes('verifyingotp')) {
+      return (
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.signButton]}
+            onPress={handleSignContract}
+          >
+            <Ionicons name="create-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Ký hợp đồng</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Hiển thị nút Đồng ý và Từ chối khi booking ở trạng thái ContractConfirmedByManager
+    if (status === 'contractconfirmedbymanager' || status.includes('contractconfirmedbymanager')) {
       return (
         <View style={styles.buttonRow}>
           <TouchableOpacity
@@ -631,6 +671,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom: 10,
