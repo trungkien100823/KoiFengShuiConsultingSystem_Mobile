@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   SafeAreaView, 
   StyleSheet, 
@@ -21,23 +21,52 @@ import { authAPI } from '../../constants/auth';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
+
+// Add this function to reset all form fields to their initial state
+const getInitialState = () => ({
+  showPassword: false,
+  showConfirmPassword: false,
+  gender: '',
+  isValidInput: false,
+  email: '',
+  phoneNumber: '',
+  isEmail: true,
+  showDatePicker: false,
+  dob: new Date(),
+  fullName: '',
+  password: '',
+  confirmPassword: '',
+  isLoading: false,
+  image: null
+});
 
 export default function RegisterScreen() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [gender, setGender] = useState('');
-  const [isValidInput, setIsValidInput] = useState(false);
-  const [email, setEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [isEmail, setIsEmail] = useState(true);
+  // Initialize state with the function
+  const [formState, setFormState] = useState(getInitialState());
+  const {
+    showPassword, showConfirmPassword, gender, isValidInput,
+    email, phoneNumber, isEmail, showDatePicker, dob,
+    fullName, password, confirmPassword, isLoading, image
+  } = formState;
+  
   const navigation = useNavigation();
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dob, setDob] = useState(new Date());
-  const [fullName, setFullName] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [image, setImage] = useState(null);
+
+  // Reset the form when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Reset form to initial state
+      setFormState(getInitialState());
+      return () => {
+        // Clean up if needed
+      };
+    }, [])
+  );
+
+  const resetForm = () => {
+    setFormState(getInitialState());
+  };
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
@@ -49,7 +78,10 @@ export default function RegisterScreen() {
 
   const checkInputType = (text) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setIsEmail(emailRegex.test(text));
+    setFormState(prev => ({
+      ...prev,
+      isEmail: emailRegex.test(text)
+    }));
   };
 
   const pickImage = async () => {
@@ -62,7 +94,10 @@ export default function RegisterScreen() {
       });
 
       if (!result.canceled) {
-        setImage(result.assets[0]);
+        setFormState(prev => ({
+          ...prev,
+          image: result.assets[0]
+        }));
       }
     } catch (error) {
       console.error('Lỗi khi chọn ảnh:', error);
@@ -137,7 +172,7 @@ export default function RegisterScreen() {
         return;
       }
   
-      setIsLoading(true);
+      setFormState(prev => ({ ...prev, isLoading: true }));
 
       // Tạo FormData object
       const formData = new FormData();
@@ -171,6 +206,9 @@ export default function RegisterScreen() {
         await AsyncStorage.setItem('accessToken', response.data.token);
       }
 
+      // Reset form after successful registration
+      resetForm();
+
       // Hiển thị thông báo thành công
       Alert.alert(
         'Thành công',
@@ -191,6 +229,8 @@ export default function RegisterScreen() {
       // Kiểm tra nếu error.message chứa "thành công"
       if (error.message && error.message.toLowerCase().includes('thành công')) {
         // Đây thực sự là thành công, không phải lỗi
+        resetForm(); // Reset form here too
+        
         Alert.alert(
           'Thành công',
           'Đăng ký tài khoản thành công!',
@@ -235,15 +275,26 @@ export default function RegisterScreen() {
         );
       }
     } finally {
-      setIsLoading(false);
+      setFormState(prev => ({ ...prev, isLoading: false }));
     }
   };
   
   const onDateChange = (event, selectedDate) => {
     if (event.type === 'set' && selectedDate) {
-      setDob(selectedDate);
-      setShowDatePicker(false);
+      setFormState(prev => ({
+        ...prev,
+        dob: selectedDate,
+        showDatePicker: false
+      }));
     }
+  };
+
+  // Update all your state setters to use the new pattern
+  const updateFormState = (field, value) => {
+    setFormState(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   return (
@@ -274,7 +325,7 @@ export default function RegisterScreen() {
                     placeholder="Nguyễn Văn A"
                     placeholderTextColor="#999"
                     value={fullName}
-                    onChangeText={setFullName}
+                    onChangeText={value => updateFormState('fullName', value)}
                   />
                   {fullName.length > 0 && (
                     <Ionicons name="checkmark" size={24} color="#4CAF50" />
@@ -290,7 +341,7 @@ export default function RegisterScreen() {
                     placeholder="example@gmail.com"
                     keyboardType="email-address"
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={value => updateFormState('email', value)}
                     autoCapitalize="none"
                   />
                   {email.length > 0 && (
@@ -308,7 +359,7 @@ export default function RegisterScreen() {
                     keyboardType="numeric"
                     maxLength={10}
                     value={phoneNumber}
-                    onChangeText={setPhoneNumber}
+                    onChangeText={value => updateFormState('phoneNumber', value)}
                   />
                   {phoneNumber.length === 10 && (
                     <Ionicons name="checkmark" size={24} color="#4CAF50" />
@@ -320,7 +371,7 @@ export default function RegisterScreen() {
                 <Text style={styles.label}>Ngày sinh</Text>
                 <TouchableOpacity 
                   style={styles.dateInput}
-                  onPress={() => setShowDatePicker(true)}
+                  onPress={() => updateFormState('showDatePicker', true)}
                 >
                   <Text style={styles.dateText}>
                     {dob.toLocaleDateString('vi-VN')}
@@ -347,9 +398,9 @@ export default function RegisterScreen() {
                     placeholderTextColor="#999"
                     secureTextEntry={!showPassword}
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={value => updateFormState('password', value)}
                   />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <TouchableOpacity onPress={() => updateFormState('showPassword', !showPassword)}>
                     <Ionicons 
                       name={showPassword ? "eye-off" : "eye"} 
                       size={24} 
@@ -368,9 +419,9 @@ export default function RegisterScreen() {
                     placeholderTextColor="#999"
                     secureTextEntry={!showConfirmPassword}
                     value={confirmPassword}
-                    onChangeText={setConfirmPassword}
+                    onChangeText={value => updateFormState('confirmPassword', value)}
                   />
-                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  <TouchableOpacity onPress={() => updateFormState('showConfirmPassword', !showConfirmPassword)}>
                     <Ionicons 
                       name={showConfirmPassword ? "eye-off" : "eye"} 
                       size={24} 
@@ -385,7 +436,7 @@ export default function RegisterScreen() {
                 <View style={styles.genderContainer}>
                   <TouchableOpacity 
                     style={[styles.genderButton, gender === 'male' && styles.genderButtonSelected]}
-                    onPress={() => setGender('male')}
+                    onPress={() => updateFormState('gender', 'male')}
                   >
                     <View style={styles.radioButton}>
                       {gender === 'male' && <View style={styles.radioButtonSelected} />}
@@ -395,7 +446,7 @@ export default function RegisterScreen() {
 
                   <TouchableOpacity 
                     style={[styles.genderButton, gender === 'female' && styles.genderButtonSelected]}
-                    onPress={() => setGender('female')}
+                    onPress={() => updateFormState('gender', 'female')}
                   >
                     <View style={styles.radioButton}>
                       {gender === 'female' && <View style={styles.radioButtonSelected} />}
