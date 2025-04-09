@@ -9,7 +9,8 @@ import {
   TextInput, 
   FlatList,
   ActivityIndicator,
-  Alert 
+  Alert,
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,8 @@ import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { workshopService } from '../../constants/workshop';
 import CustomTabBar from '../../components/ui/CustomTabBar';
+
+const { width } = Dimensions.get('window');
 
 // Component hiển thị một workshop
 const WorkshopCard = ({ workshop }) => {
@@ -44,23 +47,29 @@ const WorkshopCard = ({ workshop }) => {
         });
       }}
     >
-      {/* Rest of your component remains the same */}
       <View style={styles.imageContainer}>
         <Image
           source={workshop.image}
           style={styles.workshopImage}
           resizeMode="cover"
         />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.imageGradient}
+        />
       </View>
       <View style={styles.workshopInfo}>
         <Text style={styles.workshopTitle} numberOfLines={2}>{workshop.title}</Text>
         <View style={styles.workshopDetails}>
-          <Text style={styles.workshopDate}>
-            <Ionicons name="calendar-outline" size={14} color="#666" /> {workshop.date}
-          </Text>
-          <Text style={styles.workshopLocation}>
-            <Ionicons name="location-outline" size={14} color="#666" /> {workshop.location}
-          </Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={14} color="#8B0000" />
+            <Text style={styles.workshopLocation} numberOfLines={1}>{workshop.location}</Text>
+          </View>
+          
+          <View style={styles.dateRow}>
+            <Ionicons name="calendar-outline" size={14} color="#8B0000" />
+            <Text style={styles.workshopDate}>{workshop.date}</Text>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -73,9 +82,19 @@ const WorkshopSection = ({ title, workshops, loading }) => {
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{title}</Text>
+          <LinearGradient
+            colors={['#8B0000', '#600000']}
+            start={[0, 0]}
+            end={[1, 0]}
+            style={styles.sectionTitleGradient}
+          >
+            <Text style={styles.sectionTitleText}>{title}</Text>
+          </LinearGradient>
         </View>
-        <ActivityIndicator size="large" color="#AE1D1D" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B0000" />
+          <Text style={styles.loadingText}>Đang tải workshops...</Text>
+        </View>
       </View>
     );
   }
@@ -83,7 +102,14 @@ const WorkshopSection = ({ title, workshops, loading }) => {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <LinearGradient
+          colors={['#8B0000', '#600000']}
+          start={[0, 0]}
+          end={[1, 0]}
+          style={styles.sectionTitleGradient}
+        >
+          <Text style={styles.sectionTitleText}>{title}</Text>
+        </LinearGradient>
       </View>
       <FlatList
         horizontal
@@ -248,49 +274,79 @@ export default function Workshop() {
         fetchWorkshops();
       }}
     >
-      <Text style={styles.retryButtonText}>Thử lại</Text>
+      <LinearGradient
+        colors={['#8B0000', '#600000']}
+        start={[0, 0]}
+        end={[1, 0]}
+        style={styles.retryButtonGradient}
+      >
+        <Text style={styles.retryButtonText}>Thử lại</Text>
+      </LinearGradient>
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>What Suit You?</Text>
-          <TouchableOpacity style={styles.moreButton}>
-            <Ionicons name="ellipsis-horizontal" size={24} color="#333" />
-          </TouchableOpacity>
+      <ScrollView stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerContainer}>
+          <LinearGradient
+            colors={['#FFFFFF', '#F8F8F8']}
+            style={styles.headerGradient}
+          >
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.headerSubtitle}>Discover</Text>
+                <Text style={styles.headerTitle}>What Suits You?</Text>
+              </View>
+              <TouchableOpacity style={styles.moreButton}>
+                <View style={styles.moreButtonCircle}>
+                  <Ionicons name="ellipsis-horizontal" size={20} color="#8B0000" />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <View style={styles.searchBar}>
+                <Ionicons name="search" size={20} color="#8B0000" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Tìm kiếm workshop..."
+                  placeholderTextColor="#999"
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                />
+              </View>
+            </View>
+          </LinearGradient>
         </View>
 
         {/* Hiển thị lỗi nếu có */}
         {error && (
           <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={60} color="#8B0000" />
             <Text style={styles.errorText}>{error}</Text>
             <RetryButton />
           </View>
         )}
         
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Tìm kiếm workshop..."
-              placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={handleSearch}
-            />
-          </View>
-        </View>
-        
         {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
         {searchQuery.trim() !== '' && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Searching workshops</Text>
+              <LinearGradient
+                colors={['#8B0000', '#600000']}
+                start={[0, 0]}
+                end={[1, 0]}
+                style={styles.sectionTitleGradient}
+              >
+                <Text style={styles.sectionTitleText}>Searching workshops</Text>
+              </LinearGradient>
             </View>
             {loading ? (
-              <ActivityIndicator size="large" color="#AE1D1D" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#8B0000" />
+                <Text style={styles.loadingText}>Đang tải kết quả...</Text>
+              </View>
             ) : (
               <FlatList
                 horizontal
@@ -301,6 +357,7 @@ export default function Workshop() {
                 showsHorizontalScrollIndicator={false}
                 ListEmptyComponent={
                   <View style={styles.emptySearchResults}>
+                    <Ionicons name="search-outline" size={40} color="#ccc" />
                     <Text style={styles.emptySearchText}>Không tìm thấy workshop nào phù hợp</Text>
                   </View>
                 }
@@ -320,6 +377,8 @@ export default function Workshop() {
           workshops={newestWorkshops}
           loading={loading}
         />
+        
+        <View style={styles.bottomPadding} />
       </ScrollView>
       
       {/* Thêm CustomTabBar vào đây */}
@@ -334,35 +393,65 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  headerContainer: {
+    backgroundColor: '#FFFFFF',
+    zIndex: 100,
+  },
+  headerGradient: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    paddingBottom: 15,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 10,
+    paddingBottom: 5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#8B0000',
   },
   moreButton: {
-    padding: 5,
+    padding: 8,
+  },
+  moreButtonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginTop: 10,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f2f2f2',
-    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    paddingVertical: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   searchIcon: {
     marginRight: 8,
@@ -374,6 +463,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+    paddingTop: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -382,10 +472,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 18,
+  sectionTitleGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  sectionTitleText: {
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#FFFFFF',
+  },
+  viewAllButton: {
+    padding: 8,
+  },
+  viewAllText: {
+    fontSize: 14,
+    color: '#8B0000',
+    fontWeight: '500',
   },
   workshopList: {
     paddingLeft: 16,
@@ -397,83 +500,122 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   workshopCard: {
-    width: 180,
-    marginRight: 12,
+    width: width * 0.65,
+    marginRight: 16,
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    shadowRadius: 8,
+    elevation: 5,
+    marginBottom: 4,
+    marginTop: 4,
   },
   imageContainer: {
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    position: 'relative',
+    height: 180,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     overflow: 'hidden',
   },
   workshopImage: {
     width: '100%',
-    height: 120,
+    height: '100%',
     backgroundColor: '#f0f0f0',
   },
+  imageGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+  },
   workshopInfo: {
-    padding: 12,
+    padding: 16,
   },
   workshopTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 6,
-    color: '#000',
+    marginBottom: 8,
+    color: '#333',
+    height: 44,
   },
   workshopDetails: {
     marginTop: 4,
   },
-  workshopDate: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   workshopLocation: {
-    fontSize: 12,
-    color: '#666',
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorContainer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  errorText: {
-    color: '#FF0000',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#AE1D1D',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  retryButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  emptySearchResults: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 250,
-  },
-  emptySearchText: {
     fontSize: 14,
     color: '#666',
+    marginLeft: 6,
+    flex: 1,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  workshopDate: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  loadingContainer: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#8B0000',
+    fontSize: 16,
+  },
+  errorContainer: {
+    padding: 30,
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    margin: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+  },
+  errorText: {
+    color: '#8B0000',
+    marginVertical: 10,
     textAlign: 'center',
+    fontSize: 16,
+  },
+  retryButton: {
+    marginTop: 10,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  retryButtonGradient: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  emptySearchResults: {
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: width * 0.8,
+  },
+  emptySearchText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  bottomPadding: {
+    height: 80,
   },
 });
