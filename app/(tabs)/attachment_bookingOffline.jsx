@@ -97,17 +97,6 @@ const AttachmentBookingOffline = () => {
         const status = bookingResponse.data.data.status;
         setBookingStatus(status);
         console.log('Set booking status to:', status);
-        
-        // Hiển thị thông báo debug trong môi trường phát triển
-        if (__DEV__) {
-          setTimeout(() => {
-            Alert.alert(
-              "Debug - Trạng thái",
-              `Trạng thái hiện tại: [${status}]`,
-              [{ text: "OK" }]
-            );
-          }, 1000);
-        }
       }
 
       // Fetch attachment data

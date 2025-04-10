@@ -359,7 +359,7 @@ export default function CourseChapterScreen() {
       return () => {
         isActive = false;
       };
-    }, [courseId, params?.shouldRefresh])
+    }, [courseId])
   );
 
   // Sửa lại fetchChapters để chỉ lấy thông tin cần thiết

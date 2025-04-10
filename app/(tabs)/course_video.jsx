@@ -732,19 +732,17 @@ export default function CourseVideoScreen() {
     if (!status || !status.durationMillis) return;
 
     // Chỉ hiện alert khi:
-    // 1. Video đã chạy hết (positionMillis = durationMillis)
+    // 1. Video đã chạy hết (didJustFinish = true)
     // 2. Chapter đang ở trạng thái InProgress
     // 3. Chapter chưa hoàn thành (không có trong completedLessons)
     // 4. Chưa hiển thị alert lần nào
-    if (status.positionMillis === status.durationMillis && 
+    if (status.didJustFinish && 
         params.status === "InProgress" && 
         !isCompleted &&
         !hasShownCompletionAlert.current) {
       console.log('Video đã chạy hết và chapter chưa hoàn thành, hiển thị alert');
       hasShownCompletionAlert.current = true;
       updateProgress();
-    } else if (status.positionMillis === status.durationMillis) {
-      console.log('Video đã chạy hết nhưng chapter đã hoàn thành hoặc không cần cập nhật');
     }
   };
 
@@ -913,14 +911,7 @@ export default function CourseVideoScreen() {
             volume={1.0}
             playsInSilentModeIOS={true}
             ignoreSilentSwitch="ignore"
-            onPlaybackStatusUpdate={(status) => {
-              if (status.isLoaded) {
-                setLoading(false);
-                if (status.didJustFinish) {
-                  updateProgress();
-                }
-              }
-            }}
+            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
             onLoad={() => {
               setLoading(false);
               setVideoLoaded(true);

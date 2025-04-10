@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -37,152 +38,153 @@ export default function CourseDetailsScreen() {
     router.push('/(tabs)/courses');
   };
 
-  useEffect(() => {
-    const loadCourseDetails = async () => {
-      try {
-        const token = await AsyncStorage.getItem('accessToken');
-        const config = {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+  useFocusEffect(
+    React.useCallback(() => {
+      loadCourseDetails();
+    }, [courseId])
+  );
+
+  const loadCourseDetails = async () => {
+    try {
+      setIsLoading(true);
+      const token = await AsyncStorage.getItem('accessToken');
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      // Dòng 58-61: Thêm log URL trước khi gọi API
+      const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getCourseById.replace('{id}', courseId)}`;
+      console.log('Calling API URL:', url);
+      const response = await axios.get(url, config);
+
+      console.log('API Response:', {
+        url: url,
+        status: response.status,
+        isSuccess: response.data?.isSuccess,
+        rawData: response.data,
+        courseData: response.data?.data,
+        hasFields: {
+          rating: 'rating' in response.data?.data,
+          enrolledStudents: 'enrolledStudents' in response.data?.data,
+          totalChapters: 'totalChapters' in response.data?.data,
+          totalQuestions: 'totalQuestions' in response.data?.data,
+          totalDuration: 'totalDuration' in response.data?.data
+        }
+      });
+
+      if (response.data?.isSuccess) {
+        const courseData = response.data.data;
+        console.log('Raw API Response:', response.data);
+        console.log('Course Data:', courseData);
+        console.log('Processed Course Data:', {
+          enrolledStudents: courseData.enrolledStudents,
+          totalChapters: courseData.totalChapters,
+          totalQuestions: courseData.totalQuestions,
+          totalDuration: courseData.totalDuration
+        });
+        
+        // Xử lý dữ liệu khóa học từ API
+        const processedCourse = {
+          id: courseData.courseId,
+          title: courseData.courseName,
+          image: courseData.imageUrl 
+            ? { uri: courseData.imageUrl }
+            : require('../../assets/images/buddha.png'),
+          price: courseData.price,
+          rating: courseData.rating,
+          enrolledStudents: courseData.enrolledStudents,
+          includes: [
+            `${courseData.totalChapters || 0} Chapters`,
+            `${courseData.totalQuestions || 0} Questions`
+          ],
+          learning: [
+            'Kiến thức cơ bản về Koi',
+            'Kỹ thuật chăm sóc Koi',
+            'Nhận biết các loại Koi',
+            'Xây dựng và duy trì hồ Koi',
+            'Phòng và điều trị bệnh cho Koi'
+          ],
+          description: courseData.description || 'Thầy giáo là người truyền đạt tri thức và rèn luyện nhân cách cho học trò. Không chỉ giảng dạy, thầy còn truyền cảm hứng, khơi dậy đam mê và giúp học sinh phát huy tiềm năng. Với lòng tận tâm và nhiệt huyết, thầy giáo trở thành người hướng dẫn, đồng hành và là tấm gương sáng cho bao thế hệ.',
+          categoryName: courseData.categoryName || 'Chưa phân loại'
         };
 
-        // Dòng 58-61: Thêm log URL trước khi gọi API
-        const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getCourseById.replace('{id}', courseId)}`;
-        console.log('Calling API URL:', url);
-        const response = await axios.get(url, config);
-
-        console.log('API Response:', {
-          url: url,
-          status: response.status,
-          isSuccess: response.data?.isSuccess,
-          rawData: response.data,
-          courseData: response.data?.data,
-          hasFields: {
-            rating: 'rating' in response.data?.data,
-            enrolledStudents: 'enrolledStudents' in response.data?.data,
-            totalChapters: 'totalChapters' in response.data?.data,
-            totalQuestions: 'totalQuestions' in response.data?.data,
-            totalDuration: 'totalDuration' in response.data?.data
-          }
+        console.log('Dữ liệu số trước khi xử lý:', {
+          price: courseData.price,
+          rating: courseData.rating,
+          enrolledStudents: courseData.enrolledStudents,
+          totalChapters: courseData.totalChapters,
+          totalQuestions: courseData.totalQuestions
         });
 
-        if (response.data?.isSuccess) {
-          const courseData = response.data.data;
-          console.log('Raw API Response:', response.data);
-          console.log('Course Data:', courseData);
-          console.log('Processed Course Data:', {
-            enrolledStudents: courseData.enrolledStudents,
-            totalChapters: courseData.totalChapters,
-            totalQuestions: courseData.totalQuestions,
-            totalDuration: courseData.totalDuration
-          });
-          
-          // Xử lý dữ liệu khóa học từ API
-          const processedCourse = {
-            id: courseData.courseId,
-            title: courseData.courseName,
-            image: courseData.imageUrl 
-              ? { uri: courseData.imageUrl }
-              : require('../../assets/images/buddha.png'),
-            price: courseData.price,
-            rating: courseData.rating,
-            enrolledStudents: courseData.enrolledStudents,
-            includes: [
-              `Tổng thời lượng: ${courseData.totalDuration ? courseData.totalDuration : 'Chưa có'}`,
-              `${courseData.totalChapters || 0} Chapters`,
-              `${courseData.totalQuestions || 0} Questions`
-            ],
-            learning: [
-              'Kiến thức cơ bản về Koi',
-              'Kỹ thuật chăm sóc Koi',
-              'Nhận biết các loại Koi',
-              'Xây dựng và duy trì hồ Koi',
-              'Phòng và điều trị bệnh cho Koi'
-            ],
-            description: courseData.description || 'Thầy giáo là người truyền đạt tri thức và rèn luyện nhân cách cho học trò. Không chỉ giảng dạy, thầy còn truyền cảm hứng, khơi dậy đam mê và giúp học sinh phát huy tiềm năng. Với lòng tận tâm và nhiệt huyết, thầy giáo trở thành người hướng dẫn, đồng hành và là tấm gương sáng cho bao thế hệ.',
-            categoryName: courseData.categoryName || 'Chưa phân loại'
-          };
+        console.log('Processed Course sau khi xử lý:', processedCourse);
+        setCourseDetails(processedCourse);
 
-          console.log('Dữ liệu số trước khi xử lý:', {
-            price: courseData.price,
-            rating: courseData.rating,
-            enrolledStudents: courseData.enrolledStudents,
-            totalChapters: courseData.totalChapters,
-            totalQuestions: courseData.totalQuestions,
-            totalDuration: courseData.totalDuration
-          });
+        // Nếu có masterId thì mới gọi API lấy thông tin master
+        if (courseData.masterId) {
+          try {
+            // Thêm log để debug
+            console.log('Calling Master API for masterId:', courseData.masterId);
+            
+            const masterResponse = await axios.get(
+              `${API_CONFIG.baseURL}/api/Master/${courseData.masterId}`,
+              config
+            );
 
-          console.log('Processed Course sau khi xử lý:', processedCourse);
-          setCourseDetails(processedCourse);
+            // Log response từ API master
+            console.log('Master API Response:', masterResponse.data);
 
-          // Nếu có masterId thì mới gọi API lấy thông tin master
-          if (courseData.masterId) {
-            try {
-              // Thêm log để debug
-              console.log('Calling Master API for masterId:', courseData.masterId);
+            if (masterResponse.data?.isSuccess) {
+              const masterData = masterResponse.data.data;
+              // Log masterData để kiểm tra
+              console.log('Processed Master Data:', masterData);
               
-              const masterResponse = await axios.get(
-                `${API_CONFIG.baseURL}/api/Master/${courseData.masterId}`,
-                config
-              );
-
-              // Log response từ API master
-              console.log('Master API Response:', masterResponse.data);
-
-              if (masterResponse.data?.isSuccess) {
-                const masterData = masterResponse.data.data;
-                // Log masterData để kiểm tra
-                console.log('Processed Master Data:', masterData);
-                
-                setMasterInfo({
-                  name: masterData.masterName ?? 'Chưa có tên',
-                  title: masterData.title ?? 'Master',
-                  rating: masterData.rating ?? 4.0,
-                  bio: masterData.biography ?? 'Chưa có thông tin',
-                  experience: masterData.experience ?? 'Chưa cập nhật',
-                  expertise: masterData.expertise ?? 'Chưa cập nhật',
-                  image: masterData.imageUrl 
-                    ? { uri: masterData.imageUrl }
-                    : require('../../assets/images/buddha.png'),
-                  achievements: [
-                    masterData.experience ? `${masterData.experience} kinh nghiệm` : 'Chưa cập nhật kinh nghiệm',
-                    masterData.expertise ?? 'Chưa cập nhật chuyên môn',
-                    'Chuyên gia được đánh giá cao'
-                  ]
-                });
-              } else {
-                console.warn('Master API không trả về dữ liệu thành công');
-              }
-            } catch (masterError) {
-              console.error('Chi tiết lỗi khi lấy thông tin master:', masterError.response || masterError);
+              setMasterInfo({
+                name: masterData.masterName ?? 'Chưa có tên',
+                title: masterData.title ?? 'Master',
+                rating: masterData.rating ?? 4.0,
+                bio: masterData.biography ?? 'Chưa có thông tin',
+                experience: masterData.experience ?? 'Chưa cập nhật',
+                expertise: masterData.expertise ?? 'Chưa cập nhật',
+                image: masterData.imageUrl 
+                  ? { uri: masterData.imageUrl }
+                  : require('../../assets/images/buddha.png'),
+                achievements: [
+                  masterData.experience ? `${masterData.experience} kinh nghiệm` : 'Chưa cập nhật kinh nghiệm',
+                  masterData.expertise ?? 'Chưa cập nhật chuyên môn',
+                  'Chuyên gia được đánh giá cao'
+                ]
+              });
+            } else {
+              console.warn('Master API không trả về dữ liệu thành công');
             }
+          } catch (masterError) {
+            console.error('Chi tiết lỗi khi lấy thông tin master:', masterError.response || masterError);
           }
-        } else {
-          throw new Error('Không thể tải thông tin khóa học');
         }
-
-        console.log('Course API Response:', {
-          rawResponse: response.data,
-          courseData: response.data.data,
-          hasCalculatedFields: {
-            rating: response.data.data.rating,
-            enrolledStudents: response.data.data.enrolledStudents,
-            totalChapters: response.data.data.totalChapters,
-            totalDuration: response.data.data.totalDuration
-          }
-        });
-      } catch (error) {
-        console.error('Lỗi:', error);
-        Alert.alert('Lỗi', 'Không thể tải thông tin khóa học');
-      } finally {
-        setIsLoading(false);
+      } else {
+        throw new Error('Không thể tải thông tin khóa học');
       }
-    };
 
-    loadCourseDetails();
-  }, [courseId]);
+      console.log('Course API Response:', {
+        rawResponse: response.data,
+        courseData: response.data.data,
+        hasCalculatedFields: {
+          rating: response.data.data.rating,
+          enrolledStudents: response.data.data.enrolledStudents,
+          totalChapters: response.data.data.totalChapters,
+          totalDuration: response.data.data.totalDuration
+        }
+      });
+    } catch (error) {
+      console.error('Lỗi:', error);
+      Alert.alert('Lỗi', 'Không thể tải thông tin khóa học');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Render loading state
   if (isLoading) {
@@ -261,7 +263,7 @@ export default function CourseDetailsScreen() {
           
           {/* What You'll Learn Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>What will you learn:</Text>
+            <Text style={styles.sectionTitle}>Bạn sẽ được học:</Text>
             {courseDetails.learning.map((item, index) => (
               <View key={index} style={styles.learningItem}>
                 <Ionicons name="checkmark" size={20} color="#fff" />
