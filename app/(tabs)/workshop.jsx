@@ -10,7 +10,9 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  Dimensions
+  Dimensions,
+  ImageBackground,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -286,184 +288,161 @@ export default function Workshop() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerContainer}>
-          <LinearGradient
-            colors={['#FFFFFF', '#F8F8F8']}
-            style={styles.headerGradient}
-          >
-            <View style={styles.header}>
-              <View>
-                <Text style={styles.headerSubtitle}>Discover</Text>
-                <Text style={styles.headerTitle}>What Suits You?</Text>
-              </View>
-              <TouchableOpacity style={styles.moreButton}>
-                <View style={styles.moreButtonCircle}>
-                  <Ionicons name="ellipsis-horizontal" size={20} color="#8B0000" />
-                </View>
+    <ImageBackground 
+      source={require('../../assets/images/feng shui.png')} 
+      style={styles.backgroundImage}
+    >
+      <LinearGradient
+        colors={['rgba(0,0,0,0.8)', 'rgba(139,0,0,0.6)', 'rgba(0,0,0,0.8)']}
+        style={styles.gradientOverlay}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
+            
+          </View>
+
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm ở đây"
+                placeholderTextColor="rgba(255,255,255,0.7)"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+                <Ionicons name="search" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-
-            <View style={styles.searchContainer}>
-              <View style={styles.searchBar}>
-                <Ionicons name="search" size={20} color="#8B0000" style={styles.searchIcon} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Tìm kiếm workshop..."
-                  placeholderTextColor="#999"
-                  value={searchQuery}
-                  onChangeText={handleSearch}
-                />
-              </View>
-            </View>
-          </LinearGradient>
-        </View>
-
-        {/* Hiển thị lỗi nếu có */}
-        {error && (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={60} color="#8B0000" />
-            <Text style={styles.errorText}>{error}</Text>
-            <RetryButton />
           </View>
-        )}
-        
-        {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
-        {searchQuery.trim() !== '' && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <LinearGradient
-                colors={['#8B0000', '#600000']}
-                start={[0, 0]}
-                end={[1, 0]}
-                style={styles.sectionTitleGradient}
-              >
-                <Text style={styles.sectionTitleText}>Searching workshops</Text>
-              </LinearGradient>
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={50} color="#FF9999" style={styles.errorIcon} />
+              <Text style={styles.errorText}>{error}</Text>
+              <RetryButton />
             </View>
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#8B0000" />
-                <Text style={styles.loadingText}>Đang tải kết quả...</Text>
-              </View>
-            ) : (
-              <FlatList
-                horizontal
-                data={[...filterWorkshops(trendingWorkshops), ...filterWorkshops(newestWorkshops)]}
-                renderItem={({ item }) => <WorkshopCard workshop={item} />}
-                keyExtractor={(item, index) => `search-${item.id}-${index}`}
-                contentContainerStyle={styles.workshopList}
-                showsHorizontalScrollIndicator={false}
-                ListEmptyComponent={
-                  <View style={styles.emptySearchResults}>
-                    <Ionicons name="search-outline" size={40} color="#ccc" />
-                    <Text style={styles.emptySearchText}>Không tìm thấy workshop nào phù hợp</Text>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
+              {searchQuery.trim() !== '' && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <LinearGradient
+                      colors={['#8B0000', '#600000']}
+                      start={[0, 0]}
+                      end={[1, 0]}
+                      style={styles.sectionTitleGradient}
+                    >
+                      <Text style={styles.sectionTitleText}>Searching workshops</Text>
+                    </LinearGradient>
                   </View>
-                }
+                  {loading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="large" color="#8B0000" />
+                      <Text style={styles.loadingText}>Đang tải kết quả...</Text>
+                    </View>
+                  ) : (
+                    <FlatList
+                      horizontal
+                      data={[...filterWorkshops(trendingWorkshops), ...filterWorkshops(newestWorkshops)]}
+                      renderItem={({ item }) => <WorkshopCard workshop={item} />}
+                      keyExtractor={(item, index) => `search-${item.id}-${index}`}
+                      contentContainerStyle={styles.workshopList}
+                      showsHorizontalScrollIndicator={false}
+                      ListEmptyComponent={
+                        <View style={styles.emptySearchResults}>
+                          <Ionicons name="search-outline" size={40} color="#ccc" />
+                          <Text style={styles.emptySearchText}>Không tìm thấy workshop nào phù hợp</Text>
+                        </View>
+                      }
+                    />
+                  )}
+                </View>
+              )}
+              
+              <WorkshopSection 
+                title="Trending Workshops" 
+                workshops={trendingWorkshops}
+                loading={loading}
               />
-            )}
-          </View>
-        )}
-        
-        <WorkshopSection 
-          title="Trending Workshops" 
-          workshops={trendingWorkshops}
-          loading={loading}
-        />
 
-        <WorkshopSection 
-          title="Newest Workshops" 
-          workshops={newestWorkshops}
-          loading={loading}
-        />
-        
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-      
-      {/* Thêm CustomTabBar vào đây */}
-      <CustomTabBar />
-      
-    </SafeAreaView>
+              <WorkshopSection 
+                title="Newest Workshops" 
+                workshops={newestWorkshops}
+                loading={loading}
+              />
+              
+              <View style={styles.bottomPadding} />
+            </ScrollView>
+          )}
+
+          <CustomTabBar />
+        </SafeAreaView>
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  gradientOverlay: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? 40 : 20,
   },
   headerContainer: {
-    backgroundColor: '#FFFFFF',
-    zIndex: 100,
-  },
-  headerGradient: {
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    paddingBottom: 15,
-  },
-  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+    paddingTop: 45,
+    paddingBottom: 12,
+    marginTop: -30,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#8B0000',
+    color: '#FFFFFF',
   },
-  moreButton: {
-    padding: 8,
-  },
-  moreButtonCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
+  menuButton: {
+    padding: 5,
   },
   searchContainer: {
     paddingHorizontal: 16,
-    marginTop: 10,
+    marginBottom: 16,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  searchIcon: {
-    marginRight: 8,
+    backgroundColor: 'rgba(80, 30, 30, 0.6)',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    height: 44,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#FFFFFF',
+    paddingVertical: 10,
+  },
+  searchButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(220, 60, 60, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   section: {
     marginBottom: 24,
-    paddingTop: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -502,16 +481,18 @@ const styles = StyleSheet.create({
   workshopCard: {
     width: width * 0.65,
     marginRight: 16,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 8,
     marginBottom: 4,
     marginTop: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 0, 0, 0.5)',
   },
   imageContainer: {
     position: 'relative',
@@ -577,14 +558,17 @@ const styles = StyleSheet.create({
   errorContainer: {
     padding: 30,
     alignItems: 'center',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: 'rgba(255, 235, 235, 0.2)',
     margin: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FFCDD2',
+    borderColor: 'rgba(255,153,153,0.5)',
+  },
+  errorIcon: {
+    marginBottom: 10,
   },
   errorText: {
-    color: '#8B0000',
+    color: '#FF9999',
     marginVertical: 10,
     textAlign: 'center',
     fontSize: 16,

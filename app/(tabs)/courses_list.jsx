@@ -11,7 +11,8 @@ import {
   StatusBar,
   ActivityIndicator,
   Dimensions,
-  FlatList
+  FlatList,
+  ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CustomTabBar from '../../components/ui/CustomTabBar';
@@ -83,7 +84,7 @@ export default function CoursesListScreen() {
 
   const renderCourseCard = ({ item, index }) => (
     <TouchableOpacity 
-      style={[styles.courseCard, index % 2 === 0 ? styles.cardLeft : styles.cardRight]}
+      style={styles.courseCard}
       onPress={() => router.push({
         pathname: '/(tabs)/course_details',
         params: { 
@@ -93,49 +94,43 @@ export default function CoursesListScreen() {
       })}
     >
       <View style={styles.cardInner}>
-        <View style={styles.imageContainer}>
-          <Image source={item.image} style={styles.courseImage} />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
-            style={styles.imageOverlay}
-          />
-          <View style={styles.categoryBadge}>
+        <Image source={item.image} style={styles.courseImage} />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.85)']}
+          style={styles.imageOverlay}
+        />
+        
+        <View style={styles.cardContent}>
+          <View style={styles.categoryChip}>
             <Text style={styles.categoryText}>{item.category}</Text>
           </View>
-        </View>
-        
-        <View style={styles.detailsContainer}>
+          
           <Text style={styles.courseTitle} numberOfLines={2}>{item.title}</Text>
           
-          <View style={styles.ratingRow}>
-            <View style={styles.starsContainer}>
+          <View style={styles.ratingContainer}>
+            <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <Ionicons
                   key={star}
                   name={star <= Math.round(item.rating) ? "star" : "star-outline"}
                   size={14}
                   color="#FFD700"
-                  style={styles.starIcon}
+                  style={{marginRight: 2}}
                 />
               ))}
             </View>
             <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
           </View>
           
-          <View style={styles.enrollmentRow}>
-            <Ionicons name="person-outline" size={14} color="#777" />
-            <Text style={styles.enrollmentText}>{item.reviews} học viên</Text>
-          </View>
-          
-          <View style={styles.priceRow}>
-            <LinearGradient
-              colors={['#8B0000', '#600000']}
-              start={[0, 0]}
-              end={[1, 0]}
-              style={styles.priceContainer}
-            >
+          <View style={styles.detailsRow}>
+            <View style={styles.enrollmentContainer}>
+              <Ionicons name="people" size={14} color="#FFF" />
+              <Text style={styles.enrollmentText}>{item.reviews} học viên</Text>
+            </View>
+            
+            <View style={styles.priceChip}>
               <Text style={styles.priceText}>{item.price.toLocaleString('vi-VN')} đ</Text>
-            </LinearGradient>
+            </View>
           </View>
         </View>
       </View>
@@ -144,26 +139,32 @@ export default function CoursesListScreen() {
 
   const EmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="book" size={80} color="#e0e0e0" />
+      <Ionicons name="book" size={70} color="rgba(255,255,255,0.3)" />
       <Text style={styles.emptyTitle}>Chưa có khóa học nào</Text>
       <Text style={styles.emptyText}>Hiện tại chưa có khóa học nào trong danh mục này</Text>
-      <TouchableOpacity style={styles.emptyButton} onPress={() => router.back()}>
-        <Text style={styles.emptyButtonText}>Khám phá danh mục khác</Text>
+      <TouchableOpacity 
+        style={styles.emptyButton} 
+        onPress={() => router.back()}
+      >
+        <LinearGradient
+          colors={['#FF6B6B', '#8B0000']}
+          style={styles.emptyButtonGradient}
+        >
+          <Text style={styles.emptyButtonText}>Khám phá danh mục khác</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
-      <LinearGradient
-        colors={['#8B0000', '#600000']}
-        start={[0, 0]}
-        end={[1, 0]}
-        style={styles.headerGradient}
-      >
-        <View style={styles.headerContent}>
+    <ImageBackground
+      source={require('../../assets/images/feng shui.png')}
+      style={styles.backgroundImage}
+    >
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.headerContainer}>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => router.push('/(tabs)/courses')}
@@ -171,173 +172,101 @@ export default function CoursesListScreen() {
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerSubtitle}>Danh mục khóa học</Text>
+          <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>{categoryTitle}</Text>
+            <Text style={styles.headerSubtitle}>Danh mục khóa học</Text>
           </View>
         </View>
-      </LinearGradient>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm khóa học trong danh mục này..."
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
+        {/* Search Bar */}
+        
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B0000" />
-          <Text style={styles.loadingText}>Đang tải khóa học...</Text>
-        </View>
-      ) : (
-        courses.length > 0 ? (
-          <FlatList
-            data={courses}
-            renderItem={renderCourseCard}
-            keyExtractor={item => item.id.toString()}
-            contentContainerStyle={styles.coursesList}
-            showsVerticalScrollIndicator={false}
-            numColumns={1}
-          />
+        {/* Content */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={styles.loadingText}>Đang tải khóa học...</Text>
+          </View>
         ) : (
-          <EmptyState />
-        )
-      )}
+          courses.length > 0 ? (
+            <FlatList
+              data={courses}
+              renderItem={renderCourseCard}
+              keyExtractor={item => item.id.toString()}
+              contentContainerStyle={styles.coursesList}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <EmptyState />
+          )
+        )}
 
-      <CustomTabBar />
-    </SafeAreaView>
+        <CustomTabBar />
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  headerGradient: {
-    paddingTop: 15,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  headerContent: {
+  headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 15,
+    marginTop: -20,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(139, 0, 0, 0.4)',
+    marginRight: 12,
   },
-  headerTextContainer: {
+  headerContent: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: -30,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 2,
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#eeeeee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-    marginRight: 10,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#333',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 12,
-    color: '#8B0000',
-    fontSize: 16,
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: 2,
   },
   coursesList: {
-    padding: 16,
-    paddingBottom: 90,
+    paddingHorizontal: 16,
+    paddingBottom: 80,
   },
   courseCard: {
     marginBottom: 20,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    backgroundColor: 'rgba(30, 30, 30, 0.6)',
     elevation: 5,
-    backgroundColor: '#FFFFFF',
-  },
-  cardLeft: {
-    transform: [{translateX: -3}],
-  },
-  cardRight: {
-    transform: [{translateX: 3}],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   cardInner: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  imageContainer: {
-    height: 160,
     position: 'relative',
   },
   courseImage: {
     width: '100%',
-    height: '100%',
+    height: 180,
     resizeMode: 'cover',
   },
   imageOverlay: {
@@ -345,104 +274,112 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    height: 180,
   },
-  categoryBadge: {
+  cardContent: {
+    padding: 16,
+  },
+  categoryChip: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    top: -170,
+    left: 10,
     backgroundColor: 'rgba(139, 0, 0, 0.85)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
   },
   categoryText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
   },
-  detailsContainer: {
-    padding: 16,
-  },
   courseTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333333',
+    color: '#FFFFFF',
     marginBottom: 10,
-    lineHeight: 24,
   },
-  ratingRow: {
+  ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 12,
   },
-  starsContainer: {
+  stars: {
     flexDirection: 'row',
     marginRight: 8,
   },
-  starIcon: {
-    marginRight: 2,
-  },
   ratingText: {
+    color: '#FFD700',
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#555',
   },
-  enrollmentRow: {
+  detailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  enrollmentContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
   },
   enrollmentText: {
+    color: '#FFFFFF',
     fontSize: 13,
-    color: '#777',
     marginLeft: 6,
   },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  priceContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  priceChip: {
+    backgroundColor: 'rgba(139, 0, 0, 0.85)',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 15,
   },
   priceText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+    fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    marginTop: 12,
     fontSize: 16,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    marginTop: 40,
+    padding: 30,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
-    marginTop: 20,
-    marginBottom: 10,
+    color: '#FFFFFF',
+    marginTop: 16,
+    marginBottom: 8,
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   emptyButton: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 20,
+    borderRadius: 25,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
+  emptyButtonGradient: {
     paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 24,
+    borderRadius: 25,
   },
   emptyButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
     fontSize: 16,
+    fontWeight: 'bold',
   }
 });

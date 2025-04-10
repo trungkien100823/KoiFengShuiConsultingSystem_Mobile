@@ -12,7 +12,8 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  Dimensions
+  Dimensions,
+  ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -254,199 +255,185 @@ export default function CoursesScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      
+    <ImageBackground 
+      source={require('../../assets/images/feng shui.png')} 
+      style={styles.backgroundImage}
+    >
       <LinearGradient
-        colors={['rgba(139,0,0,0.05)', 'rgba(255,255,255,0)']}
-        style={styles.backgroundGradient}
-      />
-      
-      {/* Modern Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>Hi, {userName}</Text>
-          <Text style={styles.headerTitle}>Learn Your Path</Text>
-        </View>
-        <TouchableOpacity style={styles.cartButton}>
-          <View style={styles.cartButtonCircle}>
-            <Ionicons name="cart-outline" size={22} color="#8B0000" />
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Enhanced Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#8B0000" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search courses..."
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B0000" />
-        </View>
-      ) : (
-        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Best Seller Courses Section */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <LinearGradient
-                colors={['#8B0000', '#600000']}
-                start={[0, 0]}
-                end={[1, 0]}
-                style={styles.sectionTitleGradient}
-              >
-                <Text style={styles.sectionTitle}>Best Seller Courses</Text>
-              </LinearGradient>
-            </View>
-            
-            {featuredCourses.length > 0 && (
-              <FlatList
-                data={featuredCourses}
-                renderItem={renderFeaturedCourse}
-                keyExtractor={item => item.courseId?.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-              />
-            )}
-          </View>
+        colors={['rgba(0,0,0,0.7)', 'rgba(139,0,0,0.5)', 'rgba(0,0,0,0.7)']}
+        style={styles.gradientOverlay}
+      >
+        <SafeAreaView style={styles.container}>
+          <StatusBar barStyle="light-content" />
           
-          {/* Categories Section */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <LinearGradient
-                colors={['#8B0000', '#600000']}
-                start={[0, 0]}
-                end={[1, 0]}
-                style={styles.sectionTitleGradient}
-              >
-                <Text style={styles.sectionTitle}>Categories</Text>
-              </LinearGradient>
-            </View>
-            
-            {categories.length > 0 && (
-              <FlatList
-                data={categories}
-                renderItem={renderCategory}
-                keyExtractor={item => item.categoryId?.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-              />
-            )}
+          {/* Modern Header */}
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
           </View>
-          
-          {/* Top Rated Courses Section */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <LinearGradient
-                colors={['#8B0000', '#600000']}
-                start={[0, 0]}
-                end={[1, 0]}
-                style={styles.sectionTitleGradient}
-              >
-                <Text style={styles.sectionTitle}>Top Rated Courses</Text>
-              </LinearGradient>
-            </View>
-            
-            {topCourses.length > 0 && (
-              <FlatList
-                data={topCourses}
-                renderItem={renderTopCourse}
-                keyExtractor={item => item.courseId?.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-              />
-            )}
-          </View>
-          
-          {/* Bottom spacer for tab bar */}
-          <View style={{height: 100}} />
-        </ScrollView>
-      )}
 
-      <CustomTabBar />
-    </SafeAreaView>
+          {/* Enhanced Search Bar */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm ở đây"
+                placeholderTextColor="rgba(255,255,255,0.7)"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <TouchableOpacity style={styles.searchButton}>
+                <Ionicons name="search" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FF9999" />
+            </View>
+          ) : (
+            <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+              {/* Best Seller Courses Section */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <LinearGradient
+                    colors={['#8B0000', '#600000']}
+                    start={[0, 0]}
+                    end={[1, 0]}
+                    style={styles.sectionTitleGradient}
+                  >
+                    <Text style={styles.sectionTitle}>Best Seller Courses</Text>
+                  </LinearGradient>
+                </View>
+                
+                {featuredCourses.length > 0 && (
+                  <FlatList
+                    data={featuredCourses}
+                    renderItem={renderFeaturedCourse}
+                    keyExtractor={item => item.courseId?.toString()}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalList}
+                  />
+                )}
+              </View>
+              
+              {/* Categories Section */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <LinearGradient
+                    colors={['#8B0000', '#600000']}
+                    start={[0, 0]}
+                    end={[1, 0]}
+                    style={styles.sectionTitleGradient}
+                  >
+                    <Text style={styles.sectionTitle}>Categories</Text>
+                  </LinearGradient>
+                </View>
+                
+                {categories.length > 0 && (
+                  <FlatList
+                    data={categories}
+                    renderItem={renderCategory}
+                    keyExtractor={item => item.categoryId?.toString()}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalList}
+                  />
+                )}
+              </View>
+              
+              {/* Top Rated Courses Section */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <LinearGradient
+                    colors={['#8B0000', '#600000']}
+                    start={[0, 0]}
+                    end={[1, 0]}
+                    style={styles.sectionTitleGradient}
+                  >
+                    <Text style={styles.sectionTitle}>Top Rated Courses</Text>
+                  </LinearGradient>
+                </View>
+                
+                {topCourses.length > 0 && (
+                  <FlatList
+                    data={topCourses}
+                    renderItem={renderTopCourse}
+                    keyExtractor={item => item.courseId?.toString()}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalList}
+                  />
+                )}
+              </View>
+              
+              {/* Bottom spacer for tab bar */}
+              <View style={{height: 100}} />
+            </ScrollView>
+          )}
+
+          <CustomTabBar />
+        </SafeAreaView>
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  gradientOverlay: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-  },
-  header: {
+  headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 10,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#8B0000',
-    fontWeight: '500',
+    paddingHorizontal: 16,
+    paddingTop: 45,
+    paddingBottom: 12,
+    marginTop: -20,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#FFFFFF',
   },
-  cartButton: {
+  menuButton: {
     padding: 5,
   },
-  cartButtonCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139,0,0,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   searchContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  searchIcon: {
-    marginRight: 10,
+    backgroundColor: 'rgba(80, 30, 30, 0.6)',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    height: 44,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#FFFFFF',
+    paddingVertical: 10,
+  },
+  searchButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(220, 60, 60, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollContent: {
     flex: 1,
@@ -483,10 +470,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 5,
-    backgroundColor: '#FFF',
+    elevation: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   cardInner: {
     flex: 1,

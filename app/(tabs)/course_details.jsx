@@ -211,9 +211,6 @@ export default function CourseDetailsScreen() {
             >
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerCartButton}>
-              <Ionicons name="cart-outline" size={24} color="#fff" />
-            </TouchableOpacity>
           </View>
           
           <Text style={styles.courseTitle}>{courseDetails.title}</Text>
