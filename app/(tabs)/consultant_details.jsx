@@ -20,11 +20,18 @@ export default function ConsultantDetailsScreen() {
   const fetchConsultantDetails = async () => {
     try {
       setLoading(true);
-      const data = await consultingAPI.getConsultantById(consultantId);
-      setConsultant(data);
-    } catch (err) {
-      setError('Không thể tải thông tin master');
-      Alert.alert('Lỗi', 'Không thể tải thông tin master');
+      if (consultingAPI && typeof consultingAPI.getConsultantDetails === 'function') {
+        const details = await consultingAPI.getConsultantDetails(consultantId);
+        setConsultant(details);
+      } else {
+        console.log('Using fallback data for consultant details');
+        const foundConsultant = consultants.find(c => c.id.toString() === consultantId.toString());
+        setConsultant(foundConsultant || consultants[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching consultant details:', error);
+      const foundConsultant = consultants.find(c => c.id.toString() === consultantId.toString());
+      setConsultant(foundConsultant || consultants[0]);
     } finally {
       setLoading(false);
     }

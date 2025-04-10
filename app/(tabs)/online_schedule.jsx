@@ -179,9 +179,6 @@ export default function OnlineScheduleScreen() {
   const currentMonthActual = today.getMonth();
   const currentYearActual = today.getFullYear();
 
-  // Example data for booked dates (you would get this from your backend)
-  const fullyBookedDates = [2, 6, 13];
-
   const months = [
     "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
     "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
@@ -491,9 +488,6 @@ export default function OnlineScheduleScreen() {
             (currentYear === currentYearActual && currentMonth < currentMonthActual) || 
             (currentYear === currentYearActual && currentMonth === currentMonthActual && day < currentDay);
           
-          // Check if it's a booked date
-          const isBookedDate = fullyBookedDates.includes(day);
-          
           // Check if it's selected
           const dateString = `${currentMonth + 1}/${day}/${currentYear}`;
           const isSelected = selectedDate === dateString;
@@ -506,31 +500,26 @@ export default function OnlineScheduleScreen() {
                 isPastDate && styles.pastDateCell
               ]}
               onPress={() => {
-                if (!isPastDate && !isBookedDate) {
+                if (!isPastDate) {
                   selectDate(day);
                 }
               }}
-              disabled={isPastDate || isBookedDate}
+              disabled={isPastDate}
             >
               <View style={[
                 styles.dateCellInner,
                 isToday && styles.todayCell,
-                isSelected && styles.selectedCell,
-                isBookedDate && styles.bookedCell
+                isSelected && styles.selectedCell
               ]}>
                 <Text style={[
                   styles.dateText,
                   isToday && styles.todayText,
                   isSelected && styles.selectedText,
-                  isPastDate && styles.pastDateText,
-                  isBookedDate && styles.bookedText
+                  isPastDate && styles.pastDateText
                 ]}>
                   {day}
                 </Text>
               </View>
-              {isBookedDate && (
-                <View style={styles.bookedIndicator} />
-              )}
             </TouchableOpacity>
           );
         })}
@@ -616,9 +605,6 @@ export default function OnlineScheduleScreen() {
                       (currentYear === currentYearActual && currentMonth < currentMonthActual) || 
                       (currentYear === currentYearActual && currentMonth === currentMonthActual && day < currentDay);
                     
-                    // Check if it's a booked date
-                    const isBookedDate = fullyBookedDates.includes(day);
-                    
                     // Check if it's selected
                     const dateString = `${currentMonth + 1}/${day}/${currentYear}`;
                     const isSelected = selectedDate === dateString;
@@ -631,31 +617,26 @@ export default function OnlineScheduleScreen() {
                           isPastDate && styles.pastDateCell
                         ]}
                         onPress={() => {
-                          if (!isPastDate && !isBookedDate) {
+                          if (!isPastDate) {
                             selectDate(day);
                           }
                         }}
-                        disabled={isPastDate || isBookedDate}
+                        disabled={isPastDate}
                       >
                         <View style={[
                           styles.dateCellInner,
                           isToday && styles.todayCell,
-                          isSelected && styles.selectedCell,
-                          isBookedDate && styles.bookedCell
+                          isSelected && styles.selectedCell
                         ]}>
                           <Text style={[
                             styles.dateText,
                             isToday && styles.todayText,
                             isSelected && styles.selectedText,
-                            isPastDate && styles.pastDateText,
-                            isBookedDate && styles.bookedText
+                            isPastDate && styles.pastDateText
                           ]}>
                             {day}
                           </Text>
                         </View>
-                        {isBookedDate && (
-                          <View style={styles.bookedIndicator} />
-                        )}
                       </TouchableOpacity>
                     );
                   })}
@@ -961,21 +942,6 @@ const styles = StyleSheet.create({
   },
   pastDateText: {
     color: '#999999',
-  },
-  bookedCell: {
-    backgroundColor: '#FFF0F0',
-  },
-  bookedText: {
-    color: '#FF6B6B',
-  },
-  bookedIndicator: {
-    position: 'absolute',
-    top: 3,
-    right: 3,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FF6B6B',
   },
   dateSelectedContainer: {
     flexDirection: 'row',
