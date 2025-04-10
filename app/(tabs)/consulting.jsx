@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, TextInput, ActivityIndicator } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Image, 
+  TouchableOpacity, 
+  ScrollView, 
+  Dimensions, 
+  TextInput, 
+  ActivityIndicator,
+  ImageBackground,
+  StatusBar,
+  Animated
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import CustomTabBar from '../../components/ui/CustomTabBar';
@@ -18,6 +31,7 @@ export default function ConsultingScreen() {
   const [selectedTab, setSelectedTab] = useState(consultingCategories[0]);
   const [sortVisible, setSortVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const scrollX = React.useRef(new Animated.Value(0)).current;
 
   // Hàm xử lý tìm kiếm
   const handleSearch = (text) => {
@@ -91,266 +105,380 @@ export default function ConsultingScreen() {
     return stars;
   };
 
+  const renderPagination = () => {
+    return (
+      <View style={styles.paginationContainer}>
+        {consultants.map((_, i) => {
+          const inputRange = [
+            (i - 1) * (cardWidth + 20),
+            i * (cardWidth + 20),
+            (i + 1) * (cardWidth + 20),
+          ];
+          
+          const dotWidth = scrollX.interpolate({
+            inputRange,
+            outputRange: [8, 16, 8],
+            extrapolate: 'clamp',
+          });
+          
+          const opacity = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.4, 1, 0.4],
+            extrapolate: 'clamp',
+          });
+          
+          return (
+            <Animated.View
+              key={`dot-${i}`}
+              style={[
+                styles.paginationDot,
+                { 
+                  width: dotWidth,
+                  opacity: opacity
+                },
+                i === activeIndex && styles.paginationDotActive
+              ]}
+            />
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>Tư vấn</Text>
-          <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
-        </View>
-        <TouchableOpacity style={styles.moreButton}>
-          <View style={styles.moreButtonCircle}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#8B0000" />
+    <ImageBackground 
+      source={require('../../assets/images/feng shui.png')}
+      style={styles.backgroundImage}
+    >
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
+            <TouchableOpacity style={styles.menuButton}>
+              <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#8B0000" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm kiếm ở đây"
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-        </View>
-        <TouchableOpacity 
-          style={styles.filterButton}
-          onPress={() => setSortVisible(true)}
-        >
-          <Ionicons name="filter" size={32} color="#8B0000" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={{flex: 1}} showsVerticalScrollIndicator={false}>
-        {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
-        {searchQuery.trim() !== '' && (
-          <View style={styles.searchResultsContainer}>
-            <Text style={styles.searchResultsTitle}>Searching Masters</Text>
-            {filterConsultants(consultants).length > 0 ? (
-              <ScrollView 
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.searchScrollContent}
-              >
-                {filterConsultants(consultants).map((consultant, index) => (
-                  <View key={`search-${consultant.id || index}`} style={styles.searchConsultantWrapper}>
-                    <TouchableOpacity 
-                      style={styles.searchConsultantCard}
-                      onPress={() => router.push({
-                        pathname: '/consultant_details',
-                        params: { consultantId: consultant.id }
-                      })}
-                    >
-                      <Text style={styles.searchConsultantTitle}>{consultant.title || 'Master'}</Text>
-                      <Image 
-                        source={consultant.image} 
-                        style={styles.searchConsultantImage}
-                        resizeMode="cover" 
-                      />
-                      <View style={styles.cardContent}>
-                        <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
-                      </View>
-                      <View style={styles.ratingContainer}>
-                        {renderStars(consultant.rating || 0)}
-                        <Text style={styles.ratingText}>{(consultant.rating || 0).toFixed(1)}/5.0</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            ) : (
-              <View style={styles.emptySearchResults}>
-                <Text style={styles.emptySearchText}>Không tìm thấy Master nào phù hợp</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        <View style={styles.carouselContainer}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#8B0000" />
-              <Text style={styles.loadingText}>Đang tải danh sách chuyên gia...</Text>
-            </View>
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle-outline" size={50} color="#8B0000" style={styles.errorIcon} />
-              <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity style={styles.retryButton} onPress={fetchConsultants}>
-                <LinearGradient
-                  colors={['#8B0000', '#600000']}
-                  start={[0, 0]}
-                  end={[1, 0]}
-                  style={styles.retryButtonGradient}
-                >
-                  <Text style={styles.retryButtonText}>Thử lại</Text>
-                </LinearGradient>
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm ở đây"
+                placeholderTextColor="rgba(255,255,255,0.7)"
+                value={searchQuery}
+                onChangeText={handleSearch}
+              />
+              <TouchableOpacity style={styles.searchButton}>
+                <Ionicons name="search" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-          ) : consultants && consultants.length > 0 ? (
-            <>
-              
-              <ScrollView 
-                horizontal
-                pagingEnabled
-                snapToInterval={cardWidth + 20}
-                decelerationRate="fast"
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-                onMomentumScrollEnd={handleScroll}
-              >
-                {consultants.map((consultant, index) => (
-                  <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
-                    <TouchableOpacity 
-                      style={styles.consultantCard}
-                      onPress={() => router.push({
-                        pathname: '/consultant_details',
-                        params: { consultantId: consultant.id }
-                      })}
-                    >
-                      <View style={styles.imageWrapper}>
-                        <Image 
-                          source={consultant.image} 
-                          style={styles.consultantImage}
-                          resizeMode="cover" 
-                        />
-                        <LinearGradient
-                          colors={['transparent', 'rgba(0,0,0,0.7)']}
-                          style={styles.imageGradient}
-                        />
-                        <Text style={styles.consultantTitle}>{consultant.title || 'Master'}</Text>
-                      </View>
-                      
-                      <View style={styles.cardContent}>
-                        <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
-                        
-                        <View style={styles.ratingContainer}>
-                          <View style={styles.starsContainer}>
-                            {renderStars(consultant.rating || 0)}
-                          </View>
-                          <Text style={styles.ratingText}>
-                            {(consultant.rating || 0).toFixed(1)}/5.0
-                          </Text>
-                        </View>
-                        
-                        {consultant.specialty && (
-                          <View style={styles.specialtyContainer}>
-                            <Ionicons name="star" size={16} color="#8B0000" />
-                            <Text style={styles.specialtyText}>{consultant.specialty}</Text>
-                          </View>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-              
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity 
-                  style={styles.bookButton}
-                  onPress={() => router.push({
-                    pathname: '/(tabs)/OfflineOnline',
-                    params: { consultantId: consultants[activeIndex]?.id }
-                  })}
-                >
-                  <LinearGradient
-                    colors={['#8B0000', '#600000']}
-                    start={[0, 0]}
-                    end={[1, 0]}
-                    style={styles.bookButtonGradient}
+          </View>
+
+          <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
+            {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
+            {searchQuery.trim() !== '' && (
+              <View style={styles.searchResultsContainer}>
+                <Text style={styles.searchResultsTitle}>Kết Quả Tìm Kiếm</Text>
+                {filterConsultants(consultants).length > 0 ? (
+                  <ScrollView 
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.searchScrollContent}
                   >
-                    <Text style={styles.bookButtonText}>Đặt lịch ngay</Text>
-                    <Ionicons name="calendar-outline" size={20} color="#FFFFFF" style={styles.bookButtonIcon} />
-                  </LinearGradient>
-                </TouchableOpacity>
+                    {filterConsultants(consultants).map((consultant, index) => (
+                      <TouchableOpacity 
+                        key={`search-${consultant.id || index}`}
+                        style={styles.searchConsultantCard}
+                        onPress={() => router.push({
+                          pathname: '/consultant_details',
+                          params: { consultantId: consultant.id }
+                        })}
+                      >
+                        <LinearGradient
+                          colors={['rgba(139, 0, 0, 0.8)', 'rgba(80, 0, 0, 0.9)']}
+                          style={styles.searchCardGradient}
+                        >
+                          <Image 
+                            source={consultant.image} 
+                            style={styles.searchConsultantImage}
+                            resizeMode="cover" 
+                          />
+                          <View style={styles.searchCardContent}>
+                            <Text style={styles.searchConsultantTitle}>{consultant.title || 'Master'}</Text>
+                            <Text style={styles.searchConsultantName}>{consultant.name || 'Consultant'}</Text>
+                            <View style={styles.searchRatingContainer}>
+                              {renderStars(consultant.rating || 0)}
+                              <Text style={styles.searchRatingText}>{(consultant.rating || 0).toFixed(1)}</Text>
+                            </View>
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={styles.emptySearchResults}>
+                    <Text style={styles.emptySearchText}>Không tìm thấy Master nào phù hợp</Text>
+                  </View>
+                )}
               </View>
-            </>
-          ) : (
-            <View style={styles.noDataContainer}>
-              <Ionicons name="person-outline" size={60} color="#e0e0e0" />
-              <Text style={styles.noDataTitle}>Không tìm thấy chuyên gia</Text>
-              <Text style={styles.noDataText}>Vui lòng thử lại sau</Text>
+            )}
+
+            <View style={styles.carouselContainer}>
+
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#FFFFFF" />
+                  <Text style={styles.loadingText}>Đang tải danh sách chuyên gia...</Text>
+                </View>
+              ) : error ? (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle-outline" size={50} color="#FFFFFF" style={styles.errorIcon} />
+                  <Text style={styles.errorText}>{error}</Text>
+                  <TouchableOpacity style={styles.retryButton} onPress={fetchConsultants}>
+                    <LinearGradient
+                      colors={['#8B0000', '#600000']}
+                      start={[0, 0]}
+                      end={[1, 0]}
+                      style={styles.retryButtonGradient}
+                    >
+                      <Text style={styles.retryButtonText}>Thử lại</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              ) : consultants && consultants.length > 0 ? (
+                <>
+                  <Animated.ScrollView 
+                    horizontal
+                    pagingEnabled
+                    snapToInterval={cardWidth + 20}
+                    decelerationRate="fast"
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                    onScroll={Animated.event(
+                      [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                      { useNativeDriver: false }
+                    )}
+                    onMomentumScrollEnd={handleScroll}
+                    scrollEventThrottle={16}
+                  >
+                    {consultants.map((consultant, index) => (
+                      <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
+                        <TouchableOpacity 
+                          style={styles.consultantCard}
+                          onPress={() => router.push({
+                            pathname: '/consultant_details',
+                            params: { consultantId: consultant.id }
+                          })}
+                        >
+                          <View style={styles.imageWrapper}>
+                            <Image 
+                              source={consultant.image} 
+                              style={styles.consultantImage}
+                              resizeMode="cover" 
+                            />
+                            <LinearGradient
+                              colors={['transparent', 'rgba(0,0,0,0.8)']}
+                              style={styles.imageGradient}
+                            />
+                            <View style={styles.consultantTitleBadge}>
+                              <Text style={styles.consultantTitle}>{consultant.title || 'Master'}</Text>
+                            </View>
+                          </View>
+                          
+                          <View style={styles.cardContent}>
+                            <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
+                            
+                            <View style={styles.ratingContainer}>
+                              <View style={styles.starsContainer}>
+                                {renderStars(consultant.rating || 0)}
+                              </View>
+                              <Text style={styles.ratingText}>
+                                {(consultant.rating || 0).toFixed(1)}/5.0
+                              </Text>
+                            </View>
+                            
+                            {consultant.specialty && (
+                              <View style={styles.specialtyContainer}>
+                                <Ionicons name="star" size={16} color="#FFD700" />
+                                <Text style={styles.specialtyText}>{consultant.specialty}</Text>
+                              </View>
+                            )}
+
+                            {consultant.tags && (
+                              <View style={styles.tagsContainer}>
+                                {consultant.tags.slice(0, 3).map((tag, i) => (
+                                  <View key={i} style={styles.tagBadge}>
+                                    <Text style={styles.tagText}>{tag}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </Animated.ScrollView>
+                  
+                  {renderPagination()}
+                  
+                  <TouchableOpacity 
+                    style={styles.bookButton}
+                    onPress={() => router.push({
+                      pathname: '/(tabs)/OfflineOnline',
+                      params: { consultantId: consultants[activeIndex]?.id }
+                    })}
+                  >
+                    <LinearGradient
+                      colors={['#8B0000', '#600000']}
+                      start={[0, 0]}
+                      end={[1, 0]}
+                      style={styles.bookButtonGradient}
+                    >
+                      <Text style={styles.bookButtonText}>Đặt lịch ngay</Text>
+                      <Ionicons name="calendar-outline" size={20} color="#FFFFFF" style={styles.bookButtonIcon} />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.noDataContainer}>
+                  <Ionicons name="person-outline" size={60} color="rgba(255,255,255,0.7)" />
+                  <Text style={styles.noDataTitle}>Không tìm thấy chuyên gia</Text>
+                  <Text style={styles.noDataText}>Vui lòng thử lại sau</Text>
+                </View>
+              )}
             </View>
-          )}
+          </ScrollView>
         </View>
-      </ScrollView>
+      </View>
       
       <CustomTabBar />
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingBottom: 80,
+    backgroundColor: 'transparent',
   },
-  header: {
+  headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 15,
-    marginTop: 30,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
+    paddingTop: 45,
+    paddingBottom: 12,
+    marginTop: 20,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#8B0000',
+    color: '#FFFFFF',
   },
-  moreButton: {
-    padding: 8,
-  },
-  moreButtonCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
+  menuButton: {
+    padding: 5,
   },
   searchContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingBottom: 15,
-    alignItems: 'center',
+    marginBottom: 16,
   },
   searchBar: {
-    flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
     alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  searchIcon: {
-    marginRight: 10,
+    backgroundColor: 'rgba(80, 30, 30, 0.6)',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    height: 44,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#FFFFFF',
+    paddingVertical: 10,
   },
-  filterButton: {
-    padding: 8,
-    marginLeft: 8,
+  searchButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(220, 60, 60, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contentScrollView: {
+    flex: 1,
+  },
+  searchResultsContainer: {
+    marginBottom: 20,
+    paddingHorizontal: 16,
+  },
+  searchResultsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  searchScrollContent: {
+    paddingTop: 8,
+  },
+  searchConsultantCard: {
+    width: 160,
+    height: 220,
+    marginRight: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  searchCardGradient: {
+    flex: 1,
+    borderRadius: 12,
+  },
+  searchConsultantImage: {
+    width: '100%',
+    height: 120,
+  },
+  searchCardContent: {
+    padding: 10,
+  },
+  searchConsultantTitle: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  searchConsultantName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  searchRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchRatingText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  emptySearchResults: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+  },
+  emptySearchText: {
+    color: '#FFFFFF',
+    fontSize: 14,
   },
   carouselContainer: {
-    flex: 1,
     paddingHorizontal: 16,
   },
   sectionHeader: {
@@ -362,11 +490,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
   },
   sectionCount: {
     fontSize: 14,
-    color: '#8B0000',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontWeight: '500',
   },
   scrollContent: {
@@ -377,12 +505,12 @@ const styles = StyleSheet.create({
     height: 450,
   },
   consultantCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 6,
     height: '100%',
@@ -402,18 +530,21 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  consultantTitle: {
+  consultantTitleBadge: {
     position: 'absolute',
     top: 16,
     left: 16,
-    backgroundColor: '#8B0000',
-    color: '#FFFFFF',
+    backgroundColor: 'rgba(139, 0, 0, 0.9)',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.5)',
+  },
+  consultantTitle: {
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
-    overflow: 'hidden',
   },
   cardContent: {
     padding: 16,
@@ -448,12 +579,26 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
-  buttonContainer: {
-    marginVertical: 16,
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  tagBadge: {
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  tagText: {
+    color: '#8B0000',
+    fontSize: 12,
   },
   bookButton: {
+    marginBottom: 24,
+    marginTop: 24,
     borderRadius: 12,
-    marginTop: -50,
     overflow: 'hidden',
   },
   bookButtonGradient: {
@@ -471,28 +616,32 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   loadingContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 12,
+    marginVertical: 20,
   },
   loadingText: {
     marginTop: 12,
-    color: '#8B0000',
+    color: '#FFFFFF',
     fontSize: 16,
   },
   errorContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 12,
+    marginVertical: 20,
   },
   errorIcon: {
     marginBottom: 16,
   },
   errorText: {
     fontSize: 16,
-    color: '#666',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -510,82 +659,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   noDataContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 12,
+    marginVertical: 20,
   },
   noDataTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
     marginTop: 16,
     marginBottom: 8,
   },
   noDataText: {
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  searchResultsContainer: {
-    marginBottom: 15,
-    paddingHorizontal: 5,
-  },
-  searchResultsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8B0000',
-    marginBottom: 10,
-    paddingHorizontal: 5,
-    borderLeftWidth: 3,
-    borderLeftColor: '#8B0000',
-    paddingLeft: 8,
-  },
-  searchScrollContent: {
-    paddingBottom: 10,
-  },
-  searchConsultantWrapper: {
-    marginRight: 10,
-    height: 280,
-    width: width * 0.43,
-  },
-  searchConsultantCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 5,
-    height: '100%',
-  },
-  searchConsultantTitle: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: '#8B0000',
-    color: '#FFFFFF',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 5,
-    zIndex: 1,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  searchConsultantImage: {
-    width: '100%',
-    height: 180,
-  },
-  emptySearchResults: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 100,
-  },
-  emptySearchText: {
-    fontSize: 14,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
   }
 });
