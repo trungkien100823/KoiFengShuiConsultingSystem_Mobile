@@ -64,19 +64,28 @@ const DocumentBookingOffline = () => {
         return;
       }
 
-      // Fetch booking status
-      const bookingResponse = await axios.get(
-        `${API_CONFIG.baseURL}/api/Booking/${params.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      let hasError = false;
+      let errorMessage = '';
 
-      if (bookingResponse.data && bookingResponse.data.isSuccess) {
-        setBookingStatus(bookingResponse.data.data.status);
+      // Fetch booking status
+      try {
+        const bookingResponse = await axios.get(
+          `${API_CONFIG.baseURL}/api/Booking/${params.id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (bookingResponse.data && bookingResponse.data.isSuccess) {
+          setBookingStatus(bookingResponse.data.data.status);
+        }
+      } catch (error) {
+        console.error('Error fetching booking status:', error);
+        hasError = true;
+        errorMessage = 'Không thể tải trạng thái booking';
       }
 
       // Fetch document data
@@ -94,25 +103,25 @@ const DocumentBookingOffline = () => {
         if (documentResponse.data && documentResponse.data.isSuccess) {
           setDocumentUrl(documentResponse.data.data.documentUrl);
           setDocumentId(documentResponse.data.data.documentId);
+          hasError = false; // Reset error flag if document fetched successfully
         }
       } catch (error) {
         console.error('Error fetching document:', error);
-        console.error('Error response:', error.response?.data);
-        // Không hiển thị alert lỗi nếu document chưa được tạo
         if (error.response?.status !== 404) {
-          Alert.alert(
-            "Lỗi",
-            "Không thể tải tài liệu. Vui lòng thử lại sau."
-          );
+          hasError = true;
+          errorMessage = 'Không thể tải tài liệu';
         }
       }
+
+      // Chỉ hiển thị alert lỗi nếu cả hai request đều thất bại và không lấy được document
+      if (hasError && !documentUrl) {
+        Alert.alert(
+          "Lỗi",
+          errorMessage || "Không thể tải dữ liệu. Vui lòng thử lại sau."
+        );
+      }
     } catch (error) {
-      console.error('Error fetching data:', error);
-      console.error('Error response:', error.response?.data);
-      Alert.alert(
-        "Lỗi",
-        "Không thể tải dữ liệu. Vui lòng thử lại sau."
-      );
+      console.error('Error in fetchBookingData:', error);
     } finally {
       setLoading(false);
     }

@@ -59,72 +59,6 @@ export default function CourseQuizScreen() {
     'final-exam': '04205955-CACE-4F8C-8'
   };
 
-  // Modify getFallbackQuestions to provide good quality questions
-  const getFallbackQuestions = () => {
-    return [
-      {
-        questionId: 'fallback-1',
-      question: 'Thuyết Âm Dương trong phong thủy có nguồn gốc từ đâu?',
-        questionType: 'Multiple Choice',
-      options: ['Kinh Dịch', 'Kinh Phật', 'Đạo Giáo', 'Nho Giáo'],
-        optionTypes: ['Text', 'Text', 'Text', 'Text'],
-        correctAnswer: 0,
-        point: 1
-    },
-    {
-        questionId: 'fallback-2',
-      question: 'Trong phong thủy, "Long Huyệt" là gì?',
-        questionType: 'Multiple Choice',
-      options: [
-        'Mạch nước ngầm dưới đất',
-        'Vị trí lý tưởng để xây nhà hoặc đặt mộ',
-        'Hình dáng giống rồng của núi',
-        'Hướng của gió thịnh vượng'
-      ],
-        optionTypes: ['Text', 'Text', 'Text', 'Text'],
-        correctAnswer: 1,
-        point: 1
-      },
-      {
-        questionId: 'fallback-3',
-        question: 'Trong phong thủy, mệnh "Kim" thường hợp với màu gì nhất?',
-        questionType: 'Multiple Choice',
-        options: ['Đỏ', 'Xanh lục', 'Trắng', 'Đen'],
-        optionTypes: ['Text', 'Text', 'Text', 'Text'],
-        correctAnswer: 2,
-        point: 1
-      },
-      {
-        questionId: 'fallback-4',
-        question: 'Hiện tượng "Sát khí" trong phong thủy thường do đâu tạo ra?',
-        questionType: 'Multiple Choice',
-      options: [
-          'Góc nhọn chỉ thẳng vào cửa chính',
-          'Cây xanh quanh nhà',
-          'Hồ nước trước nhà',
-          'Đèn chiếu sáng'
-        ],
-        optionTypes: ['Text', 'Text', 'Text', 'Text'],
-        correctAnswer: 0,
-        point: 1
-      },
-      {
-        questionId: 'fallback-5',
-        question: 'Việc sắp xếp nội thất theo phong thủy có ý nghĩa gì?',
-        questionType: 'Multiple Choice',
-      options: [
-          'Chỉ để trang trí cho đẹp',
-          'Tạo sự cân bằng năng lượng trong không gian sống',
-          'Theo quy định xây dựng',
-          'Không có ý nghĩa đặc biệt'
-        ],
-        optionTypes: ['Text', 'Text', 'Text', 'Text'],
-        correctAnswer: 1,
-        point: 1
-      }
-    ];
-  };
-
   // Thêm useFocusEffect để re-fetch dữ liệu khi màn hình được focus
   useFocusEffect(
     useCallback(() => {
@@ -180,6 +114,68 @@ export default function CourseQuizScreen() {
     }
   };
 
+  // Initialize timer and reset state when quizId changes
+  useEffect(() => {
+    // Reset all quiz state when quizId changes
+    setLoading(true);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswers({});
+    setQuizCompleted(false);
+    setScore(0);
+    
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    // Fetch questions to get the correct time limit
+    fetchQuestions();
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [quizId]);
+
+  // Add useEffect to watch timeRemaining changes
+  useEffect(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    // Only start timer if we have valid time remaining
+    if (timeRemaining > 0) {
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            handleQuizSubmission();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [timeRemaining]);
+
+  // Format time remaining
+  const formatTimeRemaining = () => {
+    if (!timeRemaining && timeRemaining !== 0) {
+      return "00:00";
+    }
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   // Add this function after the fetchQuestions function
   const startTimer = () => {
     // Clear any existing timer
@@ -187,36 +183,21 @@ export default function CourseQuizScreen() {
       clearInterval(timerRef.current);
     }
     
-    // Start new timer that counts down every second
-    timerRef.current = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          // When time runs out, clear timer and submit the quiz
-          clearInterval(timerRef.current);
-          handleQuizSubmission();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  // Fix handleAnswerSelect to work with the API response format
-  const handleAnswerSelect = (answerId) => {
-    // Update selected answers with the new selection
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [currentQuestionIndex]: answerId
-    }));
-  };
-
-  const calculateTimeLimit = (questionCount) => {
-    if (!questionCount) return 0;
-    if (questionCount <= 20) return 15;
-    if (questionCount <= 40) return 30;
-    if (questionCount <= 60) return 60;
-    if (questionCount > 80) return "Không giới hạn thời gian";
-    return 0;
+    // Chỉ start timer khi timeRemaining > 0
+    if (timeRemaining > 0) {
+      // Start new timer that counts down every second
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            // When time runs out, clear timer and submit the quiz
+            clearInterval(timerRef.current);
+            handleQuizSubmission();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
   };
 
   // Fetch questions
@@ -261,15 +242,18 @@ export default function CourseQuizScreen() {
         const questionCount = result.data.length;
         const timeLimit = calculateTimeLimit(questionCount);
         const timeLimitInSeconds = timeLimit * 60; // Chuyển đổi phút thành giây
-        setTimeRemaining(timeLimitInSeconds);
-        setInitialTimeInSeconds(timeLimitInSeconds);
         
         // Process questions from API
         setQuestions(result.data);
         
-        // Start the timer only if there is a time limit
+        // Đảm bảo timeLimit > 0 trước khi set state
         if (timeLimit > 0) {
-          startTimer();
+          setTimeRemaining(timeLimitInSeconds);
+          setInitialTimeInSeconds(timeLimitInSeconds);
+        } else {
+          // Nếu không có time limit, set giá trị mặc định
+          setTimeRemaining(0);
+          setInitialTimeInSeconds(0);
         }
       } else {
         console.error('API returned invalid data format:', result);
@@ -279,68 +263,33 @@ export default function CourseQuizScreen() {
       console.error('Error fetching questions:', error);
       setError(error.message || 'Failed to load quiz questions');
       
-      // Use fallback for development if needed
-      if (isTestMode) {
-        console.log('Using fallback questions due to error');
-        const fallbackQuestions = getFallbackQuestions();
-        setQuestions(fallbackQuestions);
-        const timeLimit = calculateTimeLimit(fallbackQuestions.length);
-        const timeLimitInSeconds = timeLimit * 60;
-        setTimeRemaining(timeLimitInSeconds);
-        setInitialTimeInSeconds(timeLimitInSeconds);
-        if (timeLimit > 0) {
-          startTimer();
-        }
-      }
+      // Hiển thị thông báo lỗi cho người dùng
+      Alert.alert(
+        "Lỗi",
+        "Không thể tải câu hỏi. Vui lòng thử lại sau.",
+        [{ text: "OK" }]
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Initialize timer and reset state when quizId changes
-  useEffect(() => {
-    // Reset all quiz state when quizId changes
-    setLoading(true);
-    setCurrentQuestionIndex(0);
-    setSelectedAnswers({});
-    setQuizCompleted(false);
-    setScore(0);
-    
-    // Clear any existing timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    
-    // Set new timer
-    const initialTime = quizTimeLimits[quizId] * 60; // Convert minutes to seconds
-    setTimeRemaining(initialTime);
-    setInitialTimeInSeconds(initialTime);
-    setLoading(false);
+  // Fix handleAnswerSelect to work with the API response format
+  const handleAnswerSelect = (answerId) => {
+    // Update selected answers with the new selection
+    setSelectedAnswers(prev => ({
+      ...prev,
+      [currentQuestionIndex]: answerId
+    }));
+  };
 
-    // Start timer
-    timerRef.current = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          handleQuizSubmission();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [quizId, questions.length]); // Add questions.length as a dependency
-
-  // Format time remaining
-  const formatTimeRemaining = () => {
-    const minutes = Math.floor(timeRemaining / 60);
-    const seconds = timeRemaining % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const calculateTimeLimit = (questionCount) => {
+    if (!questionCount) return 0;
+    if (questionCount <= 20) return 15;
+    if (questionCount <= 40) return 30;
+    if (questionCount <= 60) return 60;
+    if (questionCount > 80) return "Không giới hạn thời gian";
+    return 0;
   };
 
   // Navigate to next question

@@ -102,17 +102,6 @@ const ContractBookingOffline = () => {
         
         // Log trạng thái để debug
         console.log('Fetched booking status:', status);
-        
-        // Hiển thị thông báo debug trong môi trường phát triển
-        if (__DEV__) {
-          setTimeout(() => {
-            Alert.alert(
-              "Thông tin trạng thái",
-              `Trạng thái hiện tại: [${status}]`,
-              [{ text: "OK" }]
-            );
-          }, 1000);
-        }
       }
 
       // Fetch contract data

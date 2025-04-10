@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -24,12 +25,15 @@ export default function YourPaidCoursesScreen() {
   const [paidCourses, setPaidCourses] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchPaidCourses();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchPaidCourses();
+    }, [])
+  );
 
   const fetchPaidCourses = async () => {
     try {
+      setIsLoading(true);
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
         Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem khóa học');
@@ -123,12 +127,6 @@ export default function YourPaidCoursesScreen() {
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Courses</Text>
-        <TouchableOpacity 
-          onPress={onRefresh}
-          style={styles.refreshButton}
-        >
-          <Ionicons name="refresh" size={24} color="#FFF" />
-        </TouchableOpacity>
       </View>
 
       {isLoading ? (

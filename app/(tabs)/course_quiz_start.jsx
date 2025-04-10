@@ -10,6 +10,7 @@ import {
   Dimensions,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -62,6 +63,10 @@ export default function CourseQuizStartScreen() {
         setHasCompletedQuiz(false);
       }
       
+      // Xóa cache cũ
+      await AsyncStorage.removeItem(`quiz_${courseId}_data`);
+      
+      console.log(`Fetching quiz data for course: ${courseId}`);
       const response = await fetch(
         `${API_CONFIG.baseURL}/api/Quiz/by-course/${courseId}`,
         {
@@ -73,29 +78,47 @@ export default function CourseQuizStartScreen() {
         }
       );
       
-      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(`Failed to fetch quiz data: ${response.status}`);
+      }
       
-      // Chỉ log khi cần debug
-      // console.log('Quiz API Response:', result);
+      const result = await response.json();
+      console.log('Quiz API response:', result);
       
       if (result.isSuccess && result.data) {
-        // console.log('Quiz Data:', result.data);
-        setQuizData(result.data);
+        console.log('Quiz Data:', result.data);
+        console.log('Question Count Type:', typeof result.data.questionCount);
+        console.log('Question Count Value:', result.data.questionCount);
         
-        if (result.data.quizId) {
-          setQuizId(result.data.quizId);
+        const quizData = {
+          ...result.data,
+          questionCount: result.data.questionCount
+        };
+        
+        setQuizData(quizData);
+        
+        // Lưu vào cache
+        await AsyncStorage.setItem(`quiz_${courseId}_data`, JSON.stringify(quizData));
+        console.log('Saved to cache:', quizData);
+        
+        if (quizData.quizId) {
+          setQuizId(quizData.quizId);
         }
         
-        if (result.data.title) {
-          setQuizTitle(result.data.title);
+        if (quizData.title) {
+          setQuizTitle(quizData.title);
         }
 
-        // Chỉ log khi cần debug
-        // console.log('Question Count:', result.data.questionCount);
+        // Lưu questionCount vào AsyncStorage để sử dụng sau này
+        if (quizData.questionCount) {
+          await AsyncStorage.setItem(`quiz_${quizData.quizId}_questionCount`, quizData.questionCount.toString());
+          console.log('Saved question count:', quizData.questionCount);
+        }
       } else {
         setError(result.message || 'Không thể tải thông tin bài kiểm tra');
       }
     } catch (err) {
+      console.error('Error fetching quiz data:', err);
       setError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
@@ -105,8 +128,7 @@ export default function CourseQuizStartScreen() {
   // Thêm useFocusEffect để re-fetch dữ liệu khi màn hình được focus
   useFocusEffect(
     useCallback(() => {
-      // Chỉ log khi cần debug
-      // console.log('Screen focused, fetching quiz data...');
+      console.log('Screen focused, fetching quiz data...');
       fetchQuizData();
     }, [fetchQuizData])
   );
@@ -194,6 +216,8 @@ export default function CourseQuizStartScreen() {
           <View style={styles.divider} />
           
           <Text style={styles.sectionHeading}>Chi tiết</Text>
+          {console.log('Current quizData:', quizData)}
+          {console.log('Question count:', quizData?.questionCount)}
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
               <Ionicons name="time-outline" size={20} color="#666" />
@@ -210,7 +234,9 @@ export default function CourseQuizStartScreen() {
               <Ionicons name="help-circle-outline" size={20} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Số câu hỏi</Text>
-                <Text style={styles.detailValue}>{quizData?.questionCount}</Text>
+                <Text style={styles.detailValue}>
+                  {quizData?.questionCount !== undefined && quizData?.questionCount !== null ? `${quizData.questionCount} câu` : 'Chưa xác định'}
+                </Text>
               </View>
             </View>
           </View>
