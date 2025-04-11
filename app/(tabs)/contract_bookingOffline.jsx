@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  ImageBackground,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +21,7 @@ import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { getAuthToken } from '../../services/authService';
 import { WebView } from 'react-native-webview';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -65,10 +67,14 @@ const ContractBookingOffline = () => {
     try {
       setRefreshing(true);
       await fetchBookingData();
-      Alert.alert("Thành công", "Đã cập nhật dữ liệu mới");
+      if (bookingStatus && contractUrl) {
+        Alert.alert("Thành công", "Đã cập nhật dữ liệu mới");
+      }
     } catch (error) {
-      console.error('Error refreshing data:', error);
-      Alert.alert("Lỗi", "Không thể cập nhật dữ liệu. Vui lòng thử lại sau.");
+      if (!bookingStatus || !contractUrl) {
+        console.error('Error refreshing data:', error);
+        Alert.alert("Lỗi", "Không thể cập nhật dữ liệu. Vui lòng thử lại sau.");
+      }
     } finally {
       setRefreshing(false);
     }
@@ -80,7 +86,6 @@ const ContractBookingOffline = () => {
       const token = await getAuthToken();
       
       if (!token) {
-        console.log('No token found');
         setLoading(false);
         return;
       }
@@ -99,9 +104,6 @@ const ContractBookingOffline = () => {
       if (bookingResponse.data && bookingResponse.data.isSuccess) {
         const status = bookingResponse.data.data.status;
         setBookingStatus(status);
-        
-        // Log trạng thái để debug
-        console.log('Fetched booking status:', status);
       }
 
       // Fetch contract data
@@ -120,11 +122,7 @@ const ContractBookingOffline = () => {
         setContractId(contractResponse.data.data.contractId);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
-      Alert.alert(
-        "Lỗi",
-        "Không thể tải dữ liệu. Vui lòng thử lại sau."
-      );
+      // Chỉ log lỗi, không hiển thị alert
     } finally {
       setLoading(false);
     }
@@ -460,8 +458,14 @@ const ContractBookingOffline = () => {
         javaScriptEnabled={true}
         domStorageEnabled={true}
         onError={(syntheticEvent) => {
+          // Chỉ log lỗi, không hiển thị alert
           const { nativeEvent } = syntheticEvent;
-          console.warn('WebView error: ', nativeEvent);
+          setContractUrl(null); // Reset URL để hiển thị thông báo "Không tìm thấy hợp đồng"
+        }}
+        onHttpError={(syntheticEvent) => {
+          // Chỉ log lỗi, không hiển thị alert
+          const { nativeEvent } = syntheticEvent;
+          setContractUrl(null); // Reset URL để hiển thị thông báo "Không tìm thấy hợp đồng"
         }}
       />
     );
@@ -621,33 +625,39 @@ const ContractBookingOffline = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.push('/(tabs)/your_booking')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#4A90E2" />
-          <Text style={styles.backButtonText}>Quay lại</Text>
-        </TouchableOpacity>
-      </View>
+      <ImageBackground
+        source={require('../../assets/images/feng shui.png')} 
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.push('/(tabs)/your_booking')}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Text style={styles.backButtonText}>Quay lại</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Title Section */}
-      <View style={styles.titleSection}>
-        <Text style={styles.pageTitle}>Hợp đồng</Text>
-      </View>
+        {/* Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={styles.pageTitle}>Hợp đồng</Text>
+        </View>
 
-      {/* Contract Display Section */}
-      <View style={styles.contractContainer}>
-        {renderContract()}
-      </View>
+        {/* Contract Display Section */}
+        <View style={styles.contractContainer}>
+          {renderContract()}
+        </View>
 
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        {renderActionButtons()}
-      </View>
+        {/* Action Buttons */}
+        <View style={styles.buttonContainer}>
+          {renderActionButtons()}
+        </View>
 
-      {renderOTPModal()}
+        {renderOTPModal()}
+      </ImageBackground>
     </SafeAreaView>
   );
 };
@@ -655,7 +665,10 @@ const ContractBookingOffline = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -664,39 +677,45 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(139, 0, 0, 0.3)',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 8,
+    borderRadius: 20,
   },
   backButtonText: {
     fontSize: 16,
-    color: '#4A90E2',
+    color: '#FFF',
     marginLeft: 5,
   },
   titleSection: {
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(139, 0, 0, 0.3)',
   },
   pageTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   contractContainer: {
     flex: 1,
-    margin: 0,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 2,
-    borderColor: '#E8E8E8',
-    borderRadius: 10,
-    marginHorizontal: 10,
-    marginVertical: 5,
+    margin: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 15,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   imageContainer: {
     padding: 10,
@@ -721,29 +740,30 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   loadingText: {
     marginTop: 15,
     fontSize: 16,
-    color: '#666',
+    color: '#8B0000',
+    fontWeight: '600',
   },
   noContractContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   noContractText: {
     fontSize: 16,
-    color: '#666',
+    color: '#8B0000',
     marginTop: 10,
+    fontWeight: '600',
   },
   buttonContainer: {
     padding: 15,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    backgroundColor: 'rgba(139, 0, 0, 0.3)',
+    backdropFilter: 'blur(10px)',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -756,80 +776,106 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 15,
-    borderRadius: 10,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   rejectButton: {
-    backgroundColor: '#FF5252',
+    backgroundColor: '#8B0000',
   },
   approveButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#006400',
   },
   signButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#191970',
   },
   buttonIcon: {
     marginRight: 8,
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   webView: {
     flex: 1,
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
+    borderRadius: 15,
+    overflow: 'hidden',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   otpModalContent: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
+    backgroundColor: 'rgba(40, 40, 40, 0.95)',
+    borderRadius: 20,
+    padding: 25,
     width: '90%',
     maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   otpModalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFF',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 15,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   otpModalSubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#CCC',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 25,
   },
   otpInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#8B0000',
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 18,
+    marginBottom: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    textAlign: 'center',
+    letterSpacing: 5,
+    color: '#FFF',
   },
   otpInputError: {
-    borderColor: '#FF5252',
+    borderColor: '#FF3B30',
   },
   errorText: {
-    color: '#FF5252',
+    color: '#FF3B30',
     fontSize: 14,
-    marginBottom: 10,
+    marginBottom: 15,
+    textAlign: 'center',
   },
   resendButton: {
-    alignSelf: 'flex-end',
-    padding: 8,
+    alignSelf: 'center',
+    padding: 10,
+    marginBottom: 20,
   },
   resendButtonText: {
-    color: '#4A90E2',
-    fontSize: 14,
+    color: '#CCC',
+    fontSize: 16,
+    fontWeight: '600',
   },
   otpButtonRow: {
     flexDirection: 'row',
@@ -840,19 +886,29 @@ const styles = StyleSheet.create({
   otpButton: {
     flex: 1,
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 25,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   cancelButton: {
     backgroundColor: '#8B0000',
   },
   confirmButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#006400',
   },
   otpButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

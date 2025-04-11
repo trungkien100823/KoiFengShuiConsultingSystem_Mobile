@@ -250,26 +250,6 @@ export default function PondDetails() {
                     </Text>
                   </View>
                 </View>
-                
-                <View style={styles.specItem}>
-                  <View style={[styles.specIconContainer, { backgroundColor: '#fff5f5' }]}>
-                    <Feather name="maximize" size={18} color="#8B0000" />
-                  </View>
-                  <View style={styles.specTextContainer}>
-                    <Text style={styles.specLabel}>Kích thước</Text>
-                    <Text style={styles.specValue}>{pondDetails.size || 'Trung bình'}</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.specItem}>
-                  <View style={[styles.specIconContainer, { backgroundColor: '#fffcf0' }]}>
-                    <FontAwesome5 name="fish" size={16} color="#cd853f" />
-                  </View>
-                  <View style={styles.specTextContainer}>
-                    <Text style={styles.specLabel}>Sức chứa</Text>
-                    <Text style={styles.specValue}>{pondDetails.capacity || '5-10 con'}</Text>
-                  </View>
-                </View>
               </View>
             </View>
             

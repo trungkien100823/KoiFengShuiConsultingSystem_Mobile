@@ -14,16 +14,19 @@ import {
   Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import CustomTabBar from '../../components/ui/CustomTabBar';
-import { consultingCategories, consultingAPI, consultants as fallbackConsultants } from '../../constants/consulting';
+import { consultingCategories } from '../../constants/consulting';
+import { API_CONFIG } from '../../constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const cardWidth = width * 0.8;
 
 export default function ConsultingScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [consultants, setConsultants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,6 +35,7 @@ export default function ConsultingScreen() {
   const [sortVisible, setSortVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const scrollX = React.useRef(new Animated.Value(0)).current;
+  const [isFocused, setIsFocused] = useState(false);
 
   // Hàm xử lý tìm kiếm
   const handleSearch = (text) => {
@@ -42,30 +46,58 @@ export default function ConsultingScreen() {
   const filterConsultants = (consultants) => {
     if (!searchQuery.trim()) return consultants;
     
-    return consultants.filter(consultant => 
-      consultant.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return consultants.filter(consultant => {
+      const consultantName = consultant.masterName || '';
+      return consultantName.toLowerCase().includes(searchQuery.toLowerCase());
+    });
   };
-
-  useEffect(() => {
-    fetchConsultants();
-  }, []);
 
   const fetchConsultants = async () => {
     try {
       setLoading(true);
-      const consultantData = await consultingAPI.getAllConsultants();
-      console.log("Consultant data retrieved:", consultantData);
+      setError(null);
+      const response = await fetch(`${API_CONFIG.baseURL}/api/Master/get-all`);
       
-      setConsultants(consultantData);
-      setLoading(false);
+      const responseData = await response.json();
+      console.log("API Response:", responseData);
+      
+      if (responseData.isSuccess && Array.isArray(responseData.data)) {
+        setConsultants(responseData.data);
+      } else {
+        throw new Error(responseData.message || 'Không thể tải danh sách master');
+      }
     } catch (err) {
       console.error('Error fetching consultants:', err);
-      setError('Failed to load consultants. Using sample data.');
-      setConsultants(Array.isArray(fallbackConsultants) ? fallbackConsultants : []);
+      setError(err.message || 'Không thể tải danh sách master');
+      setConsultants([]);
+    } finally {
       setLoading(false);
     }
   };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Screen focused - fetching consultants...');
+      let isActive = true;
+
+      const loadData = async () => {
+        try {
+          await fetchConsultants();
+        } catch (error) {
+          console.error('Error in loadData:', error);
+        }
+      };
+
+      loadData();
+
+      return () => {
+        isActive = false;
+        // Cleanup function when screen loses focus
+        setLoading(false);
+        setError(null);
+      };
+    }, [])
+  );
 
   const handleScroll = (event) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -187,11 +219,11 @@ export default function ConsultingScreen() {
                   >
                     {filterConsultants(consultants).map((consultant, index) => (
                       <TouchableOpacity 
-                        key={`search-${consultant.id || index}`}
+                        key={`search-${consultant.masterId || index}`}
                         style={styles.searchConsultantCard}
                         onPress={() => router.push({
                           pathname: '/consultant_details',
-                          params: { consultantId: consultant.id }
+                          params: { masterId: consultant.masterId }
                         })}
                       >
                         <LinearGradient
@@ -199,13 +231,13 @@ export default function ConsultingScreen() {
                           style={styles.searchCardGradient}
                         >
                           <Image 
-                            source={consultant.image} 
+                            source={consultant.imageUrl ? { uri: consultant.imageUrl } : require('../../assets/images/buddha.png')} 
                             style={styles.searchConsultantImage}
                             resizeMode="cover" 
                           />
                           <View style={styles.searchCardContent}>
                             <Text style={styles.searchConsultantTitle}>{consultant.title || 'Master'}</Text>
-                            <Text style={styles.searchConsultantName}>{consultant.name || 'Consultant'}</Text>
+                            <Text style={styles.searchConsultantName}>{consultant.masterName || 'Chưa có tên'}</Text>
                             <View style={styles.searchRatingContainer}>
                               {renderStars(consultant.rating || 0)}
                               <Text style={styles.searchRatingText}>{(consultant.rating || 0).toFixed(1)}</Text>
@@ -262,57 +294,34 @@ export default function ConsultingScreen() {
                     scrollEventThrottle={16}
                   >
                     {consultants.map((consultant, index) => (
-                      <View key={consultant.id || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
+                      <View key={consultant.masterId || index} style={[styles.consultantWrapper, { width: cardWidth }]}>
                         <TouchableOpacity 
                           style={styles.consultantCard}
                           onPress={() => router.push({
                             pathname: '/consultant_details',
-                            params: { consultantId: consultant.id }
+                            params: { masterId: consultant.masterId }
                           })}
                         >
                           <View style={styles.imageWrapper}>
                             <Image 
-                              source={consultant.image} 
+                              source={consultant.imageUrl ? { uri: consultant.imageUrl } : require('../../assets/images/buddha.png')} 
                               style={styles.consultantImage}
-                              resizeMode="cover" 
+                              resizeMode="cover"
                             />
                             <LinearGradient
                               colors={['transparent', 'rgba(0,0,0,0.8)']}
                               style={styles.imageGradient}
                             />
-                            <View style={styles.consultantTitleBadge}>
-                              <Text style={styles.consultantTitle}>{consultant.title || 'Master'}</Text>
-                            </View>
                           </View>
                           
                           <View style={styles.cardContent}>
-                            <Text style={styles.consultantName}>{consultant.name || 'Consultant'}</Text>
-                            
+                            <Text style={styles.consultantName}>{consultant.masterName || 'Chưa có tên'}</Text>
                             <View style={styles.ratingContainer}>
                               <View style={styles.starsContainer}>
                                 {renderStars(consultant.rating || 0)}
                               </View>
-                              <Text style={styles.ratingText}>
-                                {(consultant.rating || 0).toFixed(1)}/5.0
-                              </Text>
+                              <Text style={styles.ratingText}>{(consultant.rating || 0).toFixed(1)}/5.0</Text>
                             </View>
-                            
-                            {consultant.specialty && (
-                              <View style={styles.specialtyContainer}>
-                                <Ionicons name="star" size={16} color="#FFD700" />
-                                <Text style={styles.specialtyText}>{consultant.specialty}</Text>
-                              </View>
-                            )}
-
-                            {consultant.tags && (
-                              <View style={styles.tagsContainer}>
-                                {consultant.tags.slice(0, 3).map((tag, i) => (
-                                  <View key={i} style={styles.tagBadge}>
-                                    <Text style={styles.tagText}>{tag}</Text>
-                                  </View>
-                                ))}
-                              </View>
-                            )}
                           </View>
                         </TouchableOpacity>
                       </View>
@@ -325,7 +334,7 @@ export default function ConsultingScreen() {
                     style={styles.bookButton}
                     onPress={() => router.push({
                       pathname: '/(tabs)/OfflineOnline',
-                      params: { consultantId: consultants[activeIndex]?.id }
+                      params: { consultantId: consultants[activeIndex]?.masterId }
                     })}
                   >
                     <LinearGradient
@@ -446,12 +455,7 @@ const styles = StyleSheet.create({
   searchCardContent: {
     padding: 10,
   },
-  searchConsultantTitle: {
-    color: '#FFD700',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
+
   searchConsultantName: {
     color: '#FFFFFF',
     fontSize: 14,
@@ -502,10 +506,10 @@ const styles = StyleSheet.create({
   },
   consultantWrapper: {
     marginRight: 20,
-    height: 450,
+    height: 400,
   },
   consultantCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -530,35 +534,21 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  consultantTitleBadge: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    backgroundColor: 'rgba(139, 0, 0, 0.9)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.5)',
-  },
-  consultantTitle: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   cardContent: {
     padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
   consultantName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
+    textAlign: 'center',
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'center',
   },
   starsContainer: {
     flexDirection: 'row',
@@ -567,33 +557,7 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 14,
     color: '#666',
-  },
-  specialtyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  specialtyText: {
-    fontSize: 14,
-    color: '#555',
-    marginLeft: 8,
-    flex: 1,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tagBadge: {
-    backgroundColor: 'rgba(139, 0, 0, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  tagText: {
-    color: '#8B0000',
-    fontSize: 12,
+    fontWeight: '600',
   },
   bookButton: {
     marginBottom: 24,
@@ -677,5 +641,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
-  }
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#FFFFFF',
+  },
 });

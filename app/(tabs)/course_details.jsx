@@ -40,12 +40,25 @@ export default function CourseDetailsScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      // Reset state khi màn hình được focus
+      setCourseDetails(null);
+      setMasterInfo(null);
+      setIsLoading(true);
+      
+      // Load lại dữ liệu
       loadCourseDetails();
+
+      return () => {
+        // Cleanup khi unmount
+        setCourseDetails(null);
+        setMasterInfo(null);
+      };
     }, [courseId])
   );
 
   const loadCourseDetails = async () => {
     try {
+      console.log('Loading course details for courseId:', courseId);
       setIsLoading(true);
       const token = await AsyncStorage.getItem('accessToken');
       const config = {
@@ -55,38 +68,21 @@ export default function CourseDetailsScreen() {
         }
       };
 
-      // Dòng 58-61: Thêm log URL trước khi gọi API
       const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getCourseById.replace('{id}', courseId)}`;
-      console.log('Calling API URL:', url);
+      console.log('API URL:', url);
+      
       const response = await axios.get(url, config);
-
-      console.log('API Response:', {
-        url: url,
-        status: response.status,
-        isSuccess: response.data?.isSuccess,
-        rawData: response.data,
-        courseData: response.data?.data,
-        hasFields: {
-          rating: 'rating' in response.data?.data,
-          enrolledStudents: 'enrolledStudents' in response.data?.data,
-          totalChapters: 'totalChapters' in response.data?.data,
-          totalQuestions: 'totalQuestions' in response.data?.data,
-          totalDuration: 'totalDuration' in response.data?.data
-        }
-      });
+      console.log('Full API Response:', response.data);
 
       if (response.data?.isSuccess) {
         const courseData = response.data.data;
-        console.log('Raw API Response:', response.data);
-        console.log('Course Data:', courseData);
-        console.log('Processed Course Data:', {
-          enrolledStudents: courseData.enrolledStudents,
-          totalChapters: courseData.totalChapters,
-          totalQuestions: courseData.totalQuestions,
-          totalDuration: courseData.totalDuration
+        console.log('Course Data from API:', {
+          courseId: courseData.courseId,
+          courseName: courseData.courseName,
+          introduction: courseData.introduction,
+          description: courseData.description
         });
-        
-        // Xử lý dữ liệu khóa học từ API
+
         const processedCourse = {
           id: courseData.courseId,
           title: courseData.courseName,
@@ -97,29 +93,19 @@ export default function CourseDetailsScreen() {
           rating: courseData.rating,
           enrolledStudents: courseData.enrolledStudents,
           includes: [
-            `${courseData.totalChapters || 0} Chapters`,
-            `${courseData.totalQuestions || 0} Questions`
+            `${courseData.totalChapters || 0} Chương`,
+            `${courseData.totalQuestions || 0} Câu hỏi`
           ],
-          learning: [
-            'Kiến thức cơ bản về Koi',
-            'Kỹ thuật chăm sóc Koi',
-            'Nhận biết các loại Koi',
-            'Xây dựng và duy trì hồ Koi',
-            'Phòng và điều trị bệnh cho Koi'
-          ],
-          description: courseData.description || 'Thầy giáo là người truyền đạt tri thức và rèn luyện nhân cách cho học trò. Không chỉ giảng dạy, thầy còn truyền cảm hứng, khơi dậy đam mê và giúp học sinh phát huy tiềm năng. Với lòng tận tâm và nhiệt huyết, thầy giáo trở thành người hướng dẫn, đồng hành và là tấm gương sáng cho bao thế hệ.',
-          categoryName: courseData.categoryName || 'Chưa phân loại'
+          learning: courseData.introduction ? courseData.introduction.split(',').map(item => item.trim()) : [],
+          description: courseData.description,
+          categoryName: courseData.categoryName
         };
 
-        console.log('Dữ liệu số trước khi xử lý:', {
-          price: courseData.price,
-          rating: courseData.rating,
-          enrolledStudents: courseData.enrolledStudents,
-          totalChapters: courseData.totalChapters,
-          totalQuestions: courseData.totalQuestions
+        console.log('Processed Learning Items:', {
+          original: courseData.introduction,
+          processed: processedCourse.learning
         });
-
-        console.log('Processed Course sau khi xử lý:', processedCourse);
+        
         setCourseDetails(processedCourse);
 
         // Nếu có masterId thì mới gọi API lấy thông tin master
@@ -153,8 +139,7 @@ export default function CourseDetailsScreen() {
                   : require('../../assets/images/buddha.png'),
                 achievements: [
                   masterData.experience ? `${masterData.experience} kinh nghiệm` : 'Chưa cập nhật kinh nghiệm',
-                  masterData.expertise ?? 'Chưa cập nhật chuyên môn',
-                  'Chuyên gia được đánh giá cao'
+                  masterData.expertise ?? 'Chưa cập nhật chuyên môn'
                 ]
               });
             } else {
@@ -230,7 +215,7 @@ export default function CourseDetailsScreen() {
                 />
               ))}
             </View>
-            <Text style={styles.reviewCount}>• {courseDetails.enrolledStudents} enrolled Students</Text>
+            <Text style={styles.reviewCount}>• {courseDetails.enrolledStudents} người đăng ký</Text>
           </View>
         </SafeAreaView>
         
@@ -261,28 +246,32 @@ export default function CourseDetailsScreen() {
           {/* What You'll Learn Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Bạn sẽ được học:</Text>
-            {courseDetails.learning.map((item, index) => (
-              <View key={index} style={styles.learningItem}>
-                <Ionicons name="checkmark" size={20} color="#fff" />
-                <Text style={styles.learningText}>{item}</Text>
-              </View>
-            ))}
+            {courseDetails && courseDetails.learning && courseDetails.learning.length > 0 ? (
+              courseDetails.learning.map((item, index) => (
+                <View key={index} style={styles.learningItem}>
+                  <Ionicons name="checkmark" size={20} color="#fff" />
+                  <Text style={[styles.learningText, {marginLeft: 10}]}>{item}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={[styles.learningText, {marginLeft: 10}]}>Chưa có nội dung học tập</Text>
+            )}
           </View>
           
           {/* Description Section - Now Collapsible */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Description:</Text>
+            <Text style={styles.sectionTitle}>Mô tả:</Text>
             <Text style={styles.descriptionText}>
               {showFullDescription 
                 ? courseDetails.description 
-                : courseDetails.description.substring(0, 150) + '...'}
+                : courseDetails.description?.substring(0, 150) + (courseDetails.description?.length > 150 ? '...' : '')}
             </Text>
             
             {showFullDescription ? (
               <>
                 {/* About Master Section - Only visible when expanded */}
                 <View style={styles.masterSection}>
-                  <Text style={styles.subSectionTitle}>About Master:</Text>
+                  <Text style={styles.subSectionTitle}>Thông tin của thầy:</Text>
                   <View style={styles.instructorContainer}>
                     <Image source={masterInfo?.image} style={styles.instructorImage} />
                     <View style={styles.instructorInfo}>
@@ -324,7 +313,7 @@ export default function CourseDetailsScreen() {
                   style={styles.seeMoreButton}
                   onPress={() => setShowFullDescription(false)}
                 >
-                  <Text style={styles.seeMoreText}>See less</Text>
+                  <Text style={styles.seeMoreText}>thu gọn</Text>
                   <Ionicons name="chevron-up" size={16} color="#FFD700" />
                 </TouchableOpacity>
               </>
@@ -334,7 +323,7 @@ export default function CourseDetailsScreen() {
                 style={styles.seeMoreButton}
                 onPress={() => setShowFullDescription(true)}
               >
-                <Text style={styles.seeMoreText}>See more</Text>
+                <Text style={styles.seeMoreText}>xem thêm</Text>
                 <Ionicons name="chevron-down" size={16} color="#FFD700" />
               </TouchableOpacity>
             )}
@@ -362,7 +351,7 @@ export default function CourseDetailsScreen() {
                   }
                 })}
               >
-                <Text style={styles.buyButtonText}>Buy now</Text>
+                <Text style={styles.buyButtonText}>Mua</Text>
               </TouchableOpacity>
             </View>
           </View>

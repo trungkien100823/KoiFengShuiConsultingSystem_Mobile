@@ -405,8 +405,18 @@ export default function FishDetails() {
       {/* Hero Image Section */}
       <View style={styles.heroContainer}>
         <ImageBackground
-          source={images[params.imageName] || require('../../assets/images/koi_image.jpg')}
+          source={
+            koiDetails?.imageUrl
+              ? { uri: koiDetails.imageUrl }
+              : require('../../assets/images/koi_image.jpg')
+          }
           style={styles.heroImage}
+          onError={(error) => {
+            console.log('Image loading error:', error.nativeEvent.error);
+            if (error.nativeEvent.error) {
+              console.log('URL ảnh lỗi:', koiDetails?.imageUrl);
+            }
+          }}
         >
           <LinearGradient
             colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.9)']}
@@ -444,7 +454,18 @@ export default function FishDetails() {
             <Text style={styles.cardTitle}>Giới Thiệu</Text>
           </View>
           <Text style={styles.cardText}>
-            {params.introduction || 'Thông tin đang được cập nhật...'}
+            {koiDetails?.introduction || 'Thông tin đang được cập nhật...'}
+          </Text>
+        </View>
+
+        {/* Description Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <MaterialIcons name="description" size={16} color="#8B0000" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>Mô Tả</Text>
+          </View>
+          <Text style={styles.cardText}>
+            {koiDetails?.description || 'Thông tin đang được cập nhật...'}
           </Text>
         </View>
         
