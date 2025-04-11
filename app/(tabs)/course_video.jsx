@@ -35,35 +35,33 @@ const API_RESPONSE_MESSAGES = {
 
 // Replace the optimizeCloudinaryUrlForIOS function with this more comprehensive version
 const optimizeCloudinaryUrlForIOS = (url) => {
-  if (!url || typeof url !== 'string') return url;
-  
-  // Clean up the URL
-  let cleanUrl = url.trim();
-  
-  // Force HTTPS
-  if (cleanUrl.startsWith('http:')) {
-    cleanUrl = cleanUrl.replace('http:', 'https:');
-  }
-  
-  // For iOS, we need to use very specific parameters for best compatibility
-  if (Platform.OS === 'ios' && cleanUrl.includes('cloudinary.com')) {
-    const uploadIndex = cleanUrl.indexOf('/upload/');
-    if (uploadIndex !== -1) {
-      // These parameters work better on iOS:
-      // f_mp4 - Force MP4 format
-      // vc_h264 - Use H.264 video codec (most compatible)
-      // q_auto - Automatic quality
-      const transformedUrl = 
-        cleanUrl.substring(0, uploadIndex) + 
-        '/upload/f_mp4,vc_h264,q_auto/' + 
-        cleanUrl.substring(uploadIndex + 8);
+  try {
+    // Đảm bảo URL là HTTPS
+    let cleanUrl = url.replace('http://', 'https://');
+    
+    // Xử lý khoảng trắng và ký tự đặc biệt
+    cleanUrl = cleanUrl.replace(/\s+/g, '%20');
+    
+    // Thêm các tham số tối ưu hóa cho iOS
+    if (cleanUrl.includes('cloudinary.com')) {
+      const urlObj = new URL(cleanUrl);
+      const pathParts = urlObj.pathname.split('/');
+      const uploadIndex = pathParts.indexOf('upload');
       
-      console.log('iOS-optimized Cloudinary URL:', transformedUrl);
-      return transformedUrl;
+      if (uploadIndex !== -1) {
+        // Thêm các tham số tối ưu hóa
+        pathParts.splice(uploadIndex + 1, 0, 'f_mp4,vc_h264,q_auto');
+        urlObj.pathname = pathParts.join('/');
+        cleanUrl = urlObj.toString();
+      }
     }
+    
+    console.log('iOS-optimized Cloudinary URL:', cleanUrl);
+    return cleanUrl;
+  } catch (error) {
+    console.error('Error optimizing Cloudinary URL:', error);
+    return url;
   }
-  
-  return cleanUrl;
 };
 
 // Add this function if it doesn't exist
@@ -731,16 +729,17 @@ export default function CourseVideoScreen() {
   const onPlaybackStatusUpdate = (status) => {
     if (!status || !status.durationMillis) return;
 
-    // Chỉ hiện alert khi:
-    // 1. Video đã chạy hết (didJustFinish = true)
-    // 2. Chapter đang ở trạng thái InProgress
-    // 3. Chapter chưa hoàn thành (không có trong completedLessons)
-    // 4. Chưa hiển thị alert lần nào
+    // Kiểm tra điều kiện hiển thị alert đơn giản hơn
     if (status.didJustFinish && 
-        params.status === "InProgress" && 
         !isCompleted &&
         !hasShownCompletionAlert.current) {
-      console.log('Video đã chạy hết và chapter chưa hoàn thành, hiển thị alert');
+      console.log('Video đã chạy hết, hiển thị alert cập nhật tiến độ');
+      console.log('Trạng thái chapter:', {
+        isCompleted,
+        hasShownAlert: hasShownCompletionAlert.current,
+        chapterId,
+        status: params.status
+      });
       hasShownCompletionAlert.current = true;
       updateProgress();
     }
@@ -901,7 +900,8 @@ export default function CourseVideoScreen() {
               uri: processedUrl,
               headers: {
                 'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+                'Pragma': 'no-cache',
+                'Accept': '*/*'
               }
             }}
             useNativeControls
@@ -920,6 +920,7 @@ export default function CourseVideoScreen() {
               console.error('Video error:', error);
               setLoading(false);
               setVideoError(true);
+              setVideoErrorMessage('Không thể tải video. Vui lòng thử lại sau.');
             }}
           />
 
@@ -932,7 +933,7 @@ export default function CourseVideoScreen() {
 
           {videoError && (
             <View style={styles.overlay}>
-              <Text style={styles.errorText}>Không thể tải video. Vui lòng thử lại sau.</Text>
+              <Text style={styles.errorText}>{videoErrorMessage}</Text>
               <TouchableOpacity 
                 style={styles.retryButton}
                 onPress={retryVideo}
@@ -994,9 +995,6 @@ export default function CourseVideoScreen() {
             )}
           </View>
         </View>
-        <Text style={styles.chapterDuration}>
-          {item.duration || '10:00'}
-        </Text>
       </TouchableOpacity>
     );
   };
@@ -1095,12 +1093,12 @@ export default function CourseVideoScreen() {
     }, [])
   );
 
-  // Reset hasShownCompletionAlert khi component unmount
+  // Thêm useEffect để reset hasShownCompletionAlert khi chuyển chapter
   useEffect(() => {
-    return () => {
-      hasShownCompletionAlert.current = false;
-    };
-  }, []);
+    // Reset biến khi chapterId thay đổi
+    hasShownCompletionAlert.current = false;
+    console.log('Reset hasShownCompletionAlert do chapterId thay đổi:', chapterId);
+  }, [chapterId]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1137,15 +1135,6 @@ export default function CourseVideoScreen() {
                 {chapterData.title || 'Không có tiêu đề'}
               </Text>
               
-              <View style={styles.chapterMetaInfo}>
-                <View style={styles.metaItem}>
-                  <Ionicons name="time-outline" size={20} color="#666" />
-                  <Text style={styles.metaText}>
-                    {chapterData.duration || '00:45:00'}
-                  </Text>
-                </View>
-              </View>
-
               {chapterData.description && (
                 <View style={styles.descriptionContainer}>
                   <Text style={styles.descriptionTitle}>Mô tả:</Text>
@@ -1165,13 +1154,11 @@ export default function CourseVideoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
   },
   videoContainer: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: '#000',
-    overflow: 'hidden'
   },
   header: {
     flexDirection: 'row',
@@ -1192,55 +1179,43 @@ const styles = StyleSheet.create({
     color: '#333',
     marginLeft: 8,
   },
+  infoContainer: {
+    flex: 1,
+    padding: 15,
+  },
   chapterInfoContainer: {
     backgroundColor: '#fff',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   chapterTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
-  },
-  chapterMetaInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f8f8',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaText: {
-    marginLeft: 8,
-    fontSize: 15,
-    color: '#666',
+    marginBottom: 10,
   },
   descriptionContainer: {
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    marginTop: 10,
   },
   descriptionTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    color: '#444',
+    marginBottom: 5,
   },
   descriptionText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#666',
-    lineHeight: 22,
+    lineHeight: 20,
   },
   errorContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -1390,9 +1365,5 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 9,
     backgroundColor: '#000',
     position: 'relative',
-  },
-  infoContainer: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
   },
 });

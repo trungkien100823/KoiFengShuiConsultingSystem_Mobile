@@ -66,7 +66,6 @@ export default function CoursesListScreen() {
               : require('../../assets/images/koi_image.jpg'),
             price: course.price || 0,
             rating: course.rating || 0,
-            reviews: course.enrolledStudents || 0,
             category: course.categoryName || 'Course',
           }));
           setCourses(processedCourses);
@@ -123,11 +122,6 @@ export default function CoursesListScreen() {
           </View>
           
           <View style={styles.detailsRow}>
-            <View style={styles.enrollmentContainer}>
-              <Ionicons name="people" size={14} color="#FFF" />
-              <Text style={styles.enrollmentText}>{item.reviews} học viên</Text>
-            </View>
-            
             <View style={styles.priceChip}>
               <Text style={styles.priceText}>{item.price.toLocaleString('vi-VN')} đ</Text>
             </View>
@@ -317,15 +311,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  enrollmentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  enrollmentText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    marginLeft: 6,
   },
   priceChip: {
     backgroundColor: 'rgba(139, 0, 0, 0.85)',

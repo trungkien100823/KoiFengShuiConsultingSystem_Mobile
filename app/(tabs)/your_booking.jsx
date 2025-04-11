@@ -10,6 +10,7 @@ import {
   Modal,
   Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import axios from 'axios';
@@ -661,6 +662,18 @@ Lưu ý:
         </View>
       )}
 
+      {booking?.linkMeet && (
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Link Meet:</Text>
+          <TouchableOpacity 
+            onPress={() => Linking.openURL(booking.linkMeet)}
+            style={styles.linkContainer}
+          >
+            <Text style={styles.linkText}>Nhấn để mở link</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.separator} />
 
       <View style={styles.descriptionContainer}>
@@ -1275,6 +1288,17 @@ const styles = StyleSheet.create({
   rejectedText: {
     fontSize: 14,
     color: '#FF5252',
+    fontWeight: '500',
+  },
+  linkContainer: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  linkText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '500',
   },
 });

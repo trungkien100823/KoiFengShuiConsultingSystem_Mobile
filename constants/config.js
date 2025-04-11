@@ -1,13 +1,13 @@
 import { Platform } from 'react-native';
 
-const DEV_API_URL = 'http://10.87.45.73:5261';
+const DEV_API_URL = 'http://192.168.1.32:5261';
 //const DEV_API_URL = 'http://192.168.31.148:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
   endpoints: {
     // Koi endpoints
-    allKoi: '/api/KoiVariety',
+    allKoi: '/api/KoiVariety/get-all',
     userKoi: '/api/KoiVariety/get-koi-current-login',
     detailKoi: '/api/KoiVariety/{id}',
     withColorBy: '/api/KoiVariety/with-color-by/{id}',

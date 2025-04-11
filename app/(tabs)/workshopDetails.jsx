@@ -204,7 +204,7 @@ const WorkshopDetailsScreen = () => {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Hero Image Section */}
         <ImageBackground
-          source={{ uri: displayWorkshop.imageUrl || 'https://res.cloudinary.com/dzedpn3us/image/upload/v1714547103/3_cgq2wb.jpg' }}
+          source={{ uri: displayWorkshop.imageUrl }}
           style={styles.heroImage}
         >
           <LinearGradient

@@ -105,6 +105,16 @@ export default function MenuScreen() {
 
   const navigation = useNavigation();
 
+  const [retryCount, setRetryCount] = useState({});
+
+  const handleImageError = (itemId) => {
+    // Tăng số lần thử lại cho item này
+    setRetryCount(prev => ({
+      ...prev,
+      [itemId]: (prev[itemId] || 0) + 1
+    }));
+  };
+
   // Hàm thử lại load dữ liệu bộ lọc
   const handleRetryFilterOptions = () => {
     if (activeFilter === 'destiny') {
@@ -298,84 +308,44 @@ export default function MenuScreen() {
 
   // Hàm gọi API để lấy danh sách các hình dạng hồ
   const fetchShapeOptions = async () => {
-    try {
-      setFetchingFilterOptions(true);
-      setApiErrors(prev => ({ ...prev, shape: false }));
-      
-      // Thử sử dụng pondAPI.getAllPondShapes nếu có
-      if (pondAPI && pondAPI.getAllPondShapes) {
-        try {
-          const shapes = await pondAPI.getAllPondShapes();
-          if (Array.isArray(shapes) && shapes.length > 0) {
-            // Lọc các hình dạng duy nhất từ API
-            const uniqueShapes = new Set();
-            uniqueShapes.add('Tất cả');
-            
-            shapes.forEach(shape => {
+    const loadShapeData = async () => {
+      try {
+        setFetchingFilterOptions(true);
+        setApiErrors(prev => ({ ...prev, shape: false }));
+        
+        const response = await fetch(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPondShapes}`);
+        
+        if (response.ok) {
+          const responseData = await response.json();
+          
+          if (responseData.isSuccess && Array.isArray(responseData.data)) {
+            const uniqueShapes = new Set(['Tất cả']);
+            responseData.data.forEach(shape => {
               if (shape.shapeName) {
                 uniqueShapes.add(shape.shapeName);
               }
             });
             
-            setShapeOptions(Array.from(uniqueShapes));
-            return;
-          } else {
-            throw new Error('Không tìm thấy dữ liệu hình dạng hồ');
-          }
-        } catch (innerError) {
-          console.error('Lỗi khi gọi pondAPI.getAllPondShapes:', innerError);
-          throw innerError;
-        }
-      }
-      
-      // Nếu không sử dụng được pondAPI, tiếp tục với fetch
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
-      try {
-        const response = await fetch(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPondShapes}`, {
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          throw new Error(`API trả về mã lỗi ${response.status}`);
-        }
-        
-        const responseText = await response.text();
-        const responseJson = JSON.parse(responseText);
-        
-        if (responseJson && responseJson.isSuccess && Array.isArray(responseJson.data)) {
-          // Lọc các hình dạng duy nhất từ API
-          const uniqueShapes = new Set();
-          uniqueShapes.add('Tất cả');
-          
-          responseJson.data.forEach(shape => {
-            if (shape.shapeName) {
-              uniqueShapes.add(shape.shapeName);
+            if (uniqueShapes.size > 1) {
+              setShapeOptions(Array.from(uniqueShapes));
+              return;
             }
-          });
-          
-          if (uniqueShapes.size > 1) {
-            setShapeOptions(Array.from(uniqueShapes));
-          } else {
-            throw new Error('Không có đủ dữ liệu hình dạng hồ');
           }
-        } else {
-          throw new Error('API trả về dữ liệu không hợp lệ');
         }
-      } catch (fetchError) {
-        console.error('Lỗi fetch shapes:', fetchError);
-        throw fetchError;
+        
+        // Nếu có lỗi hoặc không có dữ liệu, thử lại sau 1 giây
+        setTimeout(loadShapeData, 1000);
+        
+      } catch (error) {
+        // Nếu có lỗi, thử lại sau 1 giây
+        setTimeout(loadShapeData, 1000);
+      } finally {
+        setFetchingFilterOptions(false);
       }
-    } catch (error) {
-      console.error('Error fetching shape options:', error);
-      setApiErrors(prev => ({ ...prev, shape: true }));
-      setShapeOptions(['Tất cả']); // Chỉ giữ lại "Tất cả", không dùng data mẫu
-    } finally {
-      setFetchingFilterOptions(false);
-    }
+    };
+
+    // Bắt đầu quá trình tải dữ liệu
+    loadShapeData();
   };
 
   // Hàm gọi API để lấy tất cả các tùy chọn bộ lọc
@@ -404,25 +374,43 @@ export default function MenuScreen() {
     ) {
       setActiveFilter(filterType);
       
-      // Kiểm tra xem đã tải dữ liệu bộ lọc chưa
-      if (
-        (filterType === 'destiny' && destinyOptions.length <= 1) ||
-        (filterType === 'color' && colorOptions.length <= 1) ||
-        (filterType === 'shape' && shapeOptions.length <= 1)
-      ) {
-        // Tải dữ liệu bộ lọc nếu chưa có
-        if (filterType === 'destiny') {
-          fetchDestinyOptions();
-        } else if (filterType === 'color') {
+      // Tự động load dữ liệu nếu chưa có
+      if (filterType === 'shape') {
+        // Tải dữ liệu hình dạng hồ
+        const loadShapeData = async () => {
+          try {
+            const response = await fetch(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPondShapes}`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.isSuccess && Array.isArray(data.data)) {
+                const shapes = ['Tất cả'];
+                shapesCache.current = {};
+                data.data.forEach(shape => {
+                  if (shape.shapeName) {
+                    shapes.push(shape.shapeName);
+                    shapesCache.current[shape.shapeName] = shape.shapeId;
+                  }
+                });
+                setShapeOptions(shapes);
+              }
+            }
+          } catch (error) {
+            // Nếu lỗi, thử lại sau 1 giây
+            setTimeout(loadShapeData, 1000);
+          }
+        };
+        loadShapeData();
+      } else if (filterType === 'destiny') {
+        fetchDestinyOptions();
+      } else if (filterType === 'color') {
+        if (filterOptions.destiny !== 'Tất cả') {
+          fetchColorsByElement(filterOptions.destiny);
+        } else {
           fetchColorOptions();
-        } else if (filterType === 'shape') {
-          fetchShapeOptions();
         }
       }
       
       setSortVisible(true);
-    } else {
-      Alert.alert("Thông báo", "Bộ lọc không khả dụng cho tab hiện tại");
     }
   };
 
@@ -462,35 +450,7 @@ export default function MenuScreen() {
     try {
       setIsLoading(true);
       
-      // Thử sử dụng phương thức từ koiAPI thay vì gọi fetch trực tiếp
-      try {
-        if (koiAPI.getUserKoi) {
-          let element = null;
-          let color = null;
-          
-          if ((filterType === 'destiny' && filterValue !== 'Tất cả') || 
-              (filterOptions.destiny !== 'Tất cả')) {
-            element = filterType === 'destiny' ? filterValue : filterOptions.destiny;
-          }
-          
-          if ((filterType === 'color' && filterValue !== 'Tất cả') || 
-              (filterOptions.color !== 'Tất cả')) {
-            const colorVal = filterType === 'color' ? filterValue : filterOptions.color;
-            color = getOriginalColorEnum(colorVal);
-          }
-          
-          const data = await koiAPI.getUserKoi(element, color);
-          if (Array.isArray(data)) {
-            setDisplayData(data);
-            return;
-          }
-        }
-      } catch (innerError) {
-        console.log('Fallback to direct API call for user koi');
-      }
-      
-      // Nếu không sử dụng được koiAPI, tiếp tục với fetch
-      let url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.userKoi}`;
+      let url = `${API_CONFIG.baseURL}/api/KoiVariety/get-all`;
       const params = new URLSearchParams();
       
       if (filterType === 'destiny' && filterValue !== 'Tất cả') {
@@ -510,45 +470,23 @@ export default function MenuScreen() {
       if (params.toString()) {
         url += '?' + params.toString();
       }
-      
+
       const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error(`API responded with status ${response.status}: ${response.statusText}`);
+        throw new Error(`API responded with status ${response.status}`);
       }
       
-      // Thử đọc text trước để kiểm tra valid JSON
       const responseText = await response.text();
-      try {
-        const data = JSON.parse(responseText);
-        
-      if (Array.isArray(data)) {
-        setDisplayData(data);
-        if (data[0]?.message && !hasShownAlert) {
-          Alert.alert(
-            "Thông báo",
-            data[0].message,
-            [{ text: "OK" }]
-          );
-          setHasShownAlert(true);
-        }
+      const responseData = JSON.parse(responseText);
+
+      if (responseData.isSuccess && Array.isArray(responseData.data)) {
+        setDisplayData(responseData.data);
       } else {
         setDisplayData([]);
-        }
-      } catch (jsonError) {
-        console.error('JSON parse error:', responseText.substring(0, 100) + '...');
-        throw jsonError;
       }
     } catch (error) {
-      console.error('Error fetching Koi:', error);
       setDisplayData([]);
-      
-      // Hiển thị thông báo lỗi
-      Alert.alert(
-        "Lỗi",
-        "Không thể tải danh sách cá Koi. Vui lòng thử lại sau.",
-        [{ text: "OK" }]
-      );
     } finally {
       setIsLoading(false);
     }
@@ -560,83 +498,117 @@ export default function MenuScreen() {
       
       let url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPonds}`;
       
-      // Nếu đang lọc theo hình dạng và không phải "Tất cả"
       if ((filterType === 'shape' && filterValue !== 'Tất cả') || 
           (filterOptions.shape !== 'Tất cả' && !filterType)) {
         const shapeValue = filterType === 'shape' ? filterValue : filterOptions.shape;
-        
-        // Tìm shapeId từ API
         const shapeId = await getShapeIdByName(shapeValue);
         
         if (shapeId) {
           url = `${API_CONFIG.baseURL}/api/KoiPond/get-by-shape/${shapeId}`;
-          console.log('Gọi API lọc hồ cá theo hình dạng:', url);
         }
       }
-      
+
       const response = await fetch(url);
-      const responseText = await response.text();
-      console.log('Response từ API:', responseText);
       
-      const responseData = JSON.parse(responseText);
+      if (!response.ok) {
+        throw new Error(`API responded with status ${response.status}`);
+      }
+
+      const responseData = await response.json();
 
       if (responseData.isSuccess && Array.isArray(responseData.data)) {
-        if (responseData.data.length === 0) {
-          setDisplayData([]);
-          Alert.alert(
-            "Thông báo",
-            "Không tìm thấy hồ cá phù hợp với hình dạng đã chọn",
-            [{ text: "OK" }]
-          );
-        } else {
-          const mappedData = responseData.data.map(pond => ({
-            koiPondId: pond.koiPondId,
-            pondName: pond.pondName,
-            shapeName: pond.shapeName,
-            element: pond.element,
-            introduction: pond.introduction,
-            description: pond.description,
-            imageName: 'buddha.png'
-          }));
-          setDisplayData(mappedData);
+        const processedData = responseData.data.map(pond => ({
+          ...pond,
+          imageUrl: pond.imageUrl || null,
+          pondName: pond.pondName || 'Chưa đặt tên',
+          shapeName: pond.shapeName || 'Không xác định',
+          introduction: pond.introduction || 'Chưa có thông tin',
+          description: pond.description || 'Chưa có mô tả'
+        }));
+
+        setDisplayData(processedData);
+
+        // Cache shape data nếu có
+        if (responseData.data.length > 0 && responseData.data[0].shapeName) {
+          const uniqueShapes = new Set(['Tất cả']);
+          responseData.data.forEach(pond => {
+            if (pond.shapeName) {
+              uniqueShapes.add(pond.shapeName);
+            }
+          });
+          setShapeOptions(Array.from(uniqueShapes));
         }
       } else {
         setDisplayData([]);
-        Alert.alert(
-          "Thông báo",
-          responseData.message || "Không thể tải danh sách hồ cá",
-          [{ text: "OK" }]
-        );
       }
     } catch (error) {
-      console.error('Error fetching ponds:', error);
       setDisplayData([]);
-      Alert.alert(
-        "Thông báo",
-        "Đã xảy ra lỗi khi tải danh sách hồ cá",
-        [{ text: "OK" }]
-      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Hàm hỗ trợ để lấy shapeId từ shapeName
+  // Cập nhật hàm getShapeIdByName để không hiện log lỗi
   const getShapeIdByName = async (shapeName) => {
     try {
+      if (shapesCache.current && shapesCache.current[shapeName]) {
+        return shapesCache.current[shapeName];
+      }
+
       const response = await fetch(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPondShapes}`);
+      
+      if (!response.ok) {
+        return null;
+      }
+      
       const responseData = await response.json();
 
       if (responseData.isSuccess && Array.isArray(responseData.data)) {
-        const shape = responseData.data.find(s => s.shapeName === shapeName);
-        return shape ? shape.shapeId : null;
+        shapesCache.current = {};
+        responseData.data.forEach(shape => {
+          if (shape.shapeName && shape.shapeId) {
+            shapesCache.current[shape.shapeName] = shape.shapeId;
+          }
+        });
+
+        return shapesCache.current[shapeName] || null;
       }
+      
       return null;
     } catch (error) {
-      console.error('Error getting shape ID:', error);
       return null;
     }
   };
+
+  // Thêm useRef để cache shapes
+  const shapesCache = React.useRef({});
+
+  // Thêm useEffect để load shapes khi component mount
+  useEffect(() => {
+    const preloadShapes = async () => {
+      try {
+        const response = await fetch(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.allPondShapes}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.isSuccess && Array.isArray(data.data)) {
+            const shapes = ['Tất cả'];
+            shapesCache.current = {};
+            data.data.forEach(shape => {
+              if (shape.shapeName) {
+                shapes.push(shape.shapeName);
+                shapesCache.current[shape.shapeName] = shape.shapeId;
+              }
+            });
+            setShapeOptions(shapes);
+          }
+        }
+      } catch (error) {
+        console.error('Error preloading shapes:', error);
+      }
+    };
+
+    preloadShapes();
+  }, []);
 
   const handleSort = (sortType) => {
     setCurrentSort(sortType);
@@ -985,14 +957,24 @@ export default function MenuScreen() {
     };
   }, []);
 
+  // Thêm useEffect mới để re-fetch khi màn hình được focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       console.log('Màn hình Menu được focus - Tải lại dữ liệu');
-      handleRetryFilterOptions();
+      
+      // Re-fetch dữ liệu dựa trên tab hiện tại
+      if (selectedTab === 'Koi') {
+        fetchUserKoi();
+      } else if (selectedTab === 'Pond') {
+        fetchUserPonds();
+      }
+      
+      // Re-fetch các tùy chọn bộ lọc
+      fetchAllFilterOptions();
     });
 
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, selectedTab]);
 
   return (
     <ImageBackground 
@@ -1115,7 +1097,7 @@ export default function MenuScreen() {
                 <FlatList
                   horizontal
                   data={displayData}
-                  keyExtractor={(item, index) => `${selectedTab}-${item.koiPondId || index}`}
+                  keyExtractor={(item, index) => `${selectedTab}-${item.koiPondId || item.koiVarietyId || index}`}
                   showsHorizontalScrollIndicator={false}
                   pagingEnabled={true}
                   snapToAlignment="center"
@@ -1126,25 +1108,31 @@ export default function MenuScreen() {
                     <View style={styles.koiCardContainer}>
                       <View style={styles.koiCard}>
                         <Image 
+                          key={`${item.koiPondId || item.koiVarietyId}-${retryCount[item.koiPondId || item.koiVarietyId] || 0}`}
                           source={
                             selectedTab === 'Pond' 
-                              ? (item.imageName && images[item.imageName] 
-                                  ? images[item.imageName] 
-                                  : images['buddha.png'])
-                              : (item.imageName && images[item.imageName] 
-                                  ? images[item.imageName] 
-                                  : images['buddha.png'])
+                              ? (item.imageUrl 
+                                  ? { uri: item.imageUrl }
+                                  : require('../../assets/images/buddha.png'))
+                              : (item.imageUrl 
+                                  ? { uri: item.imageUrl }
+                                  : require('../../assets/images/buddha.png'))
                           } 
                           style={styles.image}
                           resizeMode="cover"
-                          onError={(error) => {
-                            console.log('Image loading error:', error.nativeEvent.error);
+                          onError={() => {
+                            // Chỉ thử lại tối đa 3 lần
+                            if ((retryCount[item.koiPondId || item.koiVarietyId] || 0) < 3) {
+                              handleImageError(item.koiPondId || item.koiVarietyId);
+                            }
                           }}
                         />
                         <View style={styles.infoContainer}>
                           <View style={styles.nameContainer}>
                             <Text style={styles.name}>
-                              {selectedTab === 'Pond' ? (item.pondName || 'Không có tên') : item.name}
+                              {selectedTab === 'Pond' 
+                                ? (item.pondName || 'Không có tên') 
+                                : (item.varietyName || item.name || 'Không có tên')}
                             </Text>
                           </View>
                           <MoreButton 
