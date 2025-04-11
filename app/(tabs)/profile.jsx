@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -14,58 +14,88 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import CustomTabBar from '../../components/ui/CustomTabBar';
-import UserInfo from './UserInfo';
 import { getAuthToken } from '../../services/authService';
 import { API_CONFIG } from '../../constants/config';
 import axios from 'axios';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setLoading(true);
-        const token = await getAuthToken();
-        
-        if (!token) {
-          console.log('No token found, user not logged in');
-          setLoading(false);
-          return;
-        }
-        
-        const response = await axios.get(`${API_CONFIG.baseURL}/api/Account/current-user`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUserData = async () => {
+        try {
+          setLoading(true);
+          const token = await getAuthToken();
+          
+          if (!token) {
+            console.log('No token found, user not logged in');
+            setLoading(false);
+            return;
           }
-        });
-        
-        if (response.data && response.data.isSuccess) {
-          console.log('User data:', response.data.data);
-          setUser(response.data.data);
-        } else {
-          console.warn('Failed to fetch user data:', response.data);
+          
+          const timestamp = new Date().getTime();
+          const response = await axios.get(
+            `${API_CONFIG.baseURL}/api/Account/current-user?_t=${timestamp}`, 
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+              }
+            }
+          );
+          
+          console.log('User data response:', response.data);
+          
+          if (response.data && response.data.fullName) {
+            setUser(response.data);
+          } else if (response.data && response.data.data && response.data.data.fullName) {
+            setUser(response.data.data);
+          } else {
+            console.warn('Unexpected user data format:', response.data);
+          }
+          
+          await AsyncStorage.removeItem('profileUpdated');
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+          
+          if (error.response && error.response.data && error.response.data.fullName) {
+            console.log('Found user data in error response, using it anyway');
+            setUser(error.response.data);
+          }
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchUserData();
-  }, []);
+      };
+      
+      fetchUserData();
+      return () => {};
+    }, [])
+  );
+
+  const showAlert = (title, message, buttons) => {
+    setTimeout(() => {
+      Alert.alert(
+        title,
+        message,
+        buttons,
+        { cancelable: true }
+      );
+    }, 150);
+  };
 
   const handleLogout = async () => {
-    Alert.alert(
+    showAlert(
       'Xác nhận',
       'Bạn có chắc chắn muốn đăng xuất?',
       [
-        {
-          text: 'Hủy',
+        { 
+          text: 'Hủy', 
           style: 'cancel'
         },
         {
@@ -74,47 +104,29 @@ export default function ProfileScreen() {
           onPress: async () => {
             try {
               const token = await getAuthToken();
-              if (!token) {
-                console.log('No token found');
-                return;
-              }
-
-              const response = await axios.get(
-                `${API_CONFIG.baseURL}/api/Account/logout`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                }
-              );
-
-              if (response.data && response.data.isSuccess) {
-                await AsyncStorage.removeItem('accessToken');
-                setUser(null);
-                
-                Alert.alert(
-                  'Thành công',
-                  'Đăng xuất thành công',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => {
-                        router.replace('/(tabs)/Login');
-                      }
+              if (token) {
+                const response = await axios.post(
+                  `${API_CONFIG.baseURL}/api/Account/logout`,
+                  {},
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
                     }
-                  ]
+                  }
                 );
-              } else {
-                throw new Error('Logout failed');
+                console.log('Logout response:', response.data);
               }
+              
+              await AsyncStorage.removeItem('accessToken');
+              setUser(null);
+              router.replace('/');
             } catch (error) {
               console.error('Error logging out:', error);
-              Alert.alert(
-                'Lỗi',
-                'Không thể đăng xuất. Vui lòng thử lại sau.',
-                [{ text: 'OK' }]
-              );
+              
+              await AsyncStorage.removeItem('accessToken');
+              setUser(null);
+              router.replace('/');
             }
           }
         }
@@ -139,17 +151,15 @@ export default function ProfileScreen() {
         </View>
         
         {user ? (
-          <UserInfo 
-            user={user} 
-            // Make sure all required props are passed with fallbacks
-            avatar={user.avatar || require('../../assets/images/default-avatar.png')}
-            name={user.userName || user.fullName || 'User'}
-            phone={user.phoneNumber || 'No phone'}
-            email={user.email || 'No email'}
-            address={user.address || 'No address'}
-            // Pass an empty object if element is undefined to avoid error
-            element={user.element || {}} 
-          />
+          <View style={styles.userInfoContainer}>
+            <Image source={user.avatar || require('../../assets/images/default-avatar.png')} style={styles.avatar} />
+            <View style={styles.userInfoTextContainer}>
+              <Text style={styles.userName}>{user.userName || user.fullName || 'User'}</Text>
+              <Text style={styles.phone}>{user.phoneNumber || 'No phone'}</Text>
+              <Text style={styles.email}>{user.email || 'No email'}</Text>
+              <Text style={styles.address}>{user.address || 'No address'}</Text>
+            </View>
+          </View>
         ) : (
           <View style={styles.loginPrompt}>
             <TouchableOpacity 
@@ -171,6 +181,12 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(tabs)/support')}>
             <Ionicons name="help-circle-outline" size={24} color="#333" />
             <Text style={styles.menuItemText}>Hỗ trợ</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(tabs)/edit_profile')}>
+            <Ionicons name="person-outline" size={24} color="#333" />
+            <Text style={styles.menuItemText}>My Profile</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
           
@@ -199,8 +215,7 @@ export default function ProfileScreen() {
             <Ionicons name="ticket-outline" size={24} color="#333" />
             <Text style={styles.menuItemText}>My Tickets</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-          
+          </TouchableOpacity>       
           {user && (
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={24} color="#d9534f" />
@@ -298,5 +313,48 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  userInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginRight: 15,
+  },
+  userInfoTextContainer: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  phone: {
+    fontSize: 16,
+    color: '#666',
+  },
+  email: {
+    fontSize: 16,
+    color: '#666',
+  },
+  address: {
+    fontSize: 16,
+    color: '#666',
+  },
+  userFullNameContainer: {
+    backgroundColor: '#f8f8f8',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  userFullNameText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
 });
