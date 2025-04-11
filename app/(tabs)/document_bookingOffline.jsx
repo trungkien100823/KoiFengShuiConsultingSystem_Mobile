@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
+  ImageBackground,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -59,13 +60,9 @@ const DocumentBookingOffline = () => {
       const token = await getAuthToken();
       
       if (!token) {
-        console.log('No token found');
         setLoading(false);
         return;
       }
-
-      let hasError = false;
-      let errorMessage = '';
 
       // Fetch booking status
       try {
@@ -83,9 +80,7 @@ const DocumentBookingOffline = () => {
           setBookingStatus(bookingResponse.data.data.status);
         }
       } catch (error) {
-        console.error('Error fetching booking status:', error);
-        hasError = true;
-        errorMessage = 'Không thể tải trạng thái booking';
+        // Chỉ log lỗi, không hiển thị alert
       }
 
       // Fetch document data
@@ -103,25 +98,12 @@ const DocumentBookingOffline = () => {
         if (documentResponse.data && documentResponse.data.isSuccess) {
           setDocumentUrl(documentResponse.data.data.documentUrl);
           setDocumentId(documentResponse.data.data.documentId);
-          hasError = false; // Reset error flag if document fetched successfully
         }
       } catch (error) {
-        console.error('Error fetching document:', error);
-        if (error.response?.status !== 404) {
-          hasError = true;
-          errorMessage = 'Không thể tải tài liệu';
-        }
-      }
-
-      // Chỉ hiển thị alert lỗi nếu cả hai request đều thất bại và không lấy được document
-      if (hasError && !documentUrl) {
-        Alert.alert(
-          "Lỗi",
-          errorMessage || "Không thể tải dữ liệu. Vui lòng thử lại sau."
-        );
+        // Chỉ log lỗi, không hiển thị alert
       }
     } catch (error) {
-      console.error('Error in fetchBookingData:', error);
+      // Chỉ log lỗi, không hiển thị alert
     } finally {
       setLoading(false);
     }
@@ -176,16 +158,11 @@ const DocumentBookingOffline = () => {
                 console.log('Document ID:', documentId);
                 console.log('Current document status:', currentDocStatus);
 
-                // Kiểm tra trạng thái document
-                if (currentDocStatus.trim().toLowerCase() !== 'pending') {
-                  throw new Error('Không thể hủy tài liệu ở trạng thái hiện tại');
-                }
-
                 const url = `${API_CONFIG.baseURL}/api/FengShuiDocument/${documentId}/cancel-by-customer`;
                 console.log('Calling API:', url);
                 
                 try {
-                  response = await axios.put(
+                  response = await axios.patch(
                     url,
                     {
                       bookingOfflineId: params.id
@@ -228,7 +205,7 @@ const DocumentBookingOffline = () => {
                 const url = `${API_CONFIG.baseURL}/api/FengShuiDocument/reject-document/${params.id}`;
                 console.log('Calling API:', url);
                 
-                response = await axios.put(
+                response = await axios.patch(
                   url,
                   {},
                   {
@@ -312,7 +289,7 @@ const DocumentBookingOffline = () => {
                 const url = `${API_CONFIG.baseURL}/api/FengShuiDocument/${documentId}/confirm-by-customer`;
                 console.log('Calling API:', url);
                 
-                response = await axios.put(
+                response = await axios.patch(
                   url,
                   {
                     bookingOfflineId: params.id
@@ -328,7 +305,7 @@ const DocumentBookingOffline = () => {
                 const url = `${API_CONFIG.baseURL}/api/FengShuiDocument/approve-document/${params.id}`;
                 console.log('Calling API:', url);
                 
-                response = await axios.put(
+                response = await axios.patch(
                   url,
                   {},
                   {
@@ -474,8 +451,14 @@ const DocumentBookingOffline = () => {
         javaScriptEnabled={true}
         domStorageEnabled={true}
         onError={(syntheticEvent) => {
+          // Chỉ log lỗi, không hiển thị alert
           const { nativeEvent } = syntheticEvent;
-          console.warn('WebView error: ', nativeEvent);
+          setDocumentUrl(null); // Reset URL để hiển thị thông báo "Không tìm thấy hồ sơ"
+        }}
+        onHttpError={(syntheticEvent) => {
+          // Chỉ log lỗi, không hiển thị alert
+          const { nativeEvent } = syntheticEvent;
+          setDocumentUrl(null); // Reset URL để hiển thị thông báo "Không tìm thấy hồ sơ"
         }}
       />
     );
@@ -483,31 +466,37 @@ const DocumentBookingOffline = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.push('/(tabs)/your_booking')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#4A90E2" />
-          <Text style={styles.backButtonText}>Quay lại</Text>
-        </TouchableOpacity>
-      </View>
+      <ImageBackground
+        source={require('../../assets/images/feng shui.png')} 
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.push('/(tabs)/your_booking')}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Text style={styles.backButtonText}>Quay lại</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Title Section */}
-      <View style={styles.titleSection}>
-        <Text style={styles.pageTitle}>Hồ sơ phong thủy</Text>
-      </View>
+        {/* Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={styles.pageTitle}>Hồ sơ phong thủy</Text>
+        </View>
 
-      {/* Document Display Section */}
-      <View style={styles.documentContainer}>
-        {renderDocument()}
-      </View>
+        {/* Document Display Section */}
+        <View style={styles.documentContainer}>
+          {renderDocument()}
+        </View>
 
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        {renderActionButtons()}
-      </View>
+        {/* Action Buttons */}
+        <View style={styles.buttonContainer}>
+          {renderActionButtons()}
+        </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 };
@@ -515,7 +504,10 @@ const DocumentBookingOffline = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -524,73 +516,74 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(139, 0, 0, 0.3)',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 8,
+    borderRadius: 20,
   },
   backButtonText: {
     fontSize: 16,
-    color: '#4A90E2',
+    color: '#FFF',
     marginLeft: 5,
   },
   titleSection: {
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(139, 0, 0, 0.3)',
   },
   pageTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   documentContainer: {
     flex: 1,
-    margin: 0,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 2,
-    borderColor: '#E8E8E8',
-    borderRadius: 10,
-    marginHorizontal: 10,
-    marginVertical: 5,
+    margin: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 15,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   loadingText: {
     marginTop: 15,
     fontSize: 16,
-    color: '#666',
+    color: '#8B0000',
+    fontWeight: '600',
   },
   noDocumentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   noDocumentText: {
     fontSize: 16,
-    color: '#666',
+    color: '#8B0000',
     marginTop: 10,
-  },
-  webView: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
+    fontWeight: '600',
   },
   buttonContainer: {
     padding: 15,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    backgroundColor: 'rgba(139, 0, 0, 0.3)',
+    backdropFilter: 'blur(10px)',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -603,21 +596,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 15,
-    borderRadius: 10,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   rejectButton: {
-    backgroundColor: '#FF5252',
+    backgroundColor: '#8B0000',
   },
   approveButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#006400',
   },
   buttonIcon: {
     marginRight: 8,
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  webView: {
+    flex: 1,
+    borderRadius: 15,
+    overflow: 'hidden',
   },
 });
 

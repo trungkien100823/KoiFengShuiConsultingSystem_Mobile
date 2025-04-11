@@ -75,13 +75,20 @@ export default function CourseQuizScreen() {
         clearInterval(timerRef.current);
       }
 
-      // Fetch questions again
-      fetchQuestions();
+      // Fetch questions và khởi động lại timer
+      const initializeQuiz = async () => {
+        await fetchQuestions();
+        // Khởi động lại timer sau khi có dữ liệu
+        startTimer();
+      };
+
+      initializeQuiz();
 
       // Cleanup when screen loses focus
       return () => {
         if (timerRef.current) {
           clearInterval(timerRef.current);
+          timerRef.current = null;
         }
       };
     }, [quizId])
@@ -176,8 +183,10 @@ export default function CourseQuizScreen() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Add this function after the fetchQuestions function
+  // Cập nhật hàm startTimer để đảm bảo timer hoạt động đúng
   const startTimer = () => {
+    console.log('Starting timer with remaining time:', timeRemaining);
+    
     // Clear any existing timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -185,18 +194,23 @@ export default function CourseQuizScreen() {
     
     // Chỉ start timer khi timeRemaining > 0
     if (timeRemaining > 0) {
+      console.log('Timer started');
       // Start new timer that counts down every second
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
-          if (prev <= 1) {
+          const newTime = prev - 1;
+          console.log('Time remaining:', newTime);
+          if (newTime <= 0) {
             // When time runs out, clear timer and submit the quiz
             clearInterval(timerRef.current);
             handleQuizSubmission();
             return 0;
           }
-          return prev - 1;
+          return newTime;
         });
       }, 1000);
+    } else {
+      console.log('Timer not started - no time remaining');
     }
   };
 
@@ -230,10 +244,6 @@ export default function CourseQuizScreen() {
         }
       );
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch questions: ${response.status}`);
-      }
-      
       const result = await response.json();
       console.log('Questions API response:', result);
       
@@ -241,7 +251,7 @@ export default function CourseQuizScreen() {
         // Initialize timer based on number of questions
         const questionCount = result.data.length;
         const timeLimit = calculateTimeLimit(questionCount);
-        const timeLimitInSeconds = timeLimit * 60; // Chuyển đổi phút thành giây
+        const timeLimitInSeconds = timeLimit * 60;
         
         // Process questions from API
         setQuestions(result.data);
@@ -251,24 +261,24 @@ export default function CourseQuizScreen() {
           setTimeRemaining(timeLimitInSeconds);
           setInitialTimeInSeconds(timeLimitInSeconds);
         } else {
-          // Nếu không có time limit, set giá trị mặc định
           setTimeRemaining(0);
           setInitialTimeInSeconds(0);
         }
       } else {
-        console.error('API returned invalid data format:', result);
-        throw new Error('Invalid quiz data received');
+        throw new Error(result.message || 'Failed to load quiz questions');
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
       setError(error.message || 'Failed to load quiz questions');
       
-      // Hiển thị thông báo lỗi cho người dùng
-      Alert.alert(
-        "Lỗi",
-        "Không thể tải câu hỏi. Vui lòng thử lại sau.",
-        [{ text: "OK" }]
-      );
+      // Chỉ hiển thị alert khi thực sự có lỗi từ API
+      if (!error.message.includes('Failed to load quiz questions')) {
+        Alert.alert(
+          "Lỗi",
+          "Không thể tải câu hỏi. Vui lòng thử lại sau.",
+          [{ text: "OK" }]
+        );
+      }
     } finally {
       setLoading(false);
     }

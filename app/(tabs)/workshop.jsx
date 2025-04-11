@@ -210,7 +210,7 @@ export default function Workshop() {
             capacity: workshop.capacity,
             status: workshop.status,
             masterName: workshop.masterName,
-            image: require('../../assets/images/buddha.png') // Tạm thời dùng ảnh mặc định
+            image: { uri: workshop.imageUrl } // Sử dụng imageUrl từ API
           };
         } catch (error) {
           // Không hiển thị log lỗi

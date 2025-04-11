@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, Platform, Alert, ActivityIndicator, ScrollView, Image } from 'react-native';
 import { AntDesign, Feather, Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -9,7 +9,6 @@ import { API_CONFIG } from '../../constants/config';
 import { ticketService } from '../../constants/ticketCreate';
 import { paymentService } from '../../constants/paymentService';
 import { workshopDetailsService } from '../../constants/workshopDetails';
-import { useCallback } from 'react';
 
 export default function TicketConfirmation() {
   const navigation = useNavigation();
@@ -33,26 +32,72 @@ export default function TicketConfirmation() {
   });
   const [fullWorkshopId, setFullWorkshopId] = useState(workshopId);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      // Reset state for the new workshop ID
+  // Thêm hàm retry cho API
+  const retryApiCall = async (apiCall, maxRetries = 3) => {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await apiCall();
+      } catch (error) {
+        lastError = error;
+        console.log(`Lần thử ${i + 1} thất bại, đang thử lại...`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Đợi 1 giây trước khi thử lại
+      }
+    }
+    throw lastError;
+  };
+
+  // Hàm fetch dữ liệu chính
+  const fetchData = async () => {
+    try {
       setIsLoading(true);
-      setTicketCount(1);
-      setWorkshopInfo({
-        title: workshopName || 'Workshop',
-        date: 'Đang cập nhật',
-        location: 'Đang cập nhật',
-        price: workshopPrice || 0
-      });
       
-      await Promise.all([
-        verifyTokenAndUser(),
-        fetchWorkshopDetails()
-      ]);
-    };
-    
-    fetchData();
-  }, [workshopId, workshopName, workshopPrice]);
+      // Fetch workshop details trước vì API này ổn định hơn
+      await fetchWorkshopDetails();
+      
+      // Thử fetch user info với retry
+      try {
+        await retryApiCall(async () => {
+          await verifyTokenAndUser();
+          await fetchCurrentUser();
+        });
+      } catch (error) {
+        console.error('Không thể lấy thông tin người dùng sau nhiều lần thử:', error);
+        // Vẫn tiếp tục nếu không lấy được user info
+      }
+      
+    } catch (error) {
+      console.error('Lỗi khi fetch dữ liệu:', error);
+      Alert.alert('Lỗi', 'Không thể tải dữ liệu. Vui lòng thử lại.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Thêm useFocusEffect để re-fetch dữ liệu khi màn hình được focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Màn hình được focus, đang fetch dữ liệu...');
+      
+      // Lấy params mới nhất từ route
+      const currentParams = route.params || {};
+      const currentWorkshopId = currentParams.workshopId;
+      
+      // Nếu workshopId thay đổi, cập nhật và fetch lại dữ liệu
+      if (currentWorkshopId && currentWorkshopId !== workshopId) {
+        console.log('WorkshopId thay đổi từ', workshopId, 'sang', currentWorkshopId);
+        workshopId = currentWorkshopId;
+        setFullWorkshopId(currentWorkshopId);
+        setTicketCount(1); // Reset số lượng vé về 1
+      }
+      
+      fetchData();
+      
+      return () => {
+        console.log('Màn hình bị blur');
+      };
+    }, [route.params]) // Thêm route.params vào dependency array
+  );
 
   useEffect(() => {
     // Add a listener for when the screen comes into focus
@@ -97,16 +142,6 @@ export default function TicketConfirmation() {
       setIsLoading(false);
     }
   };
-
-  useFocusEffect(
-    useCallback(() => {
-      console.log('Ticket confirmation screen focused - refreshing data');
-      refreshScreen();
-      return () => {
-        console.log('Ticket confirmation screen blurred');
-      };
-    }, [])
-  );
 
   const fetchWorkshopDetails = async () => {
     if (!workshopId) {
@@ -598,7 +633,7 @@ export default function TicketConfirmation() {
                 <View style={styles.workshopHeaderRow}>
                   <View style={styles.workshopImageContainer}>
                     <Image
-                      source={{ uri: workshopInfo.imageUrl || 'https://res.cloudinary.com/dzedpn3us/image/upload/v1714547103/3_cgq2wb.jpg' }}
+                      source={{ uri: workshopInfo.imageUrl }}
                       style={styles.workshopImage}
                     />
                   </View>

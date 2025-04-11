@@ -95,7 +95,6 @@ export default function CourseChapterScreen() {
     description: '',
     totalChapters: 0,
     totalQuestions: 0,
-    totalDuration: '00:00:00',
     enrollCourseId: null
   });
   const [chapters, setChapters] = useState([]);
@@ -305,7 +304,6 @@ export default function CourseChapterScreen() {
               description: courseData.description || 'Chưa có mô tả',
               totalChapters: courseData.totalChapters || 0,
               totalQuestions: courseData.totalQuestions || 0,
-              totalDuration: courseData.totalDuration || '00:00:00',
               enrollCourseId: courseData.enrollCourseId,
               imageUrl: courseData.imageUrl || null,
               price: courseData.price || 0,
@@ -956,15 +954,6 @@ export default function CourseChapterScreen() {
                       <Ionicons name="help-circle" size={18} color="#FFD700" />
                       <Text style={styles.statText}>
                         {courseInfo.totalQuestions} câu hỏi
-                      </Text>
-                    </View>
-                  )}
-                  
-                  {courseInfo.totalDuration && (
-                    <View style={styles.statItem}>
-                      <Ionicons name="time" size={18} color="#FFD700" />
-                      <Text style={styles.statText}>
-                        {courseInfo.totalDuration}
                       </Text>
                     </View>
                   )}

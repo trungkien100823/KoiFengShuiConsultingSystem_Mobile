@@ -86,35 +86,21 @@ export const consultingAPI = {
     try {
       const response = await axios.get(`${API_CONFIG.baseURL}/api/Master/get-all`);
       
-      // Check if the response has the expected structure
       if (response.data && response.data.isSuccess && Array.isArray(response.data.data)) {
-        // Map the data array to match our application's format
-        return response.data.data.map(consultant => {
-          // Map consultant names to specific images
-          let consultantImage;
-          if (consultant.masterName.includes('Tanaka')) {
-            consultantImage = require('../assets/images/consultant2.jpg');
-          } else if (consultant.masterName.includes('Wong')) {
-            consultantImage = require('../assets/images/consultant3.jpg');
-          } else {
-            consultantImage = require('../assets/images/consultant1.jpg');
-          }
-          
-          return {
-            id: consultant.masterId,
-            name: consultant.masterName,
-            title: 'Master',
-            rating: consultant.rating || 4.0,
-            image: consultantImage
-          };
-        });
+        return response.data.data.map(consultant => ({
+          id: consultant.masterId,
+          name: consultant.masterName,
+          title: consultant.title || 'Master',
+          rating: consultant.rating || 4.0,
+          imageUrl: consultant.imageUrl,
+          specialty: consultant.expertise || 'Chưa cập nhật'
+        }));
       } else {
         console.error('Unexpected API response format:', response.data);
         throw new Error('API response format was incorrect');
       }
     } catch (error) {
       console.error('Error fetching consultants:', error);
-      // Return fallback consultants on error
       return [...consultants];
     }
   },
@@ -136,7 +122,7 @@ export const consultingAPI = {
           expertise: masterData.expertise || 'Chưa cập nhật',
           experience: masterData.experience || 'Chưa cập nhật',
           biography: masterData.biography || 'Chưa cập nhật',
-          image: require('../assets/images/consultant1.jpg') // Ảnh mặc định
+          imageUrl: masterData.imageUrl
         };
       }
       throw new Error('Không tìm thấy thông tin master');
