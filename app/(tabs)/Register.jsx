@@ -39,7 +39,9 @@ const getInitialState = () => ({
   password: '',
   confirmPassword: '',
   isLoading: false,
-  image: null
+  image: null,
+  isValidName: true,
+  isValidEmail: true,
 });
 
 export default function RegisterScreen() {
@@ -48,7 +50,8 @@ export default function RegisterScreen() {
   const {
     showPassword, showConfirmPassword, gender, isValidInput,
     email, phoneNumber, isEmail, showDatePicker, dob,
-    fullName, password, confirmPassword, isLoading, image
+    fullName, password, confirmPassword, isLoading, image,
+    isValidName, isValidEmail
   } = formState;
   
   const navigation = useNavigation();
@@ -325,29 +328,54 @@ export default function RegisterScreen() {
                     placeholder="Nguyễn Văn A"
                     placeholderTextColor="#999"
                     value={fullName}
-                    onChangeText={value => updateFormState('fullName', value)}
+                    onChangeText={(value) => {
+                      updateFormState('fullName', value);
+                      // Check if name contains only letters and spaces
+                      const nameRegex = /^[\p{L} ]+$/u;
+                      updateFormState('isValidName', nameRegex.test(value));
+                    }}
                   />
                   {fullName.length > 0 && (
-                    <Ionicons name="checkmark" size={24} color="#4CAF50" />
+                    isValidName ? (
+                      <Ionicons name="checkmark" size={24} color="#4CAF50" />
+                    ) : (
+                      <Ionicons name="close" size={24} color="#FF6B6B" />
+                    )
                   )}
                 </View>
+                {fullName.length > 0 && !isValidName && (
+                  <Text style={styles.errorText}>Tên không được chứa số hoặc ký tự đặc biệt</Text>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Gmail</Text>
+                <Text style={styles.label}>Email</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.input}
                     placeholder="example@gmail.com"
+                    placeholderTextColor="#999"
                     keyboardType="email-address"
                     value={email}
-                    onChangeText={value => updateFormState('email', value)}
+                    onChangeText={(value) => {
+                      updateFormState('email', value);
+                      // Validate email format
+                      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                      updateFormState('isValidEmail', emailRegex.test(value));
+                    }}
                     autoCapitalize="none"
                   />
                   {email.length > 0 && (
-                    <Ionicons name="checkmark" size={24} color="#4CAF50" />
+                    isValidEmail ? (
+                      <Ionicons name="checkmark" size={24} color="#4CAF50" />
+                    ) : (
+                      <Ionicons name="close" size={24} color="#FF6B6B" />
+                    )
                   )}
                 </View>
+                {email.length > 0 && !isValidEmail && (
+                  <Text style={styles.errorText}>Email phải có định dạng: name@domain.com</Text>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -356,6 +384,7 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="0123456789"
+                    placeholderTextColor="#999"
                     keyboardType="numeric"
                     maxLength={10}
                     value={phoneNumber}
@@ -374,10 +403,11 @@ export default function RegisterScreen() {
                   onPress={() => updateFormState('showDatePicker', true)}
                 >
                   <Text style={styles.dateText}>
-                    {dob.toLocaleDateString('vi-VN')}
+                    {dob.toISOString().split('T')[0]}
                   </Text>
-                  <Ionicons name="calendar-outline" size={24} color="#666" />
+                  <Ionicons name="calendar-outline" size={22} color="#8B0000" />
                 </TouchableOpacity>
+                
                 {showDatePicker && (
                   <DateTimePicker
                     value={dob}
@@ -605,7 +635,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#ddd',
     paddingVertical: 12,
   },
   dateText: {
@@ -662,5 +692,11 @@ const styles = StyleSheet.create({
     marginTop: 5,
     color: '#666',
     fontSize: 12,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 }); 

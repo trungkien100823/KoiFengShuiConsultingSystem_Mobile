@@ -79,9 +79,6 @@ export default function LoginScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
             />
-            {email.length > 0 && (
-              <Ionicons name="checkmark" size={24} color="#4CAF50" />
-            )}
           </View>
         </View>
 
