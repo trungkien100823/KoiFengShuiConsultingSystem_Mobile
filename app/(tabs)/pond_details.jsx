@@ -11,8 +11,7 @@ import {
   Alert,
   StatusBar,
   Dimensions,
-  BackHandler,
-  Animated
+  BackHandler
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -42,14 +41,6 @@ export default function PondDetails() {
   const router = useRouter();
   const [pondDetails, setPondDetails] = useState(null);
   const [loading, setLoading] = useState(true);
-  const scrollY = new Animated.Value(0);
-
-  // Header opacity animation
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 1],
-    extrapolate: 'clamp'
-  });
 
   useEffect(() => {
     const fetchPondDetails = async () => {
@@ -119,165 +110,148 @@ export default function PondDetails() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      {/* Animated Header */}
-      <Animated.View style={[
-        styles.animatedHeader,
-        { opacity: headerOpacity }
-      ]}>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {pondDetails.pondName}
-        </Text>
-      </Animated.View>
-      
-      {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => router.push('/menu')}
+      <ImageBackground 
+        source={getPondImageSource(pondDetails.imageName)}
+        style={styles.backgroundImage}
+        resizeMode="cover"
       >
-        <Ionicons name="chevron-back" size={28} color="#fff" />
-      </TouchableOpacity>
-      
-      <Animated.ScrollView 
-        style={styles.scrollView} 
-        showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
-      >
-        {/* Hero Image Section */}
-        <View style={styles.heroContainer}>
-          <ImageBackground
-            source={getPondImageSource(pondDetails.imageName)}
-            style={styles.heroImage}
-          >
-            <LinearGradient
-              colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
-              style={styles.heroGradient}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
+          style={styles.overlay}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.push('/menu')}
             >
-              <View style={styles.heroContent}>
-                <Text style={styles.heroTitle}>{pondDetails.pondName}</Text>
-                <View style={styles.heroMetaContainer}>
-                  <View style={styles.heroMeta}>
+              <Ionicons name="chevron-back-circle" size={32} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView 
+            style={styles.scrollView} 
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={[styles.contentCard, { marginTop: 220 }]}>
+              <View style={styles.pondInfoSection}>
+                <Text style={styles.pondName}>{pondDetails.pondName}</Text>
+                <View style={styles.metaContainer}>
+                  <View style={styles.metaItem}>
                     <MaterialCommunityIcons 
                       name={elementIcons[pondDetails.element] || 'water'} 
                       size={18} 
-                      color={elementColors[pondDetails.element] || '#FFF'} 
+                      color={elementColors[pondDetails.element] || '#8B0000'} 
                     />
-                    <Text style={styles.heroMetaText}>{pondDetails.element}</Text>
+                    <Text style={styles.metaText}>{pondDetails.element}</Text>
                   </View>
                   
-                  <View style={styles.heroMetaDivider} />
+                  <View style={styles.metaDivider} />
                   
-                  <View style={styles.heroMeta}>
-                    <Feather name="box" size={16} color="#FFD700" />
-                    <Text style={styles.heroMetaText}>{pondDetails.shapeName}</Text>
+                  <View style={styles.metaItem}>
+                    <Feather name="box" size={16} color="#8B0000" />
+                    <Text style={styles.metaText}>{pondDetails.shapeName}</Text>
                   </View>
                 </View>
-              </View>
-            </LinearGradient>
-          </ImageBackground>
-        </View>
-        
-        <View style={styles.contentContainer}>
-          {/* Elegant Introduction */}
-          <View style={styles.introContainer}>
-            <View style={styles.sectionDivider}>
-              <View style={styles.dividerLine} />
-              <MaterialCommunityIcons 
-                name={elementIcons[pondDetails.element] || 'water'} 
-                size={22} 
-                color={elementColors[pondDetails.element]} 
-                style={styles.dividerIcon}
-              />
-              <View style={styles.dividerLine} />
-            </View>
-            <Text style={styles.introText}>
-              {pondDetails.introduction || defaultIntroduction}
-            </Text>
-          </View>
-          
-          {/* Main Info Card */}
-          <View style={styles.mainCard}>
-            {/* Description Section */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <MaterialIcons name="description" size={22} color="#8B0000" />
-                <Text style={styles.sectionTitle}>Mô Tả Chi Tiết</Text>
-              </View>
-              <Text style={styles.sectionContent}>
-                {pondDetails.description || defaultDescription}
-              </Text>
-            </View>
-            
-            {/* Specifications Grid */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Feather name="info" size={22} color="#8B0000" />
-                <Text style={styles.sectionTitle}>Thông Số</Text>
               </View>
               
-              <View style={styles.specsContainer}>
-                <View style={styles.specItem}>
-                  <View style={[styles.specIconContainer, { backgroundColor: '#f0f8ff' }]}>
-                    <Feather name="box" size={18} color="#006994" />
-                  </View>
-                  <View style={styles.specTextContainer}>
-                    <Text style={styles.specLabel}>Hình dạng</Text>
-                    <Text style={styles.specValue}>{pondDetails.shapeName}</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.specItem}>
-                  <View style={[styles.specIconContainer, { 
-                    backgroundColor: `${elementColors[pondDetails.element]}20` 
-                  }]}>
-                    <MaterialCommunityIcons 
-                      name={elementIcons[pondDetails.element]} 
-                      size={18} 
-                      color={elementColors[pondDetails.element]} 
-                    />
-                  </View>
-                  <View style={styles.specTextContainer}>
-                    <Text style={styles.specLabel}>Nguyên tố</Text>
-                    <Text style={[styles.specValue, { 
-                      color: elementColors[pondDetails.element] 
-                    }]}>
-                      {pondDetails.element}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-            
-            {/* Features List */}
-            {pondDetails.features && pondDetails.features.length > 0 && (
+              <View style={styles.divider} />
+              
+              {/* Elegant Introduction */}
               <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Feather name="list" size={22} color="#8B0000" />
-                  <Text style={styles.sectionTitle}>Đặc Điểm</Text>
+                <Text style={styles.sectionTitle}>
+                  <MaterialCommunityIcons 
+                    name={elementIcons[pondDetails.element] || 'water'} 
+                    size={18} 
+                    color={elementColors[pondDetails.element]} 
+                    style={styles.sectionIcon}
+                  />
+                  Giới Thiệu
+                </Text>
+                <Text style={styles.sectionContent}>
+                  {pondDetails.introduction || defaultIntroduction}
+                </Text>
+              </View>
+              
+              {/* Main Info Card */}
+              <View style={styles.mainCard}>
+                {/* Description Section */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>
+                    <MaterialIcons name="description" size={18} color="#8B0000" style={styles.sectionIcon} />
+                    Mô Tả Chi Tiết
+                  </Text>
+                  <Text style={styles.sectionContent}>
+                    {pondDetails.description || defaultDescription}
+                  </Text>
                 </View>
                 
-                <View style={styles.featuresList}>
-                  {pondDetails.features.map((feature, index) => (
-                    <View key={index} style={styles.featureItem}>
-                      <View style={styles.featureIconContainer}>
-                        <Feather name="check" size={14} color="#fff" />
+                {/* Specifications Grid */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>
+                    <Feather name="info" size={18} color="#8B0000" style={styles.sectionIcon} />
+                    Thông Số
+                  </Text>
+                  
+                  <View style={styles.specsContainer}>
+                    <View style={styles.specItem}>
+                      <View style={[styles.specIconContainer, { backgroundColor: '#f0f8ff' }]}>
+                        <Feather name="box" size={18} color="#006994" />
                       </View>
-                      <Text style={styles.featureText}>{feature}</Text>
+                      <View style={styles.specTextContainer}>
+                        <Text style={styles.specLabel}>Hình dạng</Text>
+                        <Text style={styles.specValue}>{pondDetails.shapeName}</Text>
+                      </View>
                     </View>
-                  ))}
+                    
+                    <View style={styles.specItem}>
+                      <View style={[styles.specIconContainer, { 
+                        backgroundColor: `${elementColors[pondDetails.element]}20` 
+                      }]}>
+                        <MaterialCommunityIcons 
+                          name={elementIcons[pondDetails.element]} 
+                          size={18} 
+                          color={elementColors[pondDetails.element]} 
+                        />
+                      </View>
+                      <View style={styles.specTextContainer}>
+                        <Text style={styles.specLabel}>Nguyên tố</Text>
+                        <Text style={[styles.specValue, { 
+                          color: elementColors[pondDetails.element] 
+                        }]}>
+                          {pondDetails.element}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
                 </View>
+                
+                {/* Features List */}
+                {pondDetails.features && pondDetails.features.length > 0 && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>
+                      <Feather name="list" size={18} color="#8B0000" style={styles.sectionIcon} />
+                      Đặc Điểm
+                    </Text>
+                    
+                    <View style={styles.featuresList}>
+                      {pondDetails.features.map((feature, index) => (
+                        <View key={index} style={styles.featureItem}>
+                          <View style={styles.featureIconContainer}>
+                            <Feather name="check" size={14} color="#fff" />
+                          </View>
+                          <Text style={styles.featureText}>{feature}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-          
-          <View style={styles.bottomPadding} />
-        </View>
-      </Animated.ScrollView>
+              
+              <View style={styles.bottomPadding} />
+            </View>
+          </ScrollView>
+        </LinearGradient>
+      </ImageBackground>
     </View>
   );
 }
@@ -285,159 +259,92 @@ export default function PondDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000',
   },
-  loadingContainer: {
+  backgroundImage: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    width: '100%',
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#8B0000',
-  },
-  errorContainer: {
+  overlay: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#8B0000',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#8B0000',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: Platform.OS === 'ios' ? 90 : 70,
-    backgroundColor: '#8B0000',
-    zIndex: 100,
-    paddingTop: Platform.OS === 'ios' ? 45 : 30,
-    paddingHorizontal: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    zIndex: 1,
   },
   backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 30,
-    left: 15,
-    width: 40,
-    height: 40,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 200,
   },
   scrollView: {
     flex: 1,
   },
-  heroContainer: {
-    height: height * 0.45,
-    width: width,
+  contentCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+    minHeight: '100%',
+    paddingHorizontal: 20,
   },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroGradient: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    padding: 20,
-  },
-  heroContent: {
+  pondInfoSection: {
+    alignItems: 'center',
     marginBottom: 20,
   },
-  heroTitle: {
-    fontSize: 28,
+  pondName: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#333',
     marginBottom: 12,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
-  heroMetaContainer: {
+  metaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  heroMeta: {
+  metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  heroMetaText: {
-    color: 'white',
+  metaText: {
+    color: '#8B0000',
     marginLeft: 6,
     fontSize: 14,
     fontWeight: '500',
   },
-  heroMetaDivider: {
+  metaDivider: {
     width: 1,
     height: 14,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
     marginHorizontal: 12,
   },
-  contentContainer: {
-    backgroundColor: '#f5f5f5',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -30,
-    paddingHorizontal: 20,
-    paddingTop: 30,
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginVertical: 20,
   },
-  introContainer: {
+  section: {
     marginBottom: 25,
-    alignItems: 'center',
   },
-  sectionDivider: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    width: '80%',
-    marginBottom: 16,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ddd',
+  sectionIcon: {
+    marginRight: 8,
   },
-  dividerIcon: {
-    marginHorizontal: 10,
-  },
-  introText: {
-    fontSize: 16,
+  sectionContent: {
+    fontSize: 15,
     lineHeight: 24,
     color: '#555',
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
   mainCard: {
     backgroundColor: 'white',
@@ -448,26 +355,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+    marginBottom: 20,
   },
-  section: {
-    marginBottom: 25,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginLeft: 8,
-  },
-  sectionContent: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#444',
-  },
+  
+  // Các styles còn lại cập nhật để phù hợp với giao diện mới
+  
   specsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -525,6 +417,42 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   bottomPadding: {
-    height: 30,
+    height: 40,
+  },
+  // Các styles cho loading và error state
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#8B0000',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#8B0000',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#8B0000',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
