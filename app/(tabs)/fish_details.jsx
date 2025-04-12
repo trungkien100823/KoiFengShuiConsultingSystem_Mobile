@@ -12,7 +12,8 @@ import {
   Platform,
   Dimensions,
   ImageBackground,
-  BackHandler
+  BackHandler,
+  Animated
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, AntDesign, Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -63,6 +64,13 @@ export default function FishDetails() {
   const [pondsByShape, setPondsByShape] = useState([]);
   const [selectedPondDetails, setSelectedPondDetails] = useState(null);
   const [hasCalculated, setHasCalculated] = useState(false);
+  const scrollY = new Animated.Value(0);
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp'
+  });
 
   const directions = [
     {key: '1', value: 'Đông'},
@@ -400,320 +408,316 @@ export default function FishDetails() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
-      
-      {/* Hero Image Section */}
-      <View style={styles.heroContainer}>
-        <ImageBackground
-          source={
-            koiDetails?.imageUrl
-              ? { uri: koiDetails.imageUrl }
-              : require('../../assets/images/koi_image.jpg')
+      <ImageBackground 
+        source={
+          koiDetails?.imageUrl
+            ? { uri: koiDetails.imageUrl }
+            : require('../../assets/images/koi_image.jpg')
+        }
+        style={styles.backgroundImage}
+        resizeMode="cover"
+        onError={(error) => {
+          console.log('Image loading error:', error.nativeEvent.error);
+          if (error.nativeEvent.error) {
+            console.log('URL ảnh lỗi:', koiDetails?.imageUrl);
           }
-          style={styles.heroImage}
-          onError={(error) => {
-            console.log('Image loading error:', error.nativeEvent.error);
-            if (error.nativeEvent.error) {
-              console.log('URL ảnh lỗi:', koiDetails?.imageUrl);
-            }
-          }}
+        }}
+      >
+        <LinearGradient
+          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)']}
+          style={styles.overlay}
         >
-          <LinearGradient
-            colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.9)']}
-            style={styles.heroOverlay}
-          >
+          <View style={styles.header}>
             <TouchableOpacity 
               style={styles.backButton}
               onPress={() => router.push('/menu')}
             >
-              <Ionicons name="chevron-back" size={28} color="#fff" />
+              <Ionicons name="chevron-back-circle" size={32} color="#FFF" />
             </TouchableOpacity>
-            
-            <View style={styles.heroContent}>
-              <Text style={styles.heroTitle}>{params.name || 'Koi Fish'}</Text>
-              <View style={styles.tagContainer}>
-                <View style={styles.tag}>
-                  <FontAwesome5 name="ruler" size={12} color="#FFD700" />
-                  <Text style={styles.tagText}>{params.size || 'Medium'}</Text>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-        </ImageBackground>
-      </View>
-      
-      <ScrollView 
-        style={styles.scrollView} 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Introduction Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <FontAwesome5 name="fish" size={16} color="#8B0000" style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>Giới Thiệu</Text>
           </View>
-          <Text style={styles.cardText}>
-            {koiDetails?.introduction || 'Thông tin đang được cập nhật...'}
-          </Text>
-        </View>
 
-        {/* Description Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <MaterialIcons name="description" size={16} color="#8B0000" style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>Mô Tả</Text>
-          </View>
-          <Text style={styles.cardText}>
-            {koiDetails?.description || 'Thông tin đang được cập nhật...'}
-          </Text>
-        </View>
-        
-        {/* Color Configuration Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <MaterialIcons name="color-lens" size={18} color="#8B0000" style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>Màu Sắc</Text>
-          </View>
-          
-          {koiDetails?.colors && koiDetails.colors.map((color, index) => (
-            <View key={index} style={styles.colorRow}>
-              <View style={styles.colorLabelContainer}>
-                <View 
-                  style={[styles.colorDot, { 
-                    backgroundColor: colorCodeMap[color.colorName] || '#ccc',
-                    borderColor: color.colorName === 'Trắng' ? '#ddd' : 'transparent'
-                  }]} 
-                />
-                <Text style={styles.colorLabel}>{color.colorName}</Text>
-              </View>
-              
-              <View style={styles.sliderContainer}>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={0}
-                  maximumValue={100}
-                  value={color.percentage}
-                  onValueChange={(value) => {
-                    const updatedColors = [...koiDetails.colors];
-                    updatedColors[index].percentage = Math.round(value);
-                    setKoiDetails({...koiDetails, colors: updatedColors});
-                  }}
-                  minimumTrackTintColor="#8B0000"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#8B0000"
-                  step={1}
-                />
-                <View style={styles.percentageContainer}>
-                  <Text style={styles.percentageText}>{Math.round(color.percentage)}%</Text>
+          <ScrollView 
+            style={styles.scrollView} 
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.contentCard}>
+              <View style={styles.fishInfoSection}>
+                <Text style={styles.fishName}>{params.name || 'Koi Fish'}</Text>
+                <View style={styles.tagContainer}>
+                  <View style={styles.tag}>
+                    <FontAwesome5 name="ruler" size={14} color="#FFD700" />
+                    <Text style={styles.tagText}>{params.size || 'Medium'}</Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
-          
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tổng phần trăm:</Text>
-            <Text style={[
-              styles.totalValue,
-              koiDetails?.colors && 
-              Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 ? 
-              styles.totalValueError : {}
-            ]}>
-              {koiDetails?.colors ? 
-                Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) : 0}%
-            </Text>
-          </View>
-          
-          {koiDetails?.colors && 
-           Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 && (
-            <Text style={styles.errorMessage}>
-              Tổng phần trăm các màu phải bằng 100%
-            </Text>
-          )}
-        </View>
-        
-        {/* Pond Configuration Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="water-outline" size={18} color="#8B0000" style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>Cấu Hình Hồ</Text>
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Hình Dạng Hồ</Text>
-            <SelectList
-              setSelected={handleShapeSelect}
-              data={pondShapes}
-              placeholder="Chọn hình dạng hồ"
-              boxStyles={styles.selectBox}
-              dropdownStyles={styles.dropdown}
-              inputStyles={styles.selectInput}
-              dropdownTextStyles={styles.dropdownText}
-              search={false}
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Chọn Hồ</Text>
-            
-            {pondsByShape.length > 0 ? (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.pondCardsContainer}
-              >
-                {pondsByShape.map((pond, index) => (
-                  <TouchableOpacity 
-                    key={index} 
-                    style={[
-                      styles.pondCard,
-                      selectedPond === pond.koiPondId && styles.selectedPondCard
-                    ]}
-                    onPress={() => handlePondSelect(pond)}
-                  >
-                    <Image 
-                      source={
-                        pond.shapeName === 'Hình chữ nhật' ? require('../../assets/images/natural_pond.jpg') :
-                        pond.shapeName === 'Hình tròn' ? require('../../assets/images/raised_pond.jpg') :
-                        pond.shapeName === 'Hình bầu dục' ? require('../../assets/images/zen_pond.jpg') :
-                        require('../../assets/images/formal_pond.jpg')
-                      }
-                      style={styles.pondImage}
-                    />
-                    {selectedPond === pond.koiPondId && (
-                      <View style={styles.selectedOverlay}>
-                        <AntDesign name="checkcircle" size={24} color="#FFF" />
-                      </View>
-                    )}
-                    <View style={styles.pondNameContainer}>
-                      <Text style={styles.pondName}>{pond.pondName}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : (
-              <View style={styles.emptyPondsContainer}>
-                <Feather name="alert-circle" size={24} color="#999" />
-                <Text style={styles.emptyPondsText}>
-                  Không tìm thấy hồ cho hình dạng này
+
+              <View style={styles.divider} />
+
+              {/* Introduction Card */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  <FontAwesome5 name="fish" size={16} color="#8B0000" style={styles.sectionIcon} />
+                  Giới Thiệu
+                </Text>
+                <Text style={styles.sectionContent}>
+                  {koiDetails?.introduction || 'Thông tin đang được cập nhật...'}
                 </Text>
               </View>
-            )}
-          </View>
-          
-          {selectedPondDetails && (
-            <View style={styles.pondDetails}>
-              <View style={styles.pondDetailsHeader}>
-                <Ionicons name="information-circle-outline" size={18} color="#8B0000" />
-                <Text style={styles.pondDetailsTitle}>Thông Tin Hồ</Text>
+
+              {/* Description Card */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  <MaterialIcons name="description" size={16} color="#8B0000" style={styles.sectionIcon} />
+                  Mô Tả
+                </Text>
+                <Text style={styles.sectionContent}>
+                  {koiDetails?.description || 'Thông tin đang được cập nhật...'}
+                </Text>
               </View>
               
-              <View style={styles.pondInfoGrid}>
-                <View style={styles.pondInfoItem}>
-                  <Text style={styles.pondInfoLabel}>Tên:</Text>
-                  <Text style={styles.pondInfoValue}>{selectedPondDetails.pondName}</Text>
+              {/* Color Configuration Card */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  <MaterialIcons name="color-lens" size={18} color="#8B0000" style={styles.sectionIcon} />
+                  Màu Sắc
+                </Text>
+                
+                {koiDetails?.colors && koiDetails.colors.map((color, index) => (
+                  <View key={index} style={styles.colorRow}>
+                    <View style={styles.colorLabelContainer}>
+                      <View 
+                        style={[styles.colorDot, { 
+                          backgroundColor: colorCodeMap[color.colorName] || '#ccc',
+                          borderColor: color.colorName === 'Trắng' ? '#ddd' : 'transparent'
+                        }]} 
+                      />
+                      <Text style={styles.colorLabel}>{color.colorName}</Text>
+                    </View>
+                    
+                    <View style={styles.sliderContainer}>
+                      <Slider
+                        style={styles.slider}
+                        minimumValue={0}
+                        maximumValue={100}
+                        value={color.percentage}
+                        onValueChange={(value) => {
+                          const updatedColors = [...koiDetails.colors];
+                          updatedColors[index].percentage = Math.round(value);
+                          setKoiDetails({...koiDetails, colors: updatedColors});
+                        }}
+                        minimumTrackTintColor="#8B0000"
+                        maximumTrackTintColor="#E0E0E0"
+                        thumbTintColor="#8B0000"
+                        step={1}
+                      />
+                      <View style={styles.percentageContainer}>
+                        <Text style={styles.percentageText}>{Math.round(color.percentage)}%</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+                
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Tổng phần trăm:</Text>
+                  <Text style={[
+                    styles.totalValue,
+                    koiDetails?.colors && 
+                    Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 ? 
+                    styles.totalValueError : {}
+                  ]}>
+                    {koiDetails?.colors ? 
+                      Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) : 0}%
+                  </Text>
                 </View>
                 
-                <View style={styles.pondInfoItem}>
-                  <Text style={styles.pondInfoLabel}>Hình dạng:</Text>
-                  <Text style={styles.pondInfoValue}>{selectedPondDetails.shapeName}</Text>
+                {koiDetails?.colors && 
+                Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 && (
+                  <Text style={styles.errorMessage}>
+                    Tổng phần trăm các màu phải bằng 100%
+                  </Text>
+                )}
+              </View>
+              
+              {/* Pond Configuration Card */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  <Ionicons name="water-outline" size={18} color="#8B0000" style={styles.sectionIcon} />
+                  Cấu Hình Hồ
+                </Text>
+                
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Hình Dạng Hồ</Text>
+                  <SelectList
+                    setSelected={handleShapeSelect}
+                    data={pondShapes}
+                    placeholder="Chọn hình dạng hồ"
+                    boxStyles={styles.selectBox}
+                    dropdownStyles={styles.dropdown}
+                    inputStyles={styles.selectInput}
+                    dropdownTextStyles={styles.dropdownText}
+                    search={false}
+                  />
                 </View>
                 
-                <View style={styles.pondInfoItem}>
-                  <Text style={styles.pondInfoLabel}>Nguyên tố:</Text>
-                  <Text style={styles.pondInfoValue}>{selectedPondDetails.element}</Text>
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Chọn Hồ</Text>
+                  
+                  {pondsByShape.length > 0 ? (
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.pondCardsContainer}
+                    >
+                      {pondsByShape.map((pond, index) => (
+                        <TouchableOpacity 
+                          key={index} 
+                          style={[
+                            styles.pondCard,
+                            selectedPond === pond.koiPondId && styles.selectedPondCard
+                          ]}
+                          onPress={() => handlePondSelect(pond)}
+                        >
+                          <Image 
+                            source={
+                              pond.shapeName === 'Hình chữ nhật' ? require('../../assets/images/natural_pond.jpg') :
+                              pond.shapeName === 'Hình tròn' ? require('../../assets/images/raised_pond.jpg') :
+                              pond.shapeName === 'Hình bầu dục' ? require('../../assets/images/zen_pond.jpg') :
+                              require('../../assets/images/formal_pond.jpg')
+                            }
+                            style={styles.pondImage}
+                          />
+                          {selectedPond === pond.koiPondId && (
+                            <View style={styles.selectedOverlay}>
+                              <AntDesign name="checkcircle" size={24} color="#FFF" />
+                            </View>
+                          )}
+                          <View style={styles.pondNameContainer}>
+                            <Text style={styles.pondName}>{pond.pondName}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <View style={styles.emptyPondsContainer}>
+                      <Feather name="alert-circle" size={24} color="#999" />
+                      <Text style={styles.emptyPondsText}>
+                        Không tìm thấy hồ cho hình dạng này
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 
-                <View style={styles.pondInfoItem}>
-                  <Text style={styles.pondInfoLabel}>Diện tích:</Text>
-                  <Text style={styles.pondInfoValue}>{selectedPondDetails.area} m²</Text>
+                {selectedPondDetails && (
+                  <View style={styles.pondDetails}>
+                    <View style={styles.pondDetailsHeader}>
+                      <Ionicons name="information-circle-outline" size={18} color="#8B0000" />
+                      <Text style={styles.pondDetailsTitle}>Thông Tin Hồ</Text>
+                    </View>
+                    
+                    <View style={styles.pondInfoGrid}>
+                      <View style={styles.pondInfoItem}>
+                        <Text style={styles.pondInfoLabel}>Tên:</Text>
+                        <Text style={styles.pondInfoValue}>{selectedPondDetails.pondName}</Text>
+                      </View>
+                      
+                      <View style={styles.pondInfoItem}>
+                        <Text style={styles.pondInfoLabel}>Hình dạng:</Text>
+                        <Text style={styles.pondInfoValue}>{selectedPondDetails.shapeName}</Text>
+                      </View>
+                      
+                      <View style={styles.pondInfoItem}>
+                        <Text style={styles.pondInfoLabel}>Nguyên tố:</Text>
+                        <Text style={styles.pondInfoValue}>{selectedPondDetails.element}</Text>
+                      </View>
+                      
+                      <View style={styles.pondInfoItem}>
+                        <Text style={styles.pondInfoLabel}>Diện tích:</Text>
+                        <Text style={styles.pondInfoValue}>{selectedPondDetails.area} m²</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+                
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Hướng Đặt Hồ</Text>
+                  <SelectList
+                    setSelected={setSelected}
+                    data={directions}
+                    placeholder="Chọn hướng đặt hồ"
+                    boxStyles={styles.selectBox}
+                    dropdownStyles={styles.dropdown}
+                    inputStyles={styles.selectInput}
+                    dropdownTextStyles={styles.dropdownText}
+                    search={false}
+                  />
+                </View>
+                
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Số Lượng Cá</Text>
+                  <View style={styles.fishCountControl}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.countButton,
+                        fishCount <= 1 && styles.disabledButton
+                      ]}
+                      onPress={() => adjustFishCount(false)}
+                      disabled={fishCount <= 1}
+                    >
+                      <AntDesign name="minus" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                    
+                    <View style={styles.countDisplay}>
+                      <Text style={styles.countValue}>{fishCount}</Text>
+                      <Text style={styles.countUnit}>con</Text>
+                    </View>
+                    
+                    <TouchableOpacity 
+                      style={styles.countButton}
+                      onPress={() => adjustFishCount(true)}
+                    >
+                      <AntDesign name="plus" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Hướng Đặt Hồ</Text>
-            <SelectList
-              setSelected={setSelected}
-              data={directions}
-              placeholder="Chọn hướng đặt hồ"
-              boxStyles={styles.selectBox}
-              dropdownStyles={styles.dropdown}
-              inputStyles={styles.selectInput}
-              dropdownTextStyles={styles.dropdownText}
-              search={false}
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Số Lượng Cá</Text>
-            <View style={styles.fishCountControl}>
+              
+              {/* Calculate Button */}
               <TouchableOpacity 
-                style={[
-                  styles.countButton,
-                  fishCount <= 1 && styles.disabledButton
-                ]}
-                onPress={() => adjustFishCount(false)}
-                disabled={fishCount <= 1}
+                style={styles.calculateButtonContainer}
+                onPress={calculateCompatibility}
               >
-                <AntDesign name="minus" size={20} color="#FFF" />
+                <LinearGradient
+                  colors={['#8B0000', '#650000']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.calculateButton}
+                >
+                  <Text style={styles.calculateButtonText}>Tính Tương Hợp</Text>
+                  <MaterialIcons name="calculate" size={22} color="#FFF" style={styles.calculateIcon} />
+                </LinearGradient>
               </TouchableOpacity>
               
-              <View style={styles.countDisplay}>
-                <Text style={styles.countValue}>{fishCount}</Text>
-                <Text style={styles.countUnit}>con</Text>
-              </View>
+              {/* Results Card - Only show if we have calculated */}
+              {hasCalculated && (
+                <View style={styles.section}>
+                  <View style={styles.scoreContainer}>
+                    <View style={styles.scoreCircle}>
+                      <Text style={styles.scoreValue}>{compatibilityScore}%</Text>
+                    </View>
+                    <Text style={styles.scoreLabel}>Mức độ tương hợp</Text>
+                  </View>
+                  
+                  <Text style={styles.compatibilityMessage}>
+                    {compatibilityMessage || 'Không có thông tin tương hợp.'}
+                  </Text>
+                </View>
+              )}
               
-              <TouchableOpacity 
-                style={styles.countButton}
-                onPress={() => adjustFishCount(true)}
-              >
-                <AntDesign name="plus" size={20} color="#FFF" />
-              </TouchableOpacity>
+              <View style={styles.bottomPadding} />
             </View>
-          </View>
-        </View>
-        
-        {/* Calculate Button */}
-        <TouchableOpacity 
-          style={styles.calculateButtonContainer}
-          onPress={calculateCompatibility}
-        >
-          <LinearGradient
-            colors={['#8B0000', '#650000']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.calculateButton}
-          >
-            <Text style={styles.calculateButtonText}>Tính Tương Hợp</Text>
-            <MaterialIcons name="calculate" size={22} color="#FFF" style={styles.calculateIcon} />
-          </LinearGradient>
-        </TouchableOpacity>
-        
-        {/* Results Card - Only show if we have calculated */}
-        {hasCalculated && (
-          <View style={[styles.card, styles.resultsCard]}>
-            <View style={styles.cardHeader}>
-              <AntDesign name="barschart" size={18} color="#8B0000" style={styles.cardIcon} />
-              <Text style={styles.cardTitle}>Kết Quả Tương Hợp</Text>
-            </View>
-            
-            <View style={styles.scoreContainer}>
-              <View style={styles.scoreCircle}>
-                <Text style={styles.scoreValue}>{compatibilityScore}%</Text>
-              </View>
-              <Text style={styles.scoreLabel}>Mức độ tương hợp</Text>
-            </View>
-            
-            <Text style={styles.compatibilityMessage}>
-              {compatibilityMessage || 'Không có thông tin tương hợp.'}
-            </Text>
-          </View>
-        )}
-        
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+          </ScrollView>
+        </LinearGradient>
+      </ImageBackground>
     </View>
   );
 }
@@ -721,42 +725,49 @@ export default function FishDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000',
   },
-  heroContainer: {
-    height: height * 0.35,
-    width: width,
-  },
-  heroImage: {
+  backgroundImage: {
+    flex: 1,
     width: '100%',
-    height: '100%',
   },
-  heroOverlay: {
-    width: '100%',
-    height: '100%',
+  overlay: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    zIndex: 1,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: 180,
+    paddingTop: 20,
+    minHeight: '100%',
+    paddingHorizontal: 20,
+  },
+  fishInfoSection: {
     alignItems: 'center',
-    marginTop: Platform.OS === 'ios' ? 40 : 10,
+    marginBottom: 20,
   },
-  heroContent: {
-    padding: 16,
-  },
-  heroTitle: {
-    fontSize: 28,
+  fishName: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFF',
+    color: '#333',
     marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   tagContainer: {
     flexDirection: 'row',
@@ -765,56 +776,42 @@ const styles = StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 20,
   },
   tagText: {
-    color: '#FFF',
+    color: '#8B0000',
     fontSize: 14,
     marginLeft: 6,
+    fontWeight: '600',
   },
-  scrollView: {
-    flex: 1,
-    marginTop: -25,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    backgroundColor: '#f5f5f5',
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginVertical: 20,
   },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
+  section: {
+    marginBottom: 25,
   },
-  card: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
-    elevation: 3,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardIcon: {
-    marginRight: 8,
-  },
-  cardTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  cardText: {
+  sectionIcon: {
+    marginRight: 8,
+  },
+  sectionContent: {
     fontSize: 15,
-    lineHeight: 22,
     color: '#555',
+    lineHeight: 22,
   },
+  
   colorRow: {
     marginBottom: 16,
   },
@@ -1041,14 +1038,14 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   calculateButtonContainer: {
-    marginBottom: 16,
-    borderRadius: 12,
+    marginVertical: 20,
+    borderRadius: 25,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   calculateButton: {
     flexDirection: 'row',
@@ -1060,13 +1057,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
+    marginRight: 8,
   },
   calculateIcon: {
-    marginLeft: 8,
+    marginLeft: 4,
   },
-  resultsCard: {
-    borderWidth: 1,
-    borderColor: '#8B0000',
+  bottomPadding: {
+    height: 50,
   },
   scoreContainer: {
     alignItems: 'center',
@@ -1102,8 +1099,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     marginBottom: 10,
-  },
-  bottomPadding: {
-    height: 40,
   },
 }); 

@@ -188,16 +188,7 @@ const YourBooking = () => {
       if (response.data && response.data.isSuccess) {
         const bookingData = {
           ...response.data.data,
-          masterNote: response.data.data.masterNote || `Kế hoạch tư vấn tại địa điểm:
-1. Khảo sát thực địa
-2. Đo đạc và phân tích phong thủy
-3. Tư vấn bố trí và sắp xếp
-4. Đề xuất giải pháp tối ưu
-
-Lưu ý:
-- Chuẩn bị sơ đồ mặt bằng
-- Thông tin năm sinh các thành viên
-- Các vấn đề cần tập trung tư vấn`
+          masterNote: response.data.data.masterNote || `Chưa có ghi chú`
         };
         setSelectedBooking(bookingData);
         setBookingDetailVisible(true);

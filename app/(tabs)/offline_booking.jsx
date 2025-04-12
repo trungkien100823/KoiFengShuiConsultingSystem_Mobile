@@ -24,6 +24,7 @@ export default function OfflineBookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [shouldCompleteBooking, setShouldCompleteBooking] = useState(false);
   
@@ -44,11 +45,13 @@ export default function OfflineBookingScreen() {
       // Reset các state khi màn hình được focus lại
       setSelectedDate(null);
       setDescription('');
+      setLocation('');
       setCurrentMonth(new Date().getMonth());
       setCurrentYear(new Date().getFullYear());
       
       // Xóa dữ liệu đã lưu trong AsyncStorage nếu có
       AsyncStorage.removeItem('offlineBookingDescription');
+      AsyncStorage.removeItem('offlineBookingLocation');
       AsyncStorage.removeItem('offlineBookingDate');
       
       return () => {
@@ -138,15 +141,20 @@ export default function OfflineBookingScreen() {
   };
 
   const handleContinue = () => {
-    // Kiểm tra cả 2 điều kiện
-    if (!selectedDate && !description.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng chọn ngày và nhập mô tả nhu cầu tư vấn');
+    // Kiểm tra cả 3 điều kiện
+    if (!selectedDate && !description.trim() && !location.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng chọn ngày, nhập địa điểm và mô tả nhu cầu tư vấn');
       return;
     }
 
     // Kiểm tra riêng từng điều kiện để hiển thị thông báo cụ thể
     if (!selectedDate) {
       Alert.alert('Thông báo', 'Vui lòng chọn ngày tư vấn');
+      return;
+    }
+
+    if (!location.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập địa điểm tư vấn');
       return;
     }
 
@@ -162,6 +170,7 @@ export default function OfflineBookingScreen() {
 
     // Lưu thông tin vào AsyncStorage
     AsyncStorage.setItem('offlineBookingDescription', description);
+    AsyncStorage.setItem('offlineBookingLocation', location);
     AsyncStorage.setItem('offlineBookingDate', isoDate);
     
     // Chuyển sang màn hình chọn gói tư vấn
@@ -184,7 +193,8 @@ export default function OfflineBookingScreen() {
       `${API_CONFIG.baseURL}/api/Booking/offline-transaction-complete`,
       {
         description: description,
-        startDate: selectedDate
+        startDate: selectedDate,
+        location: location
       },
       {
         params: {
@@ -222,6 +232,7 @@ export default function OfflineBookingScreen() {
           if (response.data && response.data.isSuccess && response.data.data) {
             const bookingOfflineId = response.data.data.bookingOfflineId;
             await AsyncStorage.removeItem('offlineBookingDescription');
+            await AsyncStorage.removeItem('offlineBookingLocation');
             await AsyncStorage.removeItem('offlineBookingDate');
             Alert.alert(
               'Thành công',
@@ -296,11 +307,12 @@ export default function OfflineBookingScreen() {
         <SafeAreaView style={styles.safeArea}>
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <ScrollView 
-              style={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              {/* Enhanced Header */}
+              {/* Header */}
               <View style={styles.header}>
                 <TouchableOpacity 
                   style={styles.backButton}
@@ -310,7 +322,7 @@ export default function OfflineBookingScreen() {
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Đặt lịch tư vấn trực tiếp</Text>
               </View>
-              
+
               {/* Calendar Card */}
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Chọn ngày tư vấn</Text>
@@ -403,10 +415,24 @@ export default function OfflineBookingScreen() {
                 )}
               </View>
               
-              {/* Description Card */}
+              {/* Form Card */}
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Thông tin khách hàng</Text>
                 
+                <View style={styles.descriptionContainer}>
+                  <Text style={styles.descriptionLabel}>Địa điểm tư vấn*</Text>
+                  <TextInput
+                    style={styles.descriptionInput}
+                    value={location}
+                    onChangeText={setLocation}
+                    placeholder="Vui lòng nhập địa điểm tư vấn"
+                    placeholderTextColor="#999"
+                    multiline
+                    numberOfLines={2}
+                    textAlignVertical="top"
+                  />
+                </View>
+
                 <View style={styles.descriptionContainer}>
                   <Text style={styles.descriptionLabel}>Mô tả nhu cầu tư vấn*</Text>
                   <TextInput
@@ -421,7 +447,7 @@ export default function OfflineBookingScreen() {
                   />
                 </View>
               </View>
-              
+
               {/* Submit Button */}
               {isSubmitting ? (
                 <View style={styles.loadingContainer}>
@@ -474,10 +500,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  scrollContent: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
   header: {
     flexDirection: 'row',
