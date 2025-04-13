@@ -126,7 +126,7 @@ export default function OnlineBookingScreen() {
     if (fromMasterDetails) {
       masterId = selectedMasterId;
       masterName = selectedMasterName;
-    } else if (selectedConsultant && selectedConsultant !== null) {
+    } else if (selectedConsultant && selectedConsultant !== 'null') {
       const selectedMaster = consultants.find(c => c.key === selectedConsultant);
       if (selectedMaster) {
         masterId = selectedMaster.key;

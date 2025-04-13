@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from './config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define consultant images that we can map to based on consultant IDs or names
 const consultantImages = {
@@ -150,6 +151,68 @@ export const consultingAPI = {
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
+      throw error;
+    }
+  },
+  
+  // Lấy lịch của tất cả các master
+  getAllMasterSchedules: async () => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('Không tìm thấy token đăng nhập');
+      }
+      
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getSchedulesForMobile}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && response.data.isSuccess) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Không thể lấy lịch của các master');
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy lịch của tất cả các master:', error);
+      throw error;
+    }
+  },
+  
+  // Lấy lịch của một master cụ thể
+  getMasterScheduleById: async (masterId) => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('Không tìm thấy token đăng nhập');
+      }
+      
+      if (!masterId) {
+        throw new Error('Không có ID master');
+      }
+      
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getSchedulesByMaster.replace('{id}', masterId)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && response.data.isSuccess) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Không thể lấy lịch của master');
+      }
+    } catch (error) {
+      console.error(`Lỗi khi lấy lịch của master ${masterId}:`, error);
       throw error;
     }
   }

@@ -186,10 +186,13 @@ const YourBooking = () => {
       );
 
       if (response.data && response.data.isSuccess) {
-        const bookingData = {
-          ...response.data.data,
-          masterNote: response.data.data.masterNote || `Chưa có ghi chú`
-        };
+        const bookingData = response.data.data;
+        
+        // Chỉ thiết lập masterNote cho BookingOnline
+        if (bookingData.type === 'Online') {
+          bookingData.masterNote = bookingData.masterNote || 'Chưa có ghi chú';
+        }
+        
         setSelectedBooking(bookingData);
         setBookingDetailVisible(true);
       }
@@ -284,12 +287,117 @@ const YourBooking = () => {
     }
   };
 
+  // Thêm hàm cancelBooking
+  const cancelBooking = async (booking) => {
+    try {
+      if (booking.status.trim() !== 'Pending') {
+        Alert.alert('Thông báo', 'Chỉ có thể hủy các đặt lịch đang ở trạng thái chờ xử lý');
+        return;
+      }
+
+      Alert.alert(
+        'Xác nhận hủy lịch',
+        'Bạn có chắc chắn muốn hủy lịch đặt tư vấn này không?',
+        [
+          {
+            text: 'Hủy',
+            style: 'cancel',
+          },
+          {
+            text: 'Xác nhận',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                
+                const token = await getAuthToken();
+                if (!token) {
+                  Alert.alert('Thông báo', 'Vui lòng đăng nhập lại để tiếp tục');
+                  setLoading(false);
+                  return;
+                }
+                
+                // Gọi API để hủy booking
+                const response = await axios.get(
+                  `${API_CONFIG.baseURL}/api/Booking/cancel-pending-booking/${booking.id}?bookingType=${booking.type}`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+                
+                if (response.data && response.data.isSuccess) {
+                  // Giữ màn hình loading hiển thị trong khi xử lý
+                  setTimeout(() => {
+                    setLoading(false);
+                    Alert.alert(
+                      'Thành công',
+                      'Đã hủy lịch đặt tư vấn thành công',
+                      [
+                        {
+                          text: 'OK',
+                          onPress: async () => {
+                            try {
+                              setLoading(true); // Hiển thị loading khi làm mới danh sách
+                              // Xóa dữ liệu hiện tại
+                              setBookings([]);
+                              
+                              // Chờ một chút để backend cập nhật trạng thái
+                              await new Promise(resolve => setTimeout(resolve, 1000));
+                              
+                              // Lấy dữ liệu mới
+                              await fetchBookings();
+                              
+                              // Tắt loading sau khi đã lấy dữ liệu
+                              setLoading(false);
+                              
+                              // Thực hiện thêm một lần refresh nữa sau khoảng thời gian ngắn
+                              setTimeout(async () => {
+                                try {
+                                  await fetchBookings();
+                                } catch (error) {
+                                  console.error('Lỗi khi refresh lần 2:', error);
+                                }
+                              }, 1000);
+                            } catch (error) {
+                              console.error('Lỗi khi refresh sau khi hủy booking:', error);
+                              setLoading(false);
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }, 100); // Hiển thị loading thêm 0.5 giây trước khi hiện thông báo thành công
+                } else {
+                  setLoading(false);
+                  Alert.alert('Thông báo', response.data?.message || 'Không thể hủy lịch đặt tư vấn. Vui lòng thử lại sau.');
+                }
+              } catch (error) {
+                console.error('Lỗi khi hủy booking:', error);
+                setLoading(false);
+                Alert.alert('Thông báo', 'Đã xảy ra lỗi khi hủy lịch. Vui lòng thử lại sau.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Lỗi khi hủy booking:', error);
+      Alert.alert('Thông báo', 'Đã xảy ra lỗi. Vui lòng thử lại sau.');
+    }
+  };
+
   const renderBookingItem = ({ item }) => {
     // Điều kiện hiển thị nút thanh toán cho Online và Offline
     const showPaymentButton = 
       (item.type === 'Online' && item.status.trim() === 'Pending') ||
       (item.type === 'Offline' && (item.status.trim() === 'VerifiedOTP' || 
                                    item.status.trim() === 'VerifiedOTPAttachment'));
+    
+    // Điều kiện hiển thị nút hủy lịch cho các booking có status Pending
+    const showCancelButton = item.status.trim() === 'Pending';
 
     // Điều kiện hiển thị nút xem hợp đồng cho Offline
     const isOffline = item.type === 'Offline';
@@ -411,6 +519,16 @@ const YourBooking = () => {
               >
                 <Ionicons name="wallet-outline" size={20} color="#fff" />
                 <Text style={styles.paymentButtonText}>Thanh toán</Text>
+              </TouchableOpacity>
+            )}
+            
+            {showCancelButton && (
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => cancelBooking(item)}
+              >
+                <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                <Text style={styles.cancelButtonText}>Hủy lịch</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -752,16 +870,6 @@ const YourBooking = () => {
         <Text style={styles.detailLabel}>Mô tả:</Text>
         <Text style={styles.descriptionText}>{booking?.description || 'Chưa có mô tả'}</Text>
       </View>
-
-      {booking?.masterNote && (
-        <View style={styles.masterNoteContainer}>
-          <Text style={styles.masterNoteLabel}>
-            <Ionicons name="document-text-outline" size={16} color="#666" />
-            {" "}Ghi chú của Master
-          </Text>
-          <Text style={styles.masterNoteText}>{booking.masterNote}</Text>
-        </View>
-      )}
     </View>
   );
 
@@ -1288,6 +1396,23 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   linkText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F44336',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 5,
+    gap: 5,
+  },
+  cancelButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',

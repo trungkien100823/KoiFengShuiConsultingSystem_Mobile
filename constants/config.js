@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-//const DEV_API_URL = 'http://192.168.1.32:5261';
-const DEV_API_URL = 'http://192.168.31.148:5261';
+const DEV_API_URL = 'http://192.168.1.32:5261';
+//const DEV_API_URL = 'http://192.168.31.148:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
@@ -17,6 +17,7 @@ export const API_CONFIG = {
     filterKoi: '/api/KoiVariety/filter',
     compatibleElements: '/api/KoiVariety/compatible-elements',
     colorsByElement: '/api/KoiVariety/api/colors-by-element/{element}',
+    getByColor: '/api/KoiVariety/get-by-color',
 
     // Booking endpoints
     createBooking: '/api/Booking/create',
@@ -27,6 +28,7 @@ export const API_CONFIG = {
     getAllBookingOnlineEnums: '/api/Booking/get-all-bookingOnlineEnums',
     getAllBookingOfflineEnums: '/api/Booking/get-all-bookingOfflineEnums',
     getBookingsByTypeAndStatus: '/api/Booking/get-bookings-by-type-and-status',
+    cancelPendingBooking: '/api/Booking/cancel-pending-booking/{bookingId}',
 
     // Pond endpoints
     allPonds: '/api/KoiPond/get-all',
@@ -62,6 +64,10 @@ export const API_CONFIG = {
     masterDetails: '/api/Master/{id}',
     getAllConsultants: '/api/Master/get-all',
 
+    //masterSchedule endpoints
+    getSchedulesByMaster: '/api/MasterSchedule/get-schedules-by-master/{id}',
+    getSchedulesForMobile: '/api/MasterSchedule/get-schedules-for-mobile',
+    
     // payment endpoints
     payment: '/api/Payment/payos/customer/payment-url',
 

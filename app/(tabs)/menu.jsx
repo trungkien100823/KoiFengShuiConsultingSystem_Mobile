@@ -25,6 +25,7 @@ import { images } from '../../constants/images';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 import { API_CONFIG } from '../../constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -72,7 +73,7 @@ const colorStyles = {
 
 export default function MenuScreen() {
   const router = useRouter();
-  const [selectedTab, setSelectedTab] = useState('Koi');
+  const [selectedTab, setSelectedTab] = useState('Recommendation');
   const [sortVisible, setSortVisible] = useState(false);
   const [currentSort, setCurrentSort] = useState('all');
   const [displayData, setDisplayData] = useState([]);
@@ -370,6 +371,7 @@ export default function MenuScreen() {
     // Đảm bảo chỉ mở bộ lọc phù hợp với tab
     if (
       (selectedTab === 'Koi' && (filterType === 'destiny' || filterType === 'color')) ||
+      (selectedTab === 'Recommendation' && filterType === 'color') ||
       (selectedTab === 'Pond' && filterType === 'shape')
     ) {
       setActiveFilter(filterType);
@@ -403,7 +405,7 @@ export default function MenuScreen() {
       } else if (filterType === 'destiny') {
         fetchDestinyOptions();
       } else if (filterType === 'color') {
-        if (filterOptions.destiny !== 'Tất cả') {
+        if (selectedTab === 'Koi' && filterOptions.destiny !== 'Tất cả') {
           fetchColorsByElement(filterOptions.destiny);
         } else {
           fetchColorOptions();
@@ -623,9 +625,41 @@ export default function MenuScreen() {
     setSelectedTab(tab);
     setIsLoading(true);
     try {
-      if (tab === 'Koi') {
+      if (tab === 'Recommendation') {
+        // Nếu trước đó đang ở tab Pond, reset filter màu sắc về mặc định
+        if (selectedTab === 'Pond') {
+          setFilterOptions(prev => ({
+            ...prev,
+            color: 'Tất cả'
+          }));
+          setMultipleColors([]);
+        }
+        
+        // Lấy dữ liệu từ userKoi API cho tab Đề xuất
+        const userKoiData = await koiAPI.getUserKoi();
+        console.log('Đề xuất: Tải dữ liệu từ userKoi API khi chuyển tab');
+        setDisplayData(userKoiData);
+      } else if (tab === 'Koi') {
+        // Nếu trước đó đang ở tab Pond, reset filter màu sắc và mệnh về mặc định
+        if (selectedTab === 'Pond') {
+          setFilterOptions(prev => ({
+            ...prev,
+            color: 'Tất cả',
+            destiny: 'Tất cả'
+          }));
+          setMultipleColors([]);
+        }
+        
         await fetchUserKoi();
       } else if (tab === 'Pond') {
+        // Nếu trước đó đang ở tab khác, reset filter hình dạng về mặc định
+        if (selectedTab !== 'Pond') {
+          setFilterOptions(prev => ({
+            ...prev,
+            shape: 'Tất cả'
+          }));
+        }
+        
         await fetchUserPonds();
       } else {
         setDisplayData([]);
@@ -646,7 +680,7 @@ export default function MenuScreen() {
       [filterType]: value
     }));
     
-    if (selectedTab === 'Koi') {
+    if (selectedTab === 'Koi' || selectedTab === 'Recommendation') {
       fetchUserKoi(filterType, value);
     } else if (selectedTab === 'Pond') {
       fetchUserPonds(filterType, value);
@@ -660,9 +694,9 @@ export default function MenuScreen() {
       
       setIsLoading(true);
       
-      const apiUrl = selectedTab === 'Koi' 
-        ? `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getKoiByName}?name=${encodeURIComponent(searchText.trim())}`
-        : `${API_CONFIG.baseURL}/api/KoiPond/get-by-name?name=${encodeURIComponent(searchText.trim())}`;
+      const apiUrl = selectedTab === 'Pond' 
+        ? `${API_CONFIG.baseURL}/api/KoiPond/get-by-name?name=${encodeURIComponent(searchText.trim())}`
+        : `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getKoiByName}?name=${encodeURIComponent(searchText.trim())}`;
       
       console.log('Search API URL:', apiUrl);
       
@@ -699,14 +733,14 @@ export default function MenuScreen() {
           setDisplayData([]);
           Alert.alert(
             "Thông báo",
-            `Không tìm thấy ${selectedTab === 'Koi' ? 'cá Koi' : 'hồ cá'} phù hợp`
+            `Không tìm thấy ${selectedTab === 'Pond' ? 'hồ cá' : 'cá Koi'} phù hợp`
           );
         }
       } else {
         setDisplayData([]);
         Alert.alert(
           "Thông báo",
-          responseData.message || `Không tìm thấy ${selectedTab === 'Koi' ? 'cá Koi' : 'hồ cá'} phù hợp`
+          responseData.message || `Không tìm thấy ${selectedTab === 'Pond' ? 'hồ cá' : 'cá Koi'} phù hợp`
         );
       }
     } catch (error) {
@@ -714,7 +748,7 @@ export default function MenuScreen() {
       setDisplayData([]);
       Alert.alert(
         "Thông báo",
-        `Không thể tìm kiếm ${selectedTab === 'Koi' ? 'cá Koi' : 'hồ cá'}. Vui lòng thử lại sau.`
+        `Không thể tìm kiếm ${selectedTab === 'Pond' ? 'hồ cá' : 'cá Koi'}. Vui lòng thử lại sau.`
       );
     } finally {
       setIsLoading(false);
@@ -784,72 +818,161 @@ export default function MenuScreen() {
     try {
       setIsLoading(true);
       
-      let url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.filterKoi}`;
-      const params = new URLSearchParams();
-      
-      // Thêm bản mệnh nếu có
-      if (filterOptions.destiny !== 'Tất cả') {
-        params.append('nguHanh', filterOptions.destiny);
-      }
-      
-      // Xử lý màu sắc
-      if (multipleColors.length > 0) {
-        // Chuyển đổi tên hiển thị thành enum và thêm vào params
-        multipleColors.forEach(displayColor => {
-          const colorEnum = getOriginalColorEnum(displayColor);
+      // Nếu là tab Đề xuất, xử lý khác biệt
+      if (selectedTab === 'Recommendation') {
+        console.log('fetchFilteredKoi được gọi trong tab Đề xuất');
+        console.log('filterOptions.color:', filterOptions.color);
+        console.log('multipleColors:', multipleColors);
+        
+        // Nếu chọn "Tất cả" hoặc không chọn màu nào
+        if (filterOptions.color === 'Tất cả' || multipleColors.length === 0) {
+          // Sử dụng API userKoi để lấy dữ liệu đề xuất mặc định
+          console.log('Gọi API userKoi vì chọn "Tất cả" hoặc không có màu nào được chọn');
+          const userKoiData = await koiAPI.getUserKoi();
+          console.log('Đề xuất: Tải lại dữ liệu từ userKoi API');
+          setDisplayData(userKoiData);
+          return; // Thoát khỏi hàm ngay sau khi setDisplayData
+        } 
+        // Nếu đã chọn màu (một màu hoặc nhiều màu)
+        else {
+          try {
+            // Lấy các màu đã chọn và chuyển đổi sang enum
+            let selectedColors = [];
+            
+            // Nếu có nhiều màu được chọn, sử dụng tất cả
+            if (multipleColors.length > 0) {
+              selectedColors = multipleColors.map(color => getOriginalColorEnum(color));
+            } 
+            // Nếu chỉ chọn một màu từ dropdown
+            else if (filterOptions.color !== 'Tất cả') {
+              selectedColors = [getOriginalColorEnum(filterOptions.color)];
+            }
+            
+            // Lọc bỏ các màu không hợp lệ
+            selectedColors = selectedColors.filter(color => color);
+            
+            if (selectedColors.length === 0) {
+              console.log('Đề xuất: Không có màu hợp lệ, sử dụng userKoi API');
+              const userKoiData = await koiAPI.getUserKoi();
+              setDisplayData(userKoiData);
+              return;
+            }
+            
+            console.log(`Đề xuất: Tìm theo ${selectedColors.length} màu:`, selectedColors);
+            
+            // Sử dụng hàm fetchKoiByColor mới với mảng màu
+            const result = await fetchKoiByColor(selectedColors);
+            console.log('Kết quả trả về từ fetchKoiByColor:', result);
+            
+            if (result.isSuccess && result.data && result.data.length > 0) {
+              console.log(`Tìm thấy ${result.data.length} cá Koi với các màu đã chọn`);
+              setDisplayData(result.data);
+            } else {
+              console.log('Không tìm thấy cá theo màu');
+              // Không gọi lại API userKoi nữa, chỉ hiển thị mảng rỗng
+              setDisplayData([]);
+              
+              Alert.alert(
+                "Thông báo",
+                "Không tìm thấy cá theo màu",
+                [{ text: "OK" }]
+              );
+            }
+          } catch (colorError) {
+            console.error('Lỗi khi lọc cá theo màu:', colorError);
+            
+            // Không gọi API userKoi, chỉ hiển thị mảng rỗng
+            setDisplayData([]);
+            
+            Alert.alert(
+              "Thông báo",
+              "Không tìm thấy cá theo màu",
+              [{ text: "OK" }]
+            );
+          }
+        }
+      } 
+      // Nếu là tab Cá Koi, giữ nguyên logic hiện tại
+      else {
+        let url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.filterKoi}`;
+        const params = new URLSearchParams();
+        
+        // Thêm bản mệnh nếu có và đang ở tab Koi
+        if (selectedTab === 'Koi' && filterOptions.destiny !== 'Tất cả') {
+          params.append('nguHanh', filterOptions.destiny);
+        }
+        
+        // Xử lý màu sắc
+        if (multipleColors.length > 0) {
+          // Chuyển đổi tên hiển thị thành enum và thêm vào params
+          multipleColors.forEach(displayColor => {
+            const colorEnum = getOriginalColorEnum(displayColor);
+            if (colorEnum) {
+              params.append('colors', colorEnum);
+            }
+          });
+        } else if (filterOptions.color !== 'Tất cả' && !filterOptions.color.includes(' màu')) {
+          // Xử lý trường hợp chọn một màu
+          const colorEnum = getOriginalColorEnum(filterOptions.color);
           if (colorEnum) {
             params.append('colors', colorEnum);
           }
-        });
-      } else if (filterOptions.color !== 'Tất cả' && !filterOptions.color.includes(' màu')) {
-        // Xử lý trường hợp chọn một màu
-        const colorEnum = getOriginalColorEnum(filterOptions.color);
-        if (colorEnum) {
-          params.append('colors', colorEnum);
         }
-      }
 
-      if (params.toString()) {
-        url += '?' + params.toString();
-      }
-      
-      console.log('Gọi API lọc cá Koi:', url);
-      
-      const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json'
+        if (params.toString()) {
+          url += '?' + params.toString();
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API responded with status ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.isSuccess && Array.isArray(data.data)) {
-        setDisplayData(data.data);
-        if (data.message && data.message !== "KOIVARIETY_FOUND") {
-          Alert.alert("Thông báo", data.message, [{ text: "OK" }]);
+        
+        console.log('Gọi API lọc cá Koi:', url);
+        
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API responded with status ${response.status}`);
         }
-      } else if (Array.isArray(data)) {
-        setDisplayData(data);
-      } else {
-        setDisplayData([]);
-        Alert.alert(
-          "Thông báo",
-          data.message || "Không tìm thấy cá Koi phù hợp với bộ lọc",
-          [{ text: "OK" }]
-        );
+        
+        const data = await response.json();
+        
+        if (data.isSuccess && Array.isArray(data.data)) {
+          setDisplayData(data.data);
+          if (data.message && data.message !== "KOIVARIETY_FOUND") {
+            Alert.alert("Thông báo", data.message, [{ text: "OK" }]);
+          }
+        } else if (Array.isArray(data)) {
+          setDisplayData(data);
+        } else {
+          setDisplayData([]);
+          Alert.alert(
+            "Thông báo",
+            data.message || `Không tìm thấy cá Koi phù hợp với bộ lọc`,
+            [{ text: "OK" }]
+          );
+        }
       }
     } catch (error) {
       console.error('Error filtering Koi:', error);
-      setDisplayData([]);
-      Alert.alert(
-        "Lỗi",
-        "Không thể lọc cá Koi. Vui lòng thử lại sau.",
-        [{ text: "OK" }]
-      );
+      
+      // Nếu có lỗi chung và đang ở tab Đề xuất, hiển thị thông báo tù chỉnh
+      if (selectedTab === 'Recommendation') {
+        setDisplayData([]);
+        Alert.alert(
+          "Thông báo",
+          "Không tìm thấy cá theo màu",
+          [{ text: "OK" }]
+        );
+      } else {
+        // Nếu ở tab khác, giữ nguyên thông báo lỗi
+        setDisplayData([]);
+        Alert.alert(
+          "Lỗi",
+          error.message || "Không thể lọc cá Koi. Vui lòng thử lại sau.",
+          [{ text: "OK" }]
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -884,15 +1007,15 @@ export default function MenuScreen() {
   const handleOpenMultipleColorFilter = () => {
     setActiveFilter('color');
     
-    // Kiểm tra nếu đã chọn bản mệnh
-    if (filterOptions.destiny !== 'Tất cả') {
+    // Kiểm tra nếu đã chọn bản mệnh và đang ở tab Cá Koi
+    if (selectedTab === 'Koi' && filterOptions.destiny !== 'Tất cả') {
       // Nếu danh sách màu chưa được tải cho bản mệnh này
       // (Chỉ có 'Tất cả' hoặc số lượng rất ít)
       if (colorOptions.length <= 2) {
         fetchColorsByElement(filterOptions.destiny);
       }
     } else {
-      // Nếu chưa chọn bản mệnh, tải tất cả các màu
+      // Nếu chưa chọn bản mệnh hoặc đang ở tab Đề xuất, tải tất cả các màu
       if (colorOptions.length <= 1) {
         fetchColorOptions();
       }
@@ -930,10 +1053,39 @@ export default function MenuScreen() {
     }
     
     // Gọi API để lấy các phần tử tương thích từ màu sắc đã chọn
-    fetchCompatibleElements(multipleColors);
+    // Chỉ thực hiện cho tab Cá Koi, không cho tab Đề xuất
+    if (selectedTab === 'Koi') {
+      fetchCompatibleElements(multipleColors);
+    }
     
-    // Chỉ đóng popup, không áp dụng bộ lọc ngay
+    // Đóng popup
     setSortVisible(false);
+    
+    // Nếu đang ở tab Đề xuất, tự động áp dụng bộ lọc và tìm kiếm ngay
+    if (selectedTab === 'Recommendation') {
+      // Kiểm tra lại nếu đã chọn "Tất cả" (không có màu nào được chọn)
+      if (multipleColors.length === 0) {
+        console.log('Đề xuất: Chọn "Tất cả" - gọi API userKoi');
+        // Gọi trực tiếp hàm để lấy dữ liệu từ userKoi
+        const fetchRecommendation = async () => {
+          try {
+            setIsLoading(true);
+            const data = await koiAPI.getUserKoi();
+            console.log('Đề xuất: Tải lại dữ liệu từ userKoi API (chọn Tất cả)');
+            setDisplayData(data);
+          } catch (error) {
+            console.error('Error fetching recommendation:', error);
+            setDisplayData([]);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        fetchRecommendation();
+      } else {
+        // Nếu có chọn màu thì mới gọi fetchFilteredKoi
+        fetchFilteredKoi();
+      }
+    }
   };
 
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -948,7 +1100,31 @@ export default function MenuScreen() {
     // Đặt lại multipleColors khi tải trang
     setMultipleColors([]);
     
-    fetchUserKoi();
+    // Fetch dữ liệu dựa trên tab hiện tại
+    if (selectedTab === 'Recommendation') {
+      // Sử dụng hàm getUserKoi có sẵn từ koiAPI
+      const fetchRecommendation = async () => {
+        try {
+          setIsLoading(true);
+          // Lấy dữ liệu từ userKoi API
+          const data = await koiAPI.getUserKoi();
+          console.log('Đề xuất: Tải dữ liệu từ userKoi API khi khởi tạo');
+          setDisplayData(data);
+        } catch (error) {
+          console.error('Error fetching recommendation:', error);
+          setDisplayData([]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      fetchRecommendation();
+    } else if (selectedTab === 'Koi') {
+      fetchUserKoi();
+    } else if (selectedTab === 'Pond') {
+      fetchUserPonds();
+    }
+    
     fetchAllFilterOptions(); // Tải tất cả các tùy chọn bộ lọc khi component được mount
     
     return () => {
@@ -957,13 +1133,31 @@ export default function MenuScreen() {
     };
   }, []);
 
-  // Thêm useEffect mới để re-fetch khi màn hình được focus
+  // Thêm useEffect cho navigation focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       console.log('Màn hình Menu được focus - Tải lại dữ liệu');
       
       // Re-fetch dữ liệu dựa trên tab hiện tại
-      if (selectedTab === 'Koi') {
+      if (selectedTab === 'Recommendation') {
+        // Sử dụng hàm getUserKoi có sẵn từ koiAPI
+        const fetchRecommendation = async () => {
+          try {
+            setIsLoading(true);
+            // Lấy dữ liệu từ userKoi API
+            const data = await koiAPI.getUserKoi();
+            console.log('Đề xuất: Tải lại dữ liệu từ userKoi API khi screen focus');
+            setDisplayData(data);
+          } catch (error) {
+            console.error('Error fetching recommendation:', error);
+            setDisplayData([]);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        
+        fetchRecommendation();
+      } else if (selectedTab === 'Koi') {
         fetchUserKoi();
       } else if (selectedTab === 'Pond') {
         fetchUserPonds();
@@ -975,6 +1169,105 @@ export default function MenuScreen() {
 
     return unsubscribe;
   }, [navigation, selectedTab]);
+
+  // Thêm hàm trực tiếp gọi API get-by-color để tránh vấn đề với tham số
+  const fetchKoiByColor = async (colorEnums) => {
+    try {
+      // Kiểm tra tham số đầu vào
+      if (!colorEnums || (Array.isArray(colorEnums) && colorEnums.length === 0)) {
+        return { isSuccess: false, data: [], message: 'Không tìm thấy cá theo màu' };
+      }
+      
+      // Chuyển đổi thành mảng nếu chỉ là một màu
+      const colorArray = Array.isArray(colorEnums) ? colorEnums : [colorEnums];
+      
+      // Sửa lỗi URL - truyền trực tiếp URL của API thay vì sử dụng API_CONFIG.endpoints.getByColor
+      // đang bị undefined trong lúc runtime
+      let url = `${API_CONFIG.baseURL}/api/KoiVariety/get-by-color`;
+      
+      // Thêm màu dưới dạng nhiều tham số colors
+      // Format: ?colors=Color1&colors=Color2...
+      url += '?';
+      colorArray.forEach((color, index) => {
+        if (index > 0) url += '&';
+        url += `colors=${encodeURIComponent(color.trim())}`;
+      });
+      
+      const headers = await getAuthHeaders();
+      
+      // Lưu ý: Đặt timeout để không đợi API quá lâu
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            ...headers
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          return { isSuccess: false, data: [], message: 'Không tìm thấy cá theo màu' };
+        }
+        
+        const responseText = await response.text();
+        
+        const data = JSON.parse(responseText);
+        
+        if (data && data.isSuccess && Array.isArray(data.data)) {
+          const mappedData = data.data.map(item => ({
+            id: item.koiVarietyId,
+            koiVarietyId: item.koiVarietyId,
+            varietyName: item.name || 'Unknown',
+            name: item.name || 'Unknown',
+            description: item.description || '',
+            imageUrl: item.imageUrl || null,
+            imageName: item.imageUrl || 'buddha.png',
+          }));
+          
+          return { isSuccess: true, data: mappedData };
+        }
+        
+        return { 
+          isSuccess: false, 
+          data: [], 
+          message: data?.message || 'Không tìm thấy cá theo màu' 
+        };
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        return { isSuccess: false, data: [], message: 'Không tìm thấy cá theo màu' };
+      }
+    } catch (error) {
+      return { isSuccess: false, data: [], message: 'Không tìm thấy cá theo màu' };
+    }
+  };
+  
+  // Hàm lấy headers xác thực
+  const getAuthHeaders = async () => {
+    try {
+      // Lấy token từ local storage hoặc secure store
+      const token = await AsyncStorage.getItem('userToken');
+      
+      // Nếu có token, trả về header với Authorization
+      if (token) {
+        return {
+          'Authorization': `Bearer ${token}`
+        };
+      }
+      
+      // Nếu không có token, trả về header mặc định
+      return {};
+    } catch (error) {
+      console.error('Error getting auth headers:', error);
+      return {};
+    }
+  };
 
   return (
     <ImageBackground 
@@ -1013,21 +1306,33 @@ export default function MenuScreen() {
 
           {/* Unified header with tabs and filters on same line - more compact */}
           <View style={styles.unifiedHeaderContainer}>
-            {/* Tab section - left aligned and more compact */}
-            <View style={styles.tabSection}>
-              <TouchableOpacity 
-                style={[styles.tab, selectedTab === 'Koi' && styles.selectedTab]}
-                onPress={() => handleTabChange('Koi')}
-              >
-                <Text style={[styles.tabText, selectedTab === 'Koi' && styles.selectedTabText]}>Cá Koi</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.tab, selectedTab === 'Pond' && styles.selectedTab]}
-                onPress={() => handleTabChange('Pond')}
-              >
-                <Text style={[styles.tabText, selectedTab === 'Pond' && styles.selectedTabText]}>Hồ cá</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Tab section - scroll horizontal */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabSectionContainer}
+            >
+              <View style={styles.tabSection}>
+                <TouchableOpacity 
+                  style={[styles.tab, selectedTab === 'Recommendation' && styles.selectedTab]}
+                  onPress={() => handleTabChange('Recommendation')}
+                >
+                  <Text style={[styles.tabText, selectedTab === 'Recommendation' && styles.selectedTabText]}>Đề xuất</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.tab, selectedTab === 'Koi' && styles.selectedTab]}
+                  onPress={() => handleTabChange('Koi')}
+                >
+                  <Text style={[styles.tabText, selectedTab === 'Koi' && styles.selectedTabText]}>Cá Koi</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.tab, selectedTab === 'Pond' && styles.selectedTab]}
+                  onPress={() => handleTabChange('Pond')}
+                >
+                  <Text style={[styles.tabText, selectedTab === 'Pond' && styles.selectedTabText]}>Hồ cá</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
 
             {/* Filter section - right aligned and more compact */}
             <View style={styles.filterControls}>
@@ -1040,7 +1345,7 @@ export default function MenuScreen() {
                     <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
                       {filterOptions.destiny !== 'Tất cả' ? filterOptions.destiny : 'Mệnh'}
                     </Text>
-                    <Ionicons name="chevron-down" size={14} color="#fff" />
+                    <Ionicons name="chevron-down" size={12} color="#fff" />
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
@@ -1050,37 +1355,50 @@ export default function MenuScreen() {
                     <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
                       {filterOptions.color !== 'Tất cả' ? filterOptions.color : 'Màu'}
                     </Text>
-                    <Ionicons name="chevron-down" size={14} color="#fff" />
+                    <Ionicons name="chevron-down" size={12} color="#fff" />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.filterButton}
+                    onPress={() => fetchFilteredKoi()}
+                  >
+                    <Ionicons name="filter" size={16} color="#fff" />
                   </TouchableOpacity>
                 </>
-              ) : (
+              ) : selectedTab === 'Recommendation' ? (
                 <TouchableOpacity 
                   style={styles.miniFilterPill}
-                  onPress={() => handleOpenFilter('shape')}
+                  onPress={handleOpenMultipleColorFilter}
                 >
                   <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
-                    {filterOptions.shape !== 'Tất cả' ? filterOptions.shape : 'Hình'}
+                    {filterOptions.color !== 'Tất cả' ? filterOptions.color : 'Màu'}
                   </Text>
-                  <Ionicons name="chevron-down" size={14} color="#FFFFFF" />
+                  <Ionicons name="chevron-down" size={12} color="#fff" />
                 </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    style={styles.miniFilterPill}
+                    onPress={() => handleOpenFilter('shape')}
+                  >
+                    <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
+                      {filterOptions.shape !== 'Tất cả' ? filterOptions.shape : 'Hình'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={12} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.filterButton}
+                    onPress={() => {
+                      // Use fetchKoiPonds or equivalent function for Pond tab
+                      console.log('Filtering ponds by:', filterOptions.shape);
+                      // Implement pond filtering here based on your existing code
+                    }}
+                  >
+                    <Ionicons name="filter" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </>
               )}
-              
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => {
-                  if (selectedTab === 'Koi') {
-                    fetchFilteredKoi();
-                  } else {
-                    // Use fetchKoiPonds or equivalent function for Pond tab
-                    // If no specific function exists, we can use a temporary placeholder
-                    console.log('Filtering ponds by:', filterOptions.shape);
-                    // Implement pond filtering here based on your existing code
-                    // For example, if you have a function for this, call it here
-                  }
-                }}
-              >
-                <Ionicons name="filter" size={18} color="#fff" />
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -1147,17 +1465,6 @@ export default function MenuScreen() {
                     </View>
                   )}
                 />
-                <View style={styles.paginationContainer}>
-                  {displayData.map((_, index) => (
-                    <View 
-                      key={index} 
-                      style={[
-                        styles.paginationDot,
-                        index === currentCardIndex && styles.paginationDotActive
-                      ]} 
-                    />
-                  ))}
-                </View>
               </View>
             ) : (
               <View style={styles.noDataContainer}>
@@ -1271,8 +1578,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     marginBottom: 15,
+  },
+  tabSectionContainer: {
+    flexGrow: 1,
+    paddingRight: 8,
   },
   tabSection: {
     flexDirection: 'row',
@@ -1282,16 +1593,23 @@ const styles = StyleSheet.create({
   },
   tab: {
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: 20,
+    marginHorizontal: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
   },
   selectedTab: {
     backgroundColor: '#8B0000',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
     color: '#CCC',
+    textAlign: 'center',
+    paddingHorizontal: 2,
   },
   selectedTabText: {
     color: '#FFF',
@@ -1299,28 +1617,31 @@ const styles = StyleSheet.create({
   },
   filterControls: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexShrink: 1,
   },
   miniFilterPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(139, 0, 0, 0.7)',
     borderRadius: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   miniFilterText: {
     color: '#FFF',
-    fontSize: 13,
-    marginRight: 5,
-    maxWidth: 80,
+    fontSize: 12,
+    marginRight: 3,
+    maxWidth: 60,
   },
   filterButton: {
     backgroundColor: '#8B0000',
-    width: 36, // Larger button
-    height: 36, // Larger button
-    borderRadius: 18,
-    marginLeft: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginLeft: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1443,7 +1764,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginRight: 4,
-  }
+  },
+  paginationContainer: {
+    display: 'none'
+  },
+  paginationDot: {
+    display: 'none'
+  },
+  paginationDotActive: {
+    display: 'none'
+  },
 });
 
 

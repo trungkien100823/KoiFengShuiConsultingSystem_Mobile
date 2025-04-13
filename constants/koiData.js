@@ -114,10 +114,13 @@ export const koiAPI = {
       if (response.data && response.data.isSuccess) {
         const mappedData = response.data.data.map(item => ({
           id: item.koiVarietyId,
+          koiVarietyId: item.koiVarietyId,
+          varietyName: item.name || item.varietyName || 'Unknown',
           name: item.name || 'Unknown',
           variant: item.name || 'Unknown',
           description: item.description || '',
-          imageName: 'buddha.png', // Vì imageUrl luôn null nên dùng ảnh mặc định
+          imageUrl: item.imageUrl || null,
+          imageName: item.imageUrl || 'buddha.png',
         }));
 
         // Thêm message vào item đầu tiên nếu có
@@ -129,8 +132,145 @@ export const koiAPI = {
       }
       return [];
     } catch (error) {
-      console.error('Error fetching user Koi:', error);
+      // Chỉ hiển thị log nếu không phải lỗi 500 từ server
+      if (!error.isAxiosError || error.response?.status !== 500) {
+        console.log('Không thể tải dữ liệu cá Koi người dùng, sử dụng dữ liệu mặc định');
+      }
       return [];
+    }
+  },
+
+  getKoiByName: async (name) => {
+    try {
+      if (!name) {
+        throw new Error('No name provided for search');
+      }
+      
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getKoiByName}?name=${encodeURIComponent(name.trim())}`,
+        { headers }
+      );
+      
+      if (response.data && response.data.isSuccess) {
+        return {
+          isSuccess: true,
+          data: response.data.data.map(item => ({
+            id: item.koiVarietyId,
+            koiVarietyId: item.koiVarietyId,
+            varietyName: item.name || 'Unknown',
+            name: item.name || 'Unknown',
+            variant: item.name || 'Unknown',
+            description: item.description || '',
+            imageUrl: item.imageUrl || null,
+            imageName: item.imageUrl || 'buddha.png',
+          })),
+          message: response.data.message
+        };
+      }
+      
+      return { 
+        isSuccess: false, 
+        data: [], 
+        message: response.data?.message || 'Không tìm thấy cá Koi phù hợp' 
+      };
+    } catch (error) {
+      console.error('Error searching Koi by name:', error);
+      return { isSuccess: false, data: [], message: 'Lỗi khi tìm kiếm cá Koi' };
+    }
+  },
+
+  getKoiByColor: async (color) => {
+    try {
+      if (!color) {
+        throw new Error('No color provided for search');
+      }
+      
+      const headers = await getAuthHeaders();
+      
+      // Thay đổi URL để phù hợp với cách truyền List<ColorEnum> cho backend
+      // Cách backend nhận List<ColorEnum> là qua nhiều tham số cùng tên
+      // Ví dụ: colors=Red&colors=Blue thay vì colors=Red,Blue
+      const apiUrl = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getByColor}?colors=${encodeURIComponent(color.trim())}`;
+      
+      console.log('Calling getKoiByColor API:', apiUrl);
+      
+      // Sử dụng fetch với timeout thay vì axios
+      const controller = new AbortController();
+      const signal = controller.signal;
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 giây timeout
+      
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            ...headers
+          },
+          signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          console.error('API error status:', response.status);
+          throw new Error(`API returned status ${response.status}`);
+        }
+        
+        // Kiểm tra response trả về
+        const responseText = await response.text();
+        console.log('Color API response text:', responseText);
+        
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (jsonError) {
+          console.error('JSON parse error:', jsonError);
+          throw new Error('Invalid JSON response');
+        }
+        
+        if (responseData && responseData.isSuccess) {
+          return {
+            isSuccess: true,
+            data: responseData.data.map(item => ({
+              id: item.koiVarietyId,
+              koiVarietyId: item.koiVarietyId,
+              varietyName: item.name || 'Unknown',
+              name: item.name || 'Unknown',
+              variant: item.name || 'Unknown',
+              description: item.description || '',
+              imageUrl: item.imageUrl || null,
+              imageName: item.imageUrl || 'buddha.png',
+            })),
+            message: responseData.message
+          };
+        }
+        
+        return { 
+          isSuccess: false, 
+          data: [], 
+          message: responseData?.message || 'Không tìm thấy cá Koi phù hợp với màu này' 
+        };
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          console.error('Fetch aborted due to timeout');
+          throw new Error('Request timeout');
+        }
+        
+        throw fetchError;
+      }
+    } catch (error) {
+      console.error('Error searching Koi by color:', error);
+      console.error('Error message:', error.message);
+      
+      return { 
+        isSuccess: false, 
+        data: [], 
+        message: `Lỗi khi tìm kiếm cá Koi theo màu: ${error.message}` 
+      };
     }
   },
 
