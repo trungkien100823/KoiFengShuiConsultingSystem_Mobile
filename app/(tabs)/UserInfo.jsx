@@ -81,7 +81,7 @@ export default function UserInfo() {
         const mappedUserInfo = {
           fullName: userData.fullName || userData.userName,
           dob: userData.dob || '2000-01-01',
-          gender: userData.gender !== undefined ? userData.gender : true,
+          gender: userData.gender === true || userData.gender === 1 || userData.gender === "true" || userData.gender === "1",
           element: determineElementFromDob(userData.dob) || 'Hỏa',
           lifePalace: determineLifePalaceFromDob(userData.dob, userData.gender) || 'Unknown'
         };
