@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -33,6 +33,13 @@ export default function OfflineBookingScreen() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState(params.startDate || null);
 
+  // Thêm state để lưu lịch master và ngày không khả dụng
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [masterSchedules, setMasterSchedules] = useState([]);
+  const [unavailableDates, setUnavailableDates] = useState({});
+  const apiCalledRef = useRef(false);
+  const isFetchingRef = useRef(false);
+
   // Get today's date for reference
   const today = new Date();
   const currentDay = today.getDate();
@@ -49,13 +56,119 @@ export default function OfflineBookingScreen() {
       setCurrentMonth(new Date().getMonth());
       setCurrentYear(new Date().getFullYear());
       
+      // Reset flag để gọi lại API
+      apiCalledRef.current = false;
+      
       // Xóa dữ liệu đã lưu trong AsyncStorage nếu có
       AsyncStorage.removeItem('offlineBookingDescription');
       AsyncStorage.removeItem('offlineBookingLocation');
       AsyncStorage.removeItem('offlineBookingDate');
       
+      // Gọi lại API để lấy lịch master mới nhất
+      const fetchMasterSchedules = async () => {
+        if (isFetchingRef.current) return;
+        
+        setLoadingSchedules(true);
+        isFetchingRef.current = true;
+        
+        try {
+          const token = await AsyncStorage.getItem('accessToken');
+          if (!token) {
+            console.error('Không tìm thấy token đăng nhập');
+            return;
+          }
+          
+          const response = await axios.get(
+            `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getSchedulesForMobile}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          if (response.data && response.data.isSuccess) {
+            const scheduleData = response.data.data;
+            setMasterSchedules(scheduleData);
+            
+            // Xử lý dữ liệu lịch để xác định ngày không khả dụng
+            const unavailableDatesMap = {};
+            const mastersByDatesMap = {}; // Lưu trữ masterIds theo ngày
+            const allMasterIds = new Set(); // Lưu trữ tất cả các masterId độc nhất
+            
+            // Thu thập tất cả các masterId
+            scheduleData.forEach(schedule => {
+              if (schedule.masterId) {
+                allMasterIds.add(schedule.masterId.trim());
+              }
+            });
+            
+            // Log số lượng master
+            console.log(`Số lượng master: ${allMasterIds.size}`);
+            console.log('Danh sách master:', [...allMasterIds]);
+            
+            // Tổ chức dữ liệu theo ngày và masterId
+            scheduleData.forEach(schedule => {
+              const { date, type, masterId } = schedule;
+              const trimmedMasterId = masterId ? masterId.trim() : null;
+              
+              if (!date || !trimmedMasterId) return;
+              
+              // Lưu trữ thông tin master theo ngày
+              if (!mastersByDatesMap[date]) {
+                mastersByDatesMap[date] = {
+                  offline: new Set(),
+                  online: new Set(),
+                  both: new Set() // Lưu tất cả các master có lịch bất kể loại nào
+                };
+              }
+              
+              if (type === 'Offline') {
+                mastersByDatesMap[date].offline.add(trimmedMasterId);
+              } else if (type === 'Online') {
+                mastersByDatesMap[date].online.add(trimmedMasterId);
+              }
+              
+              // Thêm master vào tập hợp 'both' bất kể loại lịch
+              mastersByDatesMap[date].both.add(trimmedMasterId);
+            });
+            
+            // Log thông tin lịch theo ngày
+            for (const [date, masters] of Object.entries(mastersByDatesMap)) {
+              console.log(`Ngày ${date}:`);
+              console.log(`- Số master có lịch Offline: ${masters.offline.size}`);
+              console.log(`- Số master có lịch Online: ${masters.online.size}`);
+              console.log(`- Tổng số master có lịch: ${masters.both.size}`);
+              console.log(`- Master có lịch: `, [...masters.both]);
+            }
+            
+            // Kiểm tra từng ngày và đánh dấu ngày không khả dụng nếu tất cả master đều có lịch
+            for (const [date, masters] of Object.entries(mastersByDatesMap)) {
+              // Chỉ khi tất cả master đều có lịch vào ngày này
+              if (masters.both.size === allMasterIds.size) {
+                unavailableDatesMap[date] = true;
+                console.log(`Ngày ${date} bị bôi đen vì tất cả ${masters.both.size}/${allMasterIds.size} master đều có lịch`);
+              } else {
+                console.log(`Ngày ${date} không bị bôi đen vì chỉ có ${masters.both.size}/${allMasterIds.size} master có lịch`);
+              }
+            }
+            
+            setUnavailableDates(unavailableDatesMap);
+          }
+        } catch (error) {
+          console.error('Lỗi khi lấy lịch master:', error);
+        } finally {
+          setLoadingSchedules(false);
+          isFetchingRef.current = false;
+        }
+      };
+      
+      // Gọi hàm fetchMasterSchedules ngay khi màn hình được focus
+      fetchMasterSchedules();
+      
       return () => {
-        // Cleanup function (nếu cần)
+        // Cleanup function
       };
     }, [])
   );
@@ -115,6 +228,13 @@ export default function OfflineBookingScreen() {
     return selectedDate < today;
   };
 
+  // Thêm hàm kiểm tra ngày không khả dụng
+  const isDateUnavailable = (dateString) => {
+    // Format dateString thành yyyy-MM-dd
+    const formattedDate = dateString.split('T')[0];
+    return unavailableDates[formattedDate] === true;
+  };
+
   const selectDate = (date) => {
     if (!date) return;
     const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
@@ -122,6 +242,12 @@ export default function OfflineBookingScreen() {
     // Kiểm tra ngày quá khứ
     if (isDateInPast(dateString)) {
       Alert.alert('Thông báo', 'Không thể chọn ngày trong quá khứ');
+      return;
+    }
+    
+    // Kiểm tra ngày không khả dụng
+    if (isDateUnavailable(dateString)) {
+      Alert.alert('Thông báo', 'Tất cả master đều bận vào ngày này. Vui lòng chọn ngày khác.');
       return;
     }
     
@@ -138,6 +264,18 @@ export default function OfflineBookingScreen() {
       styles.dateCircle,
       isSelected && styles.selected
     ];
+  };
+
+  // Format a date for display
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return '';
+    
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    
+    return dateString;
   };
 
   const handleContinue = () => {
@@ -280,18 +418,6 @@ export default function OfflineBookingScreen() {
     return () => clearTimeout(timer);
   }, [params.packageId, params.selectedPrice, params.shouldCompleteBooking]);
 
-  // Format a date for display
-  const formatDisplayDate = (dateString) => {
-    if (!dateString) return '';
-    
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    
-    return dateString;
-  };
-
   return (
     <View style={styles.container}>
       <ImageBackground 
@@ -374,26 +500,32 @@ export default function OfflineBookingScreen() {
                       const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                       const isSelected = selectedDate === dateString;
                       
+                      // Kiểm tra xem ngày có không khả dụng không
+                      const isUnavailable = isDateUnavailable(dateString);
+                      
                       return (
                         <TouchableOpacity
                           key={`day-${day}`}
                           style={[
                             styles.dateCell,
-                            isPastDate && styles.pastDateCell
+                            isPastDate && styles.pastDateCell,
+                            isUnavailable && styles.unavailableCell
                           ]}
                           onPress={() => selectDate(day)}
-                          disabled={isPastDate}
+                          disabled={isPastDate || isUnavailable}
                         >
                           <View style={[
                             styles.dateCellInner,
                             isToday && styles.todayCell,
                             isSelected && styles.selectedCell,
+                            isUnavailable && styles.unavailableCellInner
                           ]}>
                             <Text style={[
                               styles.dateText,
                               isToday && styles.todayText,
                               isSelected && styles.selectedText,
                               isPastDate && styles.pastDateText,
+                              isUnavailable && styles.unavailableDateText,
                             ]}>
                               {day}
                             </Text>
@@ -411,6 +543,14 @@ export default function OfflineBookingScreen() {
                     <Text style={styles.dateSelectedText}>
                       Ngày đã chọn: {formatDisplayDate(selectedDate)}
                     </Text>
+                  </View>
+                )}
+
+                {/* Loading indicator while fetching schedules */}
+                {loadingSchedules && (
+                  <View style={styles.loadingCalendarContainer}>
+                    <ActivityIndicator size="small" color="#8B0000" />
+                    <Text style={styles.loadingCalendarText}>Đang tải lịch...</Text>
                   </View>
                 )}
               </View>
@@ -615,6 +755,16 @@ const styles = StyleSheet.create({
   pastDateText: {
     color: '#999999',
   },
+  unavailableCell: {
+    opacity: 0.5,
+  },
+  unavailableCellInner: {
+    backgroundColor: 'rgba(211, 47, 47, 0.2)',
+  },
+  unavailableDateText: {
+    color: '#999999',
+    textDecorationLine: 'line-through',
+  },
   dateSelectedContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -628,6 +778,20 @@ const styles = StyleSheet.create({
     color: '#333333',
     marginLeft: 8,
     fontWeight: '500',
+  },
+  loadingCalendarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  loadingCalendarText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#8B0000',
   },
   descriptionContainer: {
     marginBottom: 8,

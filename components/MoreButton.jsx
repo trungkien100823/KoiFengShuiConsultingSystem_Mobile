@@ -9,7 +9,7 @@ export default function MoreButton({ item, type }) {
 
   const handlePress = async () => {
     try {
-      if (type === 'Koi') {
+      if (type === 'Koi' || type === 'Recommendation') {
         const itemId = item.koiVarietyId || item.id;
         console.log('Item data:', item);
 

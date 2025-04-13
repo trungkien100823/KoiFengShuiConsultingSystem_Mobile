@@ -38,6 +38,21 @@ export default function CoursesScreen() {
   const [courseDetails, setCourseDetails] = useState(null);
   const [masterInfo, setMasterInfo] = useState(null);
 
+  // Hàm xử lý tìm kiếm - cập nhật searchQuery ngay khi gõ
+  const handleSearch = (text) => {
+    setSearchQuery(text);
+  };
+
+  // Hàm lọc khóa học theo từ khóa tìm kiếm
+  const filterCourses = (courses) => {
+    if (!searchQuery.trim()) return courses;
+    
+    return courses.filter(course => 
+      (course.courseName && course.courseName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (course.categoryName && course.categoryName.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  };
+
   const processApiResponse = (response, defaultValue = []) => {
     if (response?.data?.isSuccess && Array.isArray(response.data?.data)) {
       return response.data.data;
@@ -281,7 +296,7 @@ export default function CoursesScreen() {
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
-              <TouchableOpacity style={styles.searchButton}>
+              <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
                 <Ionicons name="search" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -293,6 +308,44 @@ export default function CoursesScreen() {
             </View>
           ) : (
             <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+              {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
+              {searchQuery.trim() !== '' && (
+                <View style={styles.sectionContainer}>
+                  <View style={styles.sectionHeader}>
+                    <LinearGradient
+                      colors={['#8B0000', '#600000']}
+                      start={[0, 0]}
+                      end={[1, 0]}
+                      style={styles.sectionTitleGradient}
+                    >
+                      <Text style={styles.sectionTitle}>Searching courses</Text>
+                    </LinearGradient>
+                  </View>
+                  
+                  {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="large" color="#8B0000" />
+                      <Text style={styles.loadingText}>Đang tải kết quả...</Text>
+                    </View>
+                  ) : (
+                    <FlatList
+                      horizontal
+                      data={[...filterCourses(featuredCourses), ...filterCourses(topCourses)].filter(Boolean)}
+                      renderItem={renderFeaturedCourse}
+                      keyExtractor={(item, index) => `search-${item.courseId || index}`}
+                      contentContainerStyle={styles.horizontalList}
+                      showsHorizontalScrollIndicator={false}
+                      ListEmptyComponent={
+                        <View style={styles.emptySearchResults}>
+                          <Ionicons name="search-outline" size={40} color="#ccc" />
+                          <Text style={styles.emptySearchText}>Không tìm thấy khóa học nào phù hợp</Text>
+                        </View>
+                      }
+                    />
+                  )}
+                </View>
+              )}
+
               {/* Best Seller Courses Section */}
               <View style={styles.sectionContainer}>
                 <View style={styles.sectionHeader}>
@@ -595,5 +648,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#8B0000',
+    fontSize: 16,
+  },
+  emptySearchResults: {
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: width * 0.8,
+  },
+  emptySearchText: {
+    fontSize: 16,
+    color: '#FFF',
+    textAlign: 'center',
+    marginTop: 12,
   },
 });
