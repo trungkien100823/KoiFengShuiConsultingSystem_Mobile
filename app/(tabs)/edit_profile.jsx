@@ -12,7 +12,8 @@ import {
   Switch,
   Platform,
   ImageBackground,
-  Modal
+  Modal,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation } from 'expo-router';
@@ -21,6 +22,7 @@ import { getAuthToken } from '../../services/authService';
 import { API_CONFIG } from '../../constants/config';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -43,8 +45,12 @@ export default function EditProfileScreen() {
   const [accountNo, setAccountNo] = useState('');
   const [accountName, setAccountName] = useState('');
   
-  // Get user data on load
+  // Image URL
+  const [imageUrl, setImageUrl] = useState(null);
+  
+  // Set up a focus listener to refetch data when returning to this screen
   useEffect(() => {
+    // Function to fetch user data
     const fetchUserData = async () => {
       try {
         setLoading(true);
@@ -75,6 +81,9 @@ export default function EditProfileScreen() {
           setAccountNo(userData.accountNo || '');
           setAccountName(userData.accountName || '');
           
+          // Add this line to store imageUrl
+          setImageUrl(userData.imageUrl);
+          
           // Parse date if available
           if (userData.dob) {
             setDob(new Date(userData.dob));
@@ -84,14 +93,24 @@ export default function EditProfileScreen() {
         }
       } catch (error) {
         console.error('Error fetching user profile for editing:', error);
-        Alert.alert('Error', 'Could not load user data. Please try again.');
+        Alert.alert('Lỗi', 'Không thể tải dữ liệu người dùng. Vui lòng thử lại.');
       } finally {
         setLoading(false);
       }
     };
-    
+
+    // Initial fetch
     fetchUserData();
-  }, [router]);
+    
+    // Add listener for when screen comes into focus
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('Edit profile screen focused - refreshing data');
+      fetchUserData();
+    });
+    
+    // Clean up the listener when component unmounts
+    return unsubscribe;
+  }, []); // Empty dependency array - only run once during mount
   
   // Replace the Alert.alert calls in handleSave with this custom alert
   const showAlert = (title, message, callback = null) => {
@@ -100,7 +119,7 @@ export default function EditProfileScreen() {
       Alert.alert(
         title,
         message,
-        callback ? [{ text: 'OK', onPress: callback }] : [{ text: 'OK' }],
+        callback ? [{ text: "OK", onPress: callback }] : [{ text: "OK" }],
         { cancelable: false }
       );
     }, 100); // Short delay helps with positioning
@@ -112,18 +131,19 @@ export default function EditProfileScreen() {
       setSubmitting(true);
       
       if (!name.trim()) {
-        showAlert('Error', 'Name cannot be empty');
+        showAlert('Lỗi', 'Tên không được để trống');
         setSubmitting(false);
         return;
       }
       
       if (!phone.trim()) {
-        showAlert('Error', 'Phone number cannot be empty');
+        showAlert('Lỗi', 'Số điện thoại không được để trống');
         setSubmitting(false);
         return;
       }
       
-      const formattedDob = dob.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      // Format date as YYYY-MM-DD string
+      const formattedDob = dob.toISOString().split('T')[0];
       
       const userData = {
         userName: name,
@@ -134,12 +154,13 @@ export default function EditProfileScreen() {
         gender: gender,
         bankId: bankId,            
         accountNo: accountNo,      
-        accountName: accountName   
+        accountName: accountName,
+        imageUrl: imageUrl
       };
       
       const token = await getAuthToken();
       if (!token) {
-        showAlert('Error', 'You are not logged in');
+        showAlert('Lỗi', 'Bạn chưa đăng nhập');
         setSubmitting(false);
         return;
       }
@@ -159,16 +180,23 @@ export default function EditProfileScreen() {
         // Set a flag in AsyncStorage to indicate profile was updated
         await AsyncStorage.setItem('profileUpdated', 'true');
         
-        // Use router.push instead of router.back to ensure the profile screen is reloaded
-        showAlert('Success', 'Profile updated successfully', () => {
-          router.push('/(tabs)/profile');
+        // Force refresh the profile page by setting a timestamp
+        await AsyncStorage.setItem('profileRefreshTimestamp', Date.now().toString());
+        
+        // Show success message and navigate with refresh params
+        showAlert('Thành Công', 'Cập nhật hồ sơ thành công', () => {
+          // Navigate and pass refresh parameter
+          router.replace({
+            pathname: '/(tabs)/profile',
+            params: { refresh: Date.now() }
+          });
         });
       } else {
-        showAlert('Error', response.data?.message || 'Unknown error occurred');
+        showAlert('Lỗi', response.data?.message || 'Đã xảy ra lỗi không xác định');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      showAlert('Error', error.response?.data?.message || 'Could not update profile. Please try again.');
+      showAlert('Lỗi', error.response?.data?.message || 'Không thể cập nhật hồ sơ. Vui lòng thử lại.');
     } finally {
       setSubmitting(false);
     }
@@ -181,11 +209,68 @@ export default function EditProfileScreen() {
     }
   };
   
+  // Add this function after the onDateChange function
+  const handleBack = () => {
+    Alert.alert(
+      "Xác Nhận Thoát",
+      "Bạn có chắc muốn quay lại? Mọi thay đổi chưa lưu sẽ bị mất.",
+      [
+        {
+          text: "Hủy",
+          style: "cancel"
+        },
+        { 
+          text: "Thoát", 
+          onPress: async () => {
+            // Set refresh flag in AsyncStorage
+            await AsyncStorage.setItem('profileRefreshTimestamp', Date.now().toString());
+            
+            // Navigate and pass refresh parameter
+            router.replace({
+              pathname: '/(tabs)/profile',
+              params: { refresh: Date.now() }
+            });
+          },
+          style: "destructive"
+        }
+      ],
+      { cancelable: true }
+    );
+  };
+  
+  // Add this function to pick an image
+  const pickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        showAlert('Lỗi', 'Cần quyền truy cập thư viện ảnh để thay đổi ảnh đại diện');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Here you would typically upload the image to your server
+        // For now, just update the local state
+        setImageUrl(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      showAlert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+    }
+  };
+  
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <ActivityIndicator size="large" color="#8B0000" />
-        <Text style={styles.loadingText}>Loading your profile...</Text>
+        <Text style={styles.loadingText}>Đang tải hồ sơ của bạn...</Text>
       </SafeAreaView>
     );
   }
@@ -197,22 +282,38 @@ export default function EditProfileScreen() {
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <Text style={styles.headerTitle}>Chỉnh Sửa Hồ Sơ</Text>
           <View style={styles.spacer} />
         </View>
         
         <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
           <View style={styles.formCard}>
+            <View style={styles.avatarContainer}>
+              <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
+                {imageUrl ? (
+                  <Image source={{ uri: imageUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Ionicons name="person" size={40} color="rgba(255,255,255,0.6)" />
+                  </View>
+                )}
+                <View style={styles.avatarEditButton}>
+                  <Ionicons name="camera" size={18} color="#fff" />
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.avatarText}>Ảnh đại diện</Text>
+            </View>
+            
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Name</Text>
+              <Text style={styles.label}>Tên</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Enter your name"
+                placeholder="Nhập tên của bạn"
                 placeholderTextColor="rgba(255,255,255,0.5)"
               />
             </View>
@@ -224,23 +325,23 @@ export default function EditProfileScreen() {
                 value={email}
                 editable={false}
               />
-              <Text style={styles.helperText}>Email cannot be changed</Text>
+              <Text style={styles.helperText}>Email không thể thay đổi</Text>
             </View>
             
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Phone Number</Text>
+              <Text style={styles.label}>Số Điện Thoại</Text>
               <TextInput
                 style={styles.input}
                 value={phone}
                 onChangeText={setPhone}
-                placeholder="Enter your phone number"
+                placeholder="Nhập số điện thoại của bạn"
                 placeholderTextColor="rgba(255,255,255,0.5)"
                 keyboardType="phone-pad"
               />
             </View>
             
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Date of Birth</Text>
+              <Text style={styles.label}>Ngày Sinh</Text>
               <TouchableOpacity 
                 style={styles.dateInput}
                 onPress={() => setShowDatePicker(true)}
@@ -261,19 +362,72 @@ export default function EditProfileScreen() {
             </View>
             
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Gender</Text>
-              <View style={styles.genderToggle}>
-                <Text style={[styles.genderLabel, !gender && styles.activeGenderLabel]}>Female</Text>
-                <Switch
-                  value={gender}
-                  onValueChange={setGender}
-                  trackColor={{ false: '#d35f5f', true: '#5f7ed3' }}
-                  thumbColor={gender ? '#FFD700' : '#FFD700'}
-                  ios_backgroundColor="#d35f5f"
-                  style={styles.genderSwitch}
-                />
-                <Text style={[styles.genderLabel, gender && styles.activeGenderLabel]}>Male</Text>
+              <Text style={styles.label}>Giới Tính</Text>
+              <View style={styles.genderContainer}>
+                <TouchableOpacity 
+                  style={[styles.genderOption, !gender && styles.activeGenderOption]}
+                  onPress={() => setGender(false)}
+                >
+                  <Ionicons 
+                    name="woman-outline" 
+                    size={22} 
+                    color={!gender ? "#fff" : "rgba(255,255,255,0.6)"} 
+                  />
+                  <Text style={[styles.genderText, !gender && styles.activeGenderText]}>Nữ</Text>
+                </TouchableOpacity>
+                
+                <View style={styles.genderDivider} />
+                
+                <TouchableOpacity 
+                  style={[styles.genderOption, gender && styles.activeGenderOption]}
+                  onPress={() => setGender(true)}
+                >
+                  <Ionicons 
+                    name="man-outline" 
+                    size={22} 
+                    color={gender ? "#fff" : "rgba(255,255,255,0.6)"} 
+                  />
+                  <Text style={[styles.genderText, gender && styles.activeGenderText]}>Nam</Text>
+                </TouchableOpacity>
               </View>
+            </View>
+            
+            <View style={styles.sectionTitle}>
+              <Text style={styles.sectionTitleText}>Thông Tin Ngân Hàng</Text>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Mã Ngân Hàng</Text>
+              <TextInput
+                style={styles.input}
+                value={bankId.toString()}
+                onChangeText={(text) => setBankId(text ? parseInt(text, 10) : 0)}
+                placeholder="Nhập mã ngân hàng"
+                placeholderTextColor="rgba(255,255,255,0.5)"
+                keyboardType="numeric"
+              />
+            </View>
+            
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Số Tài Khoản</Text>
+              <TextInput
+                style={styles.input}
+                value={accountNo}
+                onChangeText={setAccountNo}
+                placeholder="Nhập số tài khoản"
+                placeholderTextColor="rgba(255,255,255,0.5)"
+              />
+            </View>
+            
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Tên Tài Khoản</Text>
+              <TextInput
+                style={styles.input}
+                value={accountName}
+                onChangeText={setAccountName}
+                placeholder="Nhập tên tài khoản"
+                placeholderTextColor="rgba(255,255,255,0.5)"
+              />
             </View>
           </View>
           
@@ -287,7 +441,7 @@ export default function EditProfileScreen() {
             ) : (
               <>
                 <Ionicons name="save-outline" size={22} color="#fff" style={styles.saveIcon} />
-                <Text style={styles.saveButtonText}>Save Changes</Text>
+                <Text style={styles.saveButtonText}>Lưu Thay Đổi</Text>
               </>
             )}
           </TouchableOpacity>
@@ -400,31 +554,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'white',
   },
-  genderToggle: {
+  genderContainer: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  genderOption: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)', // Changed to white-tinted border
+    paddingVertical: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  genderSwitch: {
-    transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }],
-    marginHorizontal: 20,
+  activeGenderOption: {
+    backgroundColor: 'rgba(139,0,0,0.8)',
   },
-  genderLabel: {
+  genderText: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    marginLeft: 8,
+    color: 'rgba(255,255,255,0.6)',
     fontWeight: '500',
   },
-  activeGenderLabel: {
-    color: '#ffffff', // Changed to white
+  activeGenderText: {
+    color: '#ffffff',
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+  },
+  genderDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.4)',
   },
   saveButton: {
     backgroundColor: 'rgba(139,0,0,0.9)', // Semi-transparent deep red
@@ -525,5 +688,69 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     fontSize: 16,
+  },
+  sectionTitle: {
+    marginTop: 10,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,215,0,0.3)',
+    paddingBottom: 8,
+  },
+  sectionTitleText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  avatarContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  avatarWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    position: 'relative',
+    marginBottom: 10,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: 'rgba(255,215,0,0.5)',
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,215,0,0.5)',
+  },
+  avatarEditButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(139,0,0,0.9)',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  avatarText: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
