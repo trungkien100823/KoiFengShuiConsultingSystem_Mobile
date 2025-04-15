@@ -25,7 +25,7 @@ import { useFocusEffect } from '@react-navigation/native';
 export default function OnlineBookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const selectedMasterId = params.selectedMasterId;
+  const selectedMasterId = params.selectedMasterId ? params.selectedMasterId.trim() : null;
   const selectedMasterName = params.selectedMasterName;
   const fromMasterDetails = params.fromMasterDetails === 'true';
   const [name, setName] = useState('');
@@ -70,7 +70,7 @@ export default function OnlineBookingScreen() {
       const formattedConsultants = [
         { key: null, value: 'Chúng tôi sẽ chọn giúp' },
         ...consultantData.map(consultant => ({
-          key: consultant.id,
+          key: consultant.id ? consultant.id.trim() : null,
           value: consultant.name
         }))
       ];
@@ -108,7 +108,14 @@ export default function OnlineBookingScreen() {
   // Chỉ giữ lại useEffect cho selectedMasterId
   useEffect(() => {
     if (selectedMasterId && selectedMasterName) {
+      // Đảm bảo ID đã được trim
       setSelectedConsultant(selectedMasterId);
+      
+      // Log để debug
+      console.log('Setting selected consultant:', {
+        selectedMasterId,
+        selectedMasterName
+      });
     }
   }, [selectedMasterId, selectedMasterName]);
 
@@ -124,25 +131,16 @@ export default function OnlineBookingScreen() {
     let masterName = 'Chúng tôi sẽ chọn giúp';
 
     if (fromMasterDetails) {
-      masterId = selectedMasterId;
+      masterId = selectedMasterId?.trim();
       masterName = selectedMasterName;
     } else if (selectedConsultant && selectedConsultant !== 'null') {
       const selectedMaster = consultants.find(c => c.key === selectedConsultant);
       if (selectedMaster) {
-        masterId = selectedMaster.key;
+        masterId = selectedMaster.key?.trim();
         masterName = selectedMaster.value;
       }
     }
     
-    console.log('Thông tin đặt lịch:', {
-      name,
-      phone,
-      email,
-      masterId,
-      masterName,
-      description: description.trim()
-    });
-
     // Chuyển đến trang chọn lịch với thông tin đã nhập
     router.push({
       pathname: '/(tabs)/online_schedule',
@@ -152,7 +150,7 @@ export default function OnlineBookingScreen() {
           phone,
           email,
           description: description.trim(),
-          masterId,
+          masterId: masterId,
           masterName
         })
       }
@@ -211,6 +209,7 @@ export default function OnlineBookingScreen() {
                         : { key: null, value: 'Chúng tôi sẽ chọn giúp' }
                     }
                     arrowicon={<Ionicons name="chevron-down" size={24} color="#FFFFFF" />}
+                    save="key"
                   />
                 )}
               </View>

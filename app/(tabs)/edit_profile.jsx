@@ -14,7 +14,10 @@ import {
   ImageBackground,
   Modal,
   Image,
-  Dimensions
+  Dimensions,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
@@ -165,6 +168,155 @@ const modalStyles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
+  passwordModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  passwordModalContent: {
+    width: '100%',
+    backgroundColor: 'rgba(30, 30, 30, 0.95)',
+    borderRadius: 20,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 15,
+  },
+  passwordModalTitle: {
+    fontSize: 24,
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 25,
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  passwordInputContainer: {
+    marginBottom: 20,
+  },
+  passwordInputLabel: {
+    fontSize: 16,
+    color: 'white',
+    marginBottom: 8,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  passwordInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  passwordInputField: {
+    flex: 1,
+    padding: 15,
+    fontSize: 16,
+    color: 'white',
+  },
+  passwordEyeIcon: {
+    paddingHorizontal: 15,
+  },
+  passwordErrorText: {
+    color: '#ff6b6b',
+    fontSize: 14,
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  passwordButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  passwordButton: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  passwordCancelButton: {
+    backgroundColor: 'rgba(80, 80, 80, 0.8)',
+    marginRight: 10,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  passwordSubmitButton: {
+    backgroundColor: 'rgba(139, 0, 0, 0.9)',
+    marginLeft: 10,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  passwordButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  passwordRequirements: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  passwordRequirementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  passwordRequirementText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 13,
+    marginLeft: 6,
+  },
+  passwordRequirementValid: {
+    color: '#4cd964',
+  },
+  passwordRequirementInvalid: {
+    color: '#ff6b6b',
+  },
+  passwordModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  passwordModalIcon: {
+    marginRight: 10,
+  },
+  passwordValidIndicator: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4cd964',
+    marginRight: 6,
+  },
+  passwordInvalidIndicator: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#ff6b6b',
+    marginRight: 6,
+  },
 });
 
 export default function EditProfileScreen() {
@@ -175,6 +327,12 @@ export default function EditProfileScreen() {
   
   // Ref để theo dõi trạng thái fetching
   const isFetchingRef = useRef(false);
+  
+  // Thêm ref để kiểm soát tình trạng modal
+  const prevModalStateRef = useRef({
+    passwordModal: false,
+    userInfoModal: false
+  });
   
   // Form fields
   const [name, setName] = useState('');
@@ -201,7 +359,20 @@ export default function EditProfileScreen() {
   const [userElement, setUserElement] = useState('Hỏa');
   const [userLifePalace, setUserLifePalace] = useState('Unknown');
   
+  // Thêm state cho modal đổi mật khẩu
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [submittingPassword, setSubmittingPassword] = useState(false);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   // Helper function to determine element based on year of birth
+  // NOTE: KHÔNG CÒN SỬ DỤNG - Giữ lại cho mục đích tham khảo
+  // Hiện tại đang lấy giá trị element trực tiếp từ API
   const determineElementFromDob = (birthDate) => {
     if (!birthDate) return 'Hỏa';
     
@@ -213,8 +384,15 @@ export default function EditProfileScreen() {
   };
 
   // Helper function to determine life palace
-  const determineLifePalaceFromDob = (birthDate, isMale) => {
+  // NOTE: KHÔNG CÒN SỬ DỤNG - Giữ lại cho mục đích tham khảo
+  // Hiện tại đang lấy giá trị lifePalace trực tiếp từ API
+  const determineLifePalaceFromDob = (birthDate, gender) => {
     if (!birthDate) return 'Unknown';
+    
+    // Chuyển đổi gender về định dạng boolean chuẩn
+    const isMale = typeof gender === 'string' 
+      ? gender.toLowerCase() === 'true' || gender === '1'
+      : Boolean(gender);
     
     const year = new Date(birthDate).getFullYear();
     const palaces = ['Khảm', 'Ly', 'Cấn', 'Đoài', 'Càn', 'Khôn', 'Chấn', 'Tốn'];
@@ -224,13 +402,16 @@ export default function EditProfileScreen() {
     return palaces[index];
   };
   
-  // Function to fetch user data
+  // Function to fetch user data with delay to avoid concurrency issues
   const fetchUserData = useCallback(async () => {
     if (isFetchingRef.current) return;
     
     try {
       isFetchingRef.current = true;
       setLoading(true);
+      
+      // Thêm delay nhỏ để tránh gọi API quá nhanh dẫn đến lỗi concurrency ở backend
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const token = await getAuthToken();
       
@@ -241,10 +422,15 @@ export default function EditProfileScreen() {
         return;
       }
       
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/Account/current-user`, {
+      // Thêm timestamp để tránh cache
+      const timestamp = new Date().getTime();
+      const response = await axios.get(`${API_CONFIG.baseURL}/api/Account/current-user?_t=${timestamp}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
       
@@ -259,9 +445,13 @@ export default function EditProfileScreen() {
         setPhone(userData.phoneNumber || '');
         
         // Thêm kiểm tra trước khi gán giá trị cho bankId
-        setBankId(userData.bankId !== undefined ? userData.bankId : 0);
+        setBankId(userData.bankId !== undefined && userData.bankId !== null ? userData.bankId : 0);
         setAccountNo(userData.accountNo || '');
         setAccountName(userData.accountName || '');
+        
+        // Lấy ngũ hành và cung mệnh từ API
+        setUserElement(userData.element);
+        setUserLifePalace(userData.lifePalace);
         
         // Chỉ set imageUrl nếu nó tồn tại
         if (userData.imageUrl) {
@@ -288,7 +478,7 @@ export default function EditProfileScreen() {
         if (userData.gender !== undefined && userData.gender !== null) {
           // Chuyển đổi về boolean nếu cần
           const genderValue = typeof userData.gender === 'string'
-            ? userData.gender.toLowerCase() === 'true'
+            ? userData.gender.toLowerCase() === 'true' || userData.gender === '1'
             : Boolean(userData.gender);
             
           console.log('Parsed gender value:', genderValue);
@@ -314,9 +504,20 @@ export default function EditProfileScreen() {
         console.error('Error message:', error.message);
       }
       
+      // Xử lý các lỗi cụ thể từ máy chủ
+      let errorMessage = 'Không thể tải dữ liệu người dùng. Vui lòng thử lại.';
+      
+      if (error.response && error.response.status === 500) {
+        errorMessage = 'Lỗi máy chủ. Vui lòng thử lại sau vài phút.';
+        // Thử lại sau 3 giây nếu là lỗi 500 (có thể do concurrency)
+        setTimeout(() => {
+          fetchUserData();
+        }, 3000);
+      }
+      
       // Chỉ hiển thị thông báo lỗi nếu không có dữ liệu
       if (!name && !email) {
-        Alert.alert('Lỗi', 'Không thể tải dữ liệu người dùng. Vui lòng thử lại.');
+        Alert.alert('Lỗi', errorMessage);
       }
     } finally {
       setLoading(false);
@@ -328,12 +529,41 @@ export default function EditProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       console.log('Edit profile screen focused - refreshing data');
-      fetchUserData();
+      
+      // Lưu trạng thái modal hiện tại
+      const currentModalState = {
+        passwordModal: showPasswordModal,
+        userInfoModal: showUserInfoModal
+      };
+      
+      // Kiểm tra xem có modal nào đã được mở khi màn hình mất focus và vẫn mở khi focus lại không
+      const modalWasOpenAndStillOpen = (
+        (prevModalStateRef.current.passwordModal && showPasswordModal) ||
+        (prevModalStateRef.current.userInfoModal && showUserInfoModal)
+      );
+      
+      // Kiểm tra có modal nào đang mở không
+      const isAnyModalOpen = showPasswordModal || showUserInfoModal;
+      
+      // Chỉ tải lại dữ liệu nếu không có modal đang mở và không có modal nào được giữ mở từ trước
+      if (!isAnyModalOpen && !modalWasOpenAndStillOpen) {
+        console.log('Không có modal nào đang mở - tải lại dữ liệu');
+        fetchUserData();
+      } else {
+        console.log('Có modal đang mở hoặc vừa được mở lại - không tải lại dữ liệu');
+      }
+      
+      // Cập nhật trạng thái modal cho lần focus tiếp theo
+      prevModalStateRef.current = currentModalState;
       
       return () => {
-        // Cleanup khi màn hình mất focus
+        // Lưu trạng thái modal khi mất focus
+        prevModalStateRef.current = {
+          passwordModal: showPasswordModal,
+          userInfoModal: showUserInfoModal
+        };
       };
-    }, [fetchUserData])
+    }, [fetchUserData, showPasswordModal, showUserInfoModal])
   );
   
   // Replace the Alert.alert calls in handleSave with this custom alert
@@ -365,6 +595,9 @@ export default function EditProfileScreen() {
         setSubmitting(false);
         return;
       }
+      
+      // Thêm delay nhỏ để tránh gọi API quá nhanh dẫn đến lỗi concurrency ở backend
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Check if dob or gender has changed
       const dobChanged = dob.toISOString() !== initialDob.toISOString();
@@ -402,7 +635,7 @@ export default function EditProfileScreen() {
       console.log('Đang gửi giới tính dưới dạng:', genderValue);
       
       // Chỉ gửi các trường này nếu có giá trị
-      if (bankId || bankId === 0) formData.append('bankId', bankId.toString());
+      if (bankId !== null && (bankId || bankId === 0)) formData.append('bankId', bankId.toString());
       if (accountNo) formData.append('accountNo', accountNo);
       if (accountName) formData.append('accountName', accountName);
       
@@ -433,14 +666,18 @@ export default function EditProfileScreen() {
       
       // Gọi API với FormData
       console.log('Đang gửi request đến endpoint: ' + `${API_CONFIG.baseURL}/api/Account/edit-profile`);
+      const timestamp = new Date().getTime();
       const response = await axios.put(
-        `${API_CONFIG.baseURL}/api/Account/edit-profile`,
+        `${API_CONFIG.baseURL}/api/Account/edit-profile?_t=${timestamp}`,
         formData,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'multipart/form-data',
             'Accept': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
           },
           transformRequest: (data, headers) => {
             return data; // No transform needed for FormData
@@ -460,13 +697,46 @@ export default function EditProfileScreen() {
         
         // If dob or gender changed, show the user info modal
         if (dobChanged || genderChanged) {
-          const element = determineElementFromDob(dob);
-          const lifePalace = determineLifePalaceFromDob(dob, gender);
-          
-          // Update the state for modal
-          setUserElement(element);
-          setUserLifePalace(lifePalace);
-          setShowUserInfoModal(true);
+          try {
+            // Đợi một chút cho server cập nhật dữ liệu
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Gọi API current-user để lấy thông tin mới nhất
+            const timeStamp = new Date().getTime();
+            const userInfoResponse = await axios.get(
+              `${API_CONFIG.baseURL}/api/Account/current-user?_t=${timeStamp}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                  'Pragma': 'no-cache',
+                  'Expires': '0'
+                }
+              }
+            );
+            
+            console.log('Thông tin người dùng mới nhất:', JSON.stringify(userInfoResponse.data));
+            
+            // Lấy element và lifePalace từ API current-user
+            if (userInfoResponse.data) {
+              setUserElement(userInfoResponse.data.element);
+              setUserLifePalace(userInfoResponse.data.lifePalace);
+            } else {
+              // Fallback nếu không lấy được dữ liệu
+              setUserElement('Hỏa');
+              setUserLifePalace('Unknown');
+            }
+            
+            // Hiển thị modal
+            setShowUserInfoModal(true);
+          } catch (error) {
+            console.error('Lỗi khi lấy thông tin người dùng mới nhất:', error);
+            // Vẫn hiển thị modal nhưng với dữ liệu mặc định
+            setUserElement('Hỏa');
+            setUserLifePalace('Unknown');
+            setShowUserInfoModal(true);
+          }
         } else {
           // Show success message and navigate with refresh params
           showAlert('Thành Công', 'Cập nhật hồ sơ thành công', () => {
@@ -647,52 +917,52 @@ export default function EditProfileScreen() {
           });
         }}
       >
-        <View style={modalStyles.modalOverlay}>
-          <View style={modalStyles.modalContainer}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
             <ImageBackground
               source={require('../../assets/images/feng shui.png')}
-              style={modalStyles.modalBackground}
-              imageStyle={modalStyles.modalBackgroundImage}
+              style={styles.modalBackground}
+              imageStyle={styles.modalBackgroundImage}
             >
-              <View style={modalStyles.modalContent}>
+              <View style={styles.modalContent}>
                 {/* Header with title */}
-                <Text style={modalStyles.modalTitle}>Thông tin của bạn</Text>
+                <Text style={styles.modalTitle}>Thông tin của bạn</Text>
                 
                 {/* Element section with highlight */}
-                <View style={modalStyles.elementSection}>
-                  <Text style={modalStyles.elementLabel}>Ngũ hành của bạn là</Text>
-                  <Text style={[modalStyles.elementText, { color: elementColor }]}>
+                <View style={styles.elementSection}>
+                  <Text style={styles.elementLabel}>Ngũ hành của bạn là</Text>
+                  <Text style={[styles.elementText, { color: elementColor }]}>
                     {userElement}
                   </Text>
                 </View>
 
                 {/* User info container */}
-                <View style={modalStyles.infoContainer}>
-                  <View style={modalStyles.infoRow}>
-                    <Text style={modalStyles.label}>Họ và tên:</Text>
-                    <Text style={modalStyles.value}>{name}</Text>
+                <View style={styles.infoContainer}>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Họ và tên:</Text>
+                    <Text style={styles.value}>{name}</Text>
                   </View>
-                  <View style={modalStyles.infoRow}>
-                    <Text style={modalStyles.label}>Ngày sinh:</Text>
-                    <Text style={modalStyles.value}>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Ngày sinh:</Text>
+                    <Text style={styles.value}>
                       {dob.toLocaleDateString('vi-VN')}
                     </Text>
                   </View>
-                  <View style={modalStyles.infoRow}>
-                    <Text style={modalStyles.label}>Giới tính:</Text>
-                    <Text style={modalStyles.value}>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Giới tính:</Text>
+                    <Text style={styles.value}>
                       {gender ? 'Nam' : 'Nữ'}
                     </Text>
                   </View>
-                  <View style={[modalStyles.infoRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
-                    <Text style={modalStyles.label}>Cung mệnh:</Text>
-                    <Text style={modalStyles.value}>{userLifePalace}</Text>
+                  <View style={[styles.infoRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
+                    <Text style={styles.label}>Cung mệnh:</Text>
+                    <Text style={styles.value}>{userLifePalace}</Text>
                   </View>
                 </View>
 
                 {/* Close button with element color */}
                 <TouchableOpacity 
-                  style={[modalStyles.button, { backgroundColor: elementColor }]}
+                  style={[styles.button, { backgroundColor: elementColor }]}
                   onPress={() => {
                     setShowUserInfoModal(false);
                     router.replace({
@@ -701,7 +971,7 @@ export default function EditProfileScreen() {
                     });
                   }}
                 >
-                  <Text style={modalStyles.buttonText}>Đóng</Text>
+                  <Text style={styles.buttonText}>Đóng</Text>
                 </TouchableOpacity>
               </View>
             </ImageBackground>
@@ -711,6 +981,393 @@ export default function EditProfileScreen() {
     );
   };
   
+  // Thêm hàm xử lý đổi mật khẩu
+  const togglePasswordModal = () => {
+    Keyboard.dismiss();
+    setShowPasswordModal(!showPasswordModal);
+    // Reset form khi đóng modal
+    if (showPasswordModal) {
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordErrors({});
+    }
+  };
+  
+  // Hàm validate mật khẩu mới
+  const validateNewPassword = (password) => {
+    const errors = {};
+    const validations = {
+      length: password.length >= 6,
+      uppercase: /[A-Z]/.test(password),
+      number: /\d/.test(password),
+      special: /[@#$%^&+=!]/.test(password)
+    };
+    
+    if (!validations.length) {
+      errors.length = 'Mật khẩu mới phải có ít nhất 6 ký tự';
+    }
+    
+    if (!validations.uppercase) {
+      errors.uppercase = 'Mật khẩu phải chứa ít nhất một chữ cái viết hoa';
+    }
+    
+    if (!validations.number) {
+      errors.number = 'Mật khẩu phải chứa ít nhất một số';
+    }
+    
+    if (!validations.special) {
+      errors.special = 'Mật khẩu phải chứa ít nhất một ký tự đặc biệt (@#$%^&+=!)';
+    }
+    
+    return { errors, validations };
+  };
+  
+  // Hàm xử lý việc đổi mật khẩu
+  const handleChangePassword = async () => {
+    setPasswordErrors({});
+    
+    // Kiểm tra các trường rỗng
+    const errors = {};
+    
+    if (!oldPassword.trim()) {
+      errors.old = 'Mật khẩu cũ không được để trống';
+    }
+    
+    if (!newPassword.trim()) {
+      errors.new = 'Mật khẩu mới không được để trống';
+    } else {
+      // Kiểm tra định dạng mật khẩu mới
+      const { errors: passwordValidationErrors } = validateNewPassword(newPassword);
+      if (Object.keys(passwordValidationErrors).length > 0) {
+        errors.new = Object.values(passwordValidationErrors)[0];
+        errors.validationDetails = passwordValidationErrors;
+      }
+    }
+    
+    if (!confirmPassword.trim()) {
+      errors.confirm = 'Mật khẩu xác nhận không được để trống';
+    } else if (confirmPassword !== newPassword) {
+      errors.confirm = 'Mật khẩu xác nhận không khớp';
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+    
+    // Hiển thị alert xác nhận trước khi đổi mật khẩu
+    Alert.alert(
+      "Xác nhận đổi mật khẩu",
+      "Bạn có chắc chắn muốn đổi mật khẩu không?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel"
+        },
+        {
+          text: "Xác nhận",
+          onPress: async () => {
+            try {
+              setSubmittingPassword(true);
+              
+              const token = await getAuthToken();
+              if (!token) {
+                showAlert('Lỗi', 'Bạn chưa đăng nhập');
+                setSubmittingPassword(false);
+                return;
+              }
+              
+              const changePasswordRequest = {
+                oldPassword: oldPassword,
+                newPassword: newPassword,
+                confirmPassword: confirmPassword
+              };
+              
+              // Sử dụng endpoint từ file config thay vì hardcode URL
+              const response = await axios.put(
+                `${API_CONFIG.baseURL}${API_CONFIG.endpoints.changePassword}`,
+                changePasswordRequest,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+              
+              if (response.data && response.data.isSuccess) {
+                togglePasswordModal();
+                showAlert('Thành Công', 'Đổi mật khẩu thành công');
+                // Reset form
+                setOldPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+              } else {
+                setPasswordErrors({
+                  general: response.data?.message || 'Đã xảy ra lỗi khi đổi mật khẩu'
+                });
+              }
+            } catch (error) {
+              let errorMessage = 'Không thể đổi mật khẩu. Vui lòng thử lại.';
+              
+              if (error.response) {
+                if (error.response.data && error.response.data.message) {
+                  errorMessage = error.response.data.message;
+                } else {
+                  errorMessage = `Lỗi ${error.response.status}: ${error.message}`;
+                }
+              }
+              
+              setPasswordErrors({ general: errorMessage });
+            } finally {
+              setSubmittingPassword(false);
+            }
+          }
+        }
+      ],
+      { cancelable: true }
+    );
+  };
+  
+  // Component cho Modal đổi mật khẩu
+  const renderPasswordChangeModal = () => {
+    const { validations = {} } = newPassword ? validateNewPassword(newPassword) : { validations: {} };
+    
+    return (
+      <Modal
+        visible={showPasswordModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => {
+          setShowPasswordModal(false);
+          setOldPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          setPasswordErrors({});
+        }}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
+          >
+            <View style={modalStyles.passwordModalOverlay}>
+              <View style={modalStyles.passwordModalContent}>
+                <View style={modalStyles.passwordModalHeader}>
+                  <Text style={modalStyles.passwordModalTitle}>Đổi Mật Khẩu</Text>
+                </View>
+                
+                {passwordErrors.general && (
+                  <Text style={modalStyles.passwordErrorText}>
+                    {passwordErrors.general}
+                  </Text>
+                )}
+                
+                <View style={modalStyles.passwordInputContainer}>
+                  <Text style={modalStyles.passwordInputLabel}>Mật khẩu hiện tại</Text>
+                  <View style={modalStyles.passwordInputWrapper}>
+                    <TextInput
+                      style={modalStyles.passwordInputField}
+                      value={oldPassword}
+                      onChangeText={setOldPassword}
+                      placeholder="Nhập mật khẩu hiện tại"
+                      placeholderTextColor="rgba(255,255,255,0.5)"
+                      secureTextEntry={!showOldPassword}
+                    />
+                    <TouchableOpacity
+                      style={modalStyles.passwordEyeIcon}
+                      onPress={() => setShowOldPassword(!showOldPassword)}
+                    >
+                      <Ionicons
+                        name={showOldPassword ? "eye-off" : "eye"}
+                        size={22}
+                        color="rgba(255, 255, 255, 0.7)"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {passwordErrors.old && (
+                    <Text style={modalStyles.passwordErrorText}>{passwordErrors.old}</Text>
+                  )}
+                </View>
+                
+                <View style={modalStyles.passwordInputContainer}>
+                  <Text style={modalStyles.passwordInputLabel}>Mật khẩu mới</Text>
+                  <View style={modalStyles.passwordInputWrapper}>
+                    <TextInput
+                      style={modalStyles.passwordInputField}
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      placeholder="Nhập mật khẩu mới"
+                      placeholderTextColor="rgba(255,255,255,0.5)"
+                      secureTextEntry={!showNewPassword}
+                    />
+                    <TouchableOpacity
+                      style={modalStyles.passwordEyeIcon}
+                      onPress={() => setShowNewPassword(!showNewPassword)}
+                    >
+                      <Ionicons
+                        name={showNewPassword ? "eye-off" : "eye"}
+                        size={22}
+                        color="rgba(255, 255, 255, 0.7)"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {passwordErrors.new && (
+                    <Text style={modalStyles.passwordErrorText}>{passwordErrors.new}</Text>
+                  )}
+                  
+                  {newPassword.length > 0 && (
+                    <View style={modalStyles.passwordRequirements}>
+                      <View style={modalStyles.passwordRequirementRow}>
+                        {validations.length ? (
+                          <View style={modalStyles.passwordValidIndicator} />
+                        ) : (
+                          <View style={modalStyles.passwordInvalidIndicator} />
+                        )}
+                        <Text style={[
+                          modalStyles.passwordRequirementText,
+                          validations.length 
+                            ? modalStyles.passwordRequirementValid 
+                            : modalStyles.passwordRequirementInvalid
+                        ]}>
+                          Ít nhất 6 ký tự
+                        </Text>
+                      </View>
+                      
+                      <View style={modalStyles.passwordRequirementRow}>
+                        {validations.uppercase ? (
+                          <View style={modalStyles.passwordValidIndicator} />
+                        ) : (
+                          <View style={modalStyles.passwordInvalidIndicator} />
+                        )}
+                        <Text style={[
+                          modalStyles.passwordRequirementText,
+                          validations.uppercase 
+                            ? modalStyles.passwordRequirementValid 
+                            : modalStyles.passwordRequirementInvalid
+                        ]}>
+                          Ít nhất một chữ cái viết hoa
+                        </Text>
+                      </View>
+                      
+                      <View style={modalStyles.passwordRequirementRow}>
+                        {validations.number ? (
+                          <View style={modalStyles.passwordValidIndicator} />
+                        ) : (
+                          <View style={modalStyles.passwordInvalidIndicator} />
+                        )}
+                        <Text style={[
+                          modalStyles.passwordRequirementText,
+                          validations.number 
+                            ? modalStyles.passwordRequirementValid 
+                            : modalStyles.passwordRequirementInvalid
+                        ]}>
+                          Ít nhất một chữ số
+                        </Text>
+                      </View>
+                      
+                      <View style={[modalStyles.passwordRequirementRow, { marginBottom: 0 }]}>
+                        {validations.special ? (
+                          <View style={modalStyles.passwordValidIndicator} />
+                        ) : (
+                          <View style={modalStyles.passwordInvalidIndicator} />
+                        )}
+                        <Text style={[
+                          modalStyles.passwordRequirementText,
+                          validations.special 
+                            ? modalStyles.passwordRequirementValid 
+                            : modalStyles.passwordRequirementInvalid
+                        ]}>
+                          Ít nhất một ký tự đặc biệt (@#$%^&+=!)
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+                
+                <View style={modalStyles.passwordInputContainer}>
+                  <Text style={modalStyles.passwordInputLabel}>Xác nhận mật khẩu mới</Text>
+                  <View style={modalStyles.passwordInputWrapper}>
+                    <TextInput
+                      style={modalStyles.passwordInputField}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      placeholder="Nhập lại mật khẩu mới"
+                      placeholderTextColor="rgba(255,255,255,0.5)"
+                      secureTextEntry={!showConfirmPassword}
+                    />
+                    <TouchableOpacity
+                      style={modalStyles.passwordEyeIcon}
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      <Ionicons
+                        name={showConfirmPassword ? "eye-off" : "eye"}
+                        size={22}
+                        color="rgba(255, 255, 255, 0.7)"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {passwordErrors.confirm && (
+                    <Text style={modalStyles.passwordErrorText}>{passwordErrors.confirm}</Text>
+                  )}
+                  
+                  {newPassword && confirmPassword && newPassword === confirmPassword ? (
+                    <View style={[modalStyles.passwordRequirementRow, { marginTop: 8 }]}>
+                      <View style={modalStyles.passwordValidIndicator} />
+                      <Text style={[modalStyles.passwordRequirementText, modalStyles.passwordRequirementValid]}>
+                        Mật khẩu khớp
+                      </Text>
+                    </View>
+                  ) : confirmPassword ? (
+                    <View style={[modalStyles.passwordRequirementRow, { marginTop: 8 }]}>
+                      <View style={modalStyles.passwordInvalidIndicator} />
+                      <Text style={[modalStyles.passwordRequirementText, modalStyles.passwordRequirementInvalid]}>
+                        Mật khẩu không khớp
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                
+                <View style={modalStyles.passwordButtonRow}>
+                  <TouchableOpacity
+                    style={[modalStyles.passwordButton, modalStyles.passwordCancelButton]}
+                    onPress={() => {
+                      setShowPasswordModal(false);
+                      setOldPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                      setPasswordErrors({});
+                    }}
+                  >
+                    <Text style={modalStyles.passwordButtonText}>Hủy bỏ</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[
+                      modalStyles.passwordButton,
+                      modalStyles.passwordSubmitButton,
+                      submittingPassword && { opacity: 0.7 }
+                    ]}
+                    onPress={handleChangePassword}
+                    disabled={submittingPassword}
+                  >
+                    {submittingPassword ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={modalStyles.passwordButtonText}>Đổi mật khẩu</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -845,7 +1502,7 @@ export default function EditProfileScreen() {
               <Text style={styles.label}>Mã Ngân Hàng</Text>
               <TextInput
                 style={styles.input}
-                value={bankId.toString()}
+                value={bankId !== null ? bankId.toString() : '0'}
                 onChangeText={(text) => setBankId(text ? parseInt(text, 10) : 0)}
                 placeholder="Nhập mã ngân hàng"
                 placeholderTextColor="rgba(255,255,255,0.5)"
@@ -874,6 +1531,20 @@ export default function EditProfileScreen() {
                 placeholderTextColor="rgba(255,255,255,0.5)"
               />
             </View>
+            
+            {/* Thêm nút đổi mật khẩu */}
+            <View style={styles.sectionTitle}>
+              <Text style={styles.sectionTitleText}>Bảo Mật</Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.changePasswordButton}
+              onPress={togglePasswordModal}
+            >
+              <Ionicons name="lock-closed-outline" size={22} color="#fff" style={styles.changePasswordIcon} />
+              <Text style={styles.changePasswordText}>Đổi mật khẩu</Text>
+              <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
           </View>
           
           <TouchableOpacity 
@@ -893,6 +1564,7 @@ export default function EditProfileScreen() {
         </ScrollView>
       </SafeAreaView>
       <UserInfoModal />
+      {renderPasswordChangeModal()}
     </ImageBackground>
   );
 }
@@ -1195,6 +1867,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  changePasswordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(50, 50, 50, 0.6)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  changePasswordIcon: {
+    marginRight: 12,
+  },
+  changePasswordText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,

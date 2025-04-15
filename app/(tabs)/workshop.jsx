@@ -41,11 +41,13 @@ const WorkshopCard = ({ workshop }) => {
           title: workshop.title,
           date: workshop.date,
           location: workshop.location,
+          price: workshop.price,
         };
         
         navigation.navigate('workshopDetails', { 
           workshop: workshopToSend,
-          imageId: workshop.id 
+          imageId: workshop.id,
+          resetTicketCount: true
         });
       }}
     >

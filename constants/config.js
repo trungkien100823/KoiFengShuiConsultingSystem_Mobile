@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-const DEV_API_URL = 'http://192.168.1.32:5261';
+const DEV_API_URL = 'http://192.168.1.44:5261';
 //const DEV_API_URL = 'http://192.168.31.148:5261';
 
 export const API_CONFIG = {
@@ -43,6 +43,8 @@ export const API_CONFIG = {
     login: '/api/Account/login',
     currentUser: '/api/Account/current-user',
     logout: '/api/Account/logout',
+    changePassword: '/api/Account/change-password',
+    forgotPassword: '/api/Account/forgot-password',
 
     // Customer endpoints
     currentCustomerElement: '/api/Customer/current-customer-element-palace',

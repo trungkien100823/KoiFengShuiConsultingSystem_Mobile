@@ -65,6 +65,8 @@ export default function FishDetails() {
   const [selectedPondDetails, setSelectedPondDetails] = useState(null);
   const [hasCalculated, setHasCalculated] = useState(false);
   const scrollY = new Animated.Value(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isNavigatingFromMenu, setIsNavigatingFromMenu] = useState(true);
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -164,7 +166,7 @@ export default function FishDetails() {
       id: pond.koiPondId,
       name: pond.pondName,
       element: pond.element,
-      shape: pond.shape
+      shape: pond.shapeName
     });
     setSelectedPond(pond.koiPondId);
     setSelectedPondDetails(pond);
@@ -219,7 +221,7 @@ export default function FishDetails() {
       // Chuẩn bị dữ liệu gửi đi theo đúng model backend
       const calculationData = {
         colorRatios: colorRatios,
-        pondShape: selectedPondDetails.shapeName,
+        pondShape: selectedPondDetails.shapeName || "Chữ nhật",
         pondDirection: selectedDirection,
         fishCount: parseInt(fishCount)
       };
@@ -275,6 +277,37 @@ export default function FishDetails() {
       );
     }
   };
+
+  const resetForm = () => {
+    console.log('Đang reset form...');
+    setSelected("");
+    setSelectedPond("");
+    setFishCount(1);
+    setSelectedShape("");
+    setSelectedShapeId("");
+    setSelectedPondDetails(null);
+    setHasCalculated(false);
+    // Force refresh component bằng cách thay đổi key
+    setRefreshKey(prevKey => prevKey + 1);
+  };
+
+  // Sửa useEffect để chỉ reset khi đến từ menu
+  useEffect(() => {
+    // Kiểm tra xem params có chứa timestamp không
+    // Nếu không có timestamp thì đang chuyển từ menu
+    // Nếu có timestamp thì đang chuyển từ calculation_result
+    const isFromMenu = !params.timestamp;
+    console.log('Params changed, source:', isFromMenu ? 'menu' : 'calculation_result');
+    
+    if (isFromMenu) {
+      console.log('Đang reset form vì chuyển từ menu...');
+      resetForm();
+      setIsNavigatingFromMenu(true);
+    } else {
+      console.log('Không reset form vì quay lại từ calculation_result');
+      setIsNavigatingFromMenu(false);
+    }
+  }, [params.id, params.koiVarietyId, params.timestamp]);
 
   // Fetch dữ liệu khi component mount
   useEffect(() => {
@@ -407,7 +440,7 @@ export default function FishDetails() {
   }, [router]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} key={refreshKey}>
       <ImageBackground 
         source={
           koiDetails?.imageUrl
@@ -430,7 +463,12 @@ export default function FishDetails() {
           <View style={styles.header}>
             <TouchableOpacity 
               style={styles.backButton}
-              onPress={() => router.push('/menu')}
+              onPress={() => router.push({
+                pathname: '/menu',
+                params: {
+                  timestamp: Date.now()
+                }
+              })}
             >
               <Ionicons name="chevron-back-circle" size={32} color="#FFF" />
             </TouchableOpacity>

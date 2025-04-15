@@ -82,8 +82,8 @@ export default function UserInfo() {
           fullName: userData.fullName || userData.userName,
           dob: userData.dob || '2000-01-01',
           gender: userData.gender === true || userData.gender === 1 || userData.gender === "true" || userData.gender === "1",
-          element: determineElementFromDob(userData.dob) || 'Hỏa',
-          lifePalace: determineLifePalaceFromDob(userData.dob, userData.gender) || 'Unknown'
+          element: userData.element || 'Hỏa',
+          lifePalace: userData.lifePalace || 'Unknown'
         };
         
         setUserInfo(mappedUserInfo);
@@ -116,7 +116,8 @@ export default function UserInfo() {
   const elementColor = userInfo ? elementColors[userInfo.element] || '#FF4500' : '#FF4500';
 
   // Helper function to determine element based on year of birth
-  // This is a simplified placeholder - replace with actual feng shui logic if available
+  // NOTE: KHÔNG CÒN SỬ DỤNG - Giữ lại cho mục đích tham khảo
+  // Hiện tại đang lấy giá trị element trực tiếp từ API
   const determineElementFromDob = (dob) => {
     if (!dob) return 'Hỏa';
     
@@ -128,7 +129,8 @@ export default function UserInfo() {
   };
 
   // Helper function to determine life palace
-  // This is a simplified placeholder - replace with actual feng shui logic if available
+  // NOTE: KHÔNG CÒN SỬ DỤNG - Giữ lại cho mục đích tham khảo
+  // Hiện tại đang lấy giá trị lifePalace trực tiếp từ API
   const determineLifePalaceFromDob = (dob, gender) => {
     if (!dob) return 'Unknown';
     
