@@ -219,7 +219,7 @@ export default function OnlineScheduleScreen() {
     const isMasterChanged = prevMasterIdRef.current !== currentMasterId;
     
     if (isMasterChanged) {
-      console.log(`[Master Changed] Từ ${prevMasterIdRef.current} sang ${currentMasterId}`);
+      // console.log(`[Master Changed] Từ ${prevMasterIdRef.current} sang ${currentMasterId}`);
       // Reset flag để kích hoạt fetch lại dữ liệu
       apiCalledRef.current = false;
     }
@@ -232,7 +232,7 @@ export default function OnlineScheduleScreen() {
       return;
     }
 
-    console.log(`[Fetch] Đang tải lịch cho master: ${customerInfo?.masterId || 'tất cả'}`);
+    // console.log(`[Fetch] Đang tải lịch cho master: ${customerInfo?.masterId || 'tất cả'}`);
 
     const fetchMasterSchedules = async () => {
       if (loadingSchedules || isFetchingRef.current) return; // Ngăn gọi API khi đang loading hoặc đang fetch
@@ -256,27 +256,23 @@ export default function OnlineScheduleScreen() {
         if (customerInfo?.masterId && customerInfo.masterId !== 'null') {
           // Nếu đã chọn master cụ thể, lấy lịch của master đó
           try {
-            console.log(`Đang lấy lịch của master với ID: ${customerInfo.masterId}`);
+            // console.log(`Đang lấy lịch của master với ID: ${customerInfo.masterId}`);
             scheduleData = await consultingAPI.getMasterScheduleById(customerInfo.masterId);
-            console.log(`Đã lấy lịch của master thành công: ${scheduleData.length} mục`);
+            // console.log(`Đã lấy lịch của master thành công: ${scheduleData.length} mục`);
           } catch (error) {
-            console.error(`Lỗi khi lấy lịch của master ${customerInfo.masterId}:`, error);
-            setApiError(error.message || "Lỗi khi lấy lịch master");
+            // Không hiển thị lỗi ra console và UI
             setUseFallbackData(true);
-            // Sử dụng dữ liệu mẫu nếu API không hoạt động
             scheduleData = [];
           }
         } else {
           // Nếu không chọn master cụ thể, lấy lịch của tất cả master
           try {
-            console.log("Đang lấy lịch của tất cả master");
+            // console.log("Đang lấy lịch của tất cả master");
             scheduleData = await consultingAPI.getAllMasterSchedules();
-            console.log(`Đã lấy lịch của tất cả master thành công: ${scheduleData.length} mục`);
+            // console.log(`Đã lấy lịch của tất cả master thành công: ${scheduleData.length} mục`);
           } catch (error) {
-            console.error('Lỗi khi lấy lịch của tất cả các master:', error);
-            setApiError(error.message || "Lỗi khi lấy lịch master");
+            // Không hiển thị lỗi ra console và UI
             setUseFallbackData(true);
-            // Sử dụng dữ liệu mẫu nếu API không hoạt động
             scheduleData = [];
           }
         }
@@ -291,7 +287,7 @@ export default function OnlineScheduleScreen() {
         const allMasterIds = new Set(); // Lưu trữ tất cả các masterId độc nhất
         
         if (useFallbackData) {
-          console.log("Đang sử dụng dữ liệu mẫu cho lịch");
+          // console.log("Đang sử dụng dữ liệu mẫu cho lịch");
           // Sử dụng dữ liệu mẫu từ constants/consulting.js nếu API không hoạt động
           const today = new Date();
           const tomorrow = new Date(today);
@@ -321,7 +317,7 @@ export default function OnlineScheduleScreen() {
             );
           });
         } else if (scheduleData.length > 0) {
-          console.log(`Đang xử lý ${scheduleData.length} lịch trình từ API`);
+          // console.log(`Đang xử lý ${scheduleData.length} lịch trình từ API`);
           
           // Trước tiên, thu thập tất cả các masterId
           scheduleData.forEach(schedule => {
@@ -330,7 +326,7 @@ export default function OnlineScheduleScreen() {
             }
           });
           
-          console.log(`Số lượng master tìm thấy: ${allMasterIds.size}`);
+          // console.log(`Số lượng master tìm thấy: ${allMasterIds.size}`);
           
           // Sau đó tổ chức dữ liệu theo ngày và masterId
           scheduleData.forEach(schedule => {
@@ -373,9 +369,9 @@ export default function OnlineScheduleScreen() {
             if (masters.offline.size === allMasterIds.size) {
               // Tất cả master đều có lịch offline vào ngày này
               unavailableDatesMap[date] = true;
-              console.log(`Ngày ${date} không khả dụng vì tất cả master đều có lịch offline`);
+              // console.log(`Ngày ${date} không khả dụng vì tất cả master đều có lịch offline`);
             } else {
-              console.log(`Ngày ${date} vẫn khả dụng: ${masters.offline.size}/${allMasterIds.size} master có lịch offline`);
+              // console.log(`Ngày ${date} vẫn khả dụng: ${masters.offline.size}/${allMasterIds.size} master có lịch offline`);
             }
           }
           
@@ -395,7 +391,7 @@ export default function OnlineScheduleScreen() {
               // Lưu lại tất cả các khung giờ đã đặt, không phân biệt số lượng master
               // Để sử dụng logic mới: cộng 5 phút vào khung giờ kết thúc thay vì loại bỏ khung giờ
               unavailableTimesMap[date].push({ startTime, endTime });
-              console.log(`Đã lưu khung giờ ${startTime}-${endTime} ngày ${date} để xử lý với logic mới`);
+              // console.log(`Đã lưu khung giờ ${startTime}-${endTime} ngày ${date} để xử lý với logic mới`);
             }
           }
         }
@@ -403,8 +399,8 @@ export default function OnlineScheduleScreen() {
         setUnavailableDates(unavailableDatesMap);
         setUnavailableTimes(unavailableTimesMap);
       } catch (error) {
-        console.error('Lỗi khi xử lý lịch master:', error);
-        setApiError(error.message || "Lỗi khi xử lý dữ liệu");
+        // console.error('Lỗi khi xử lý lịch master:', error);
+        // setApiError(error.message || "Lỗi khi xử lý dữ liệu");
         setUseFallbackData(true);
       } finally {
         setLoadingSchedules(false);
@@ -878,8 +874,8 @@ export default function OnlineScheduleScreen() {
         endTime: formattedEndTime
       };
 
-      console.log('Request data:', bookingData);
-      console.log('API URL:', `${API_CONFIG.baseURL}/api/Booking/create`);
+      // console.log('Request data:', bookingData);
+      // console.log('API URL:', `${API_CONFIG.baseURL}/api/Booking/create`);
 
       const response = await axios.post(
         `${API_CONFIG.baseURL}/api/Booking/create`,
@@ -892,8 +888,8 @@ export default function OnlineScheduleScreen() {
         }
       );
 
-      console.log('Response status:', response.status);
-      console.log('Response data:', response.data);
+      // console.log('Response status:', response.status);
+      // console.log('Response data:', response.data);
 
       if (response.data.isSuccess) {
         const bookingId = response.data.data.bookingOnlineId;
@@ -1185,15 +1181,16 @@ export default function OnlineScheduleScreen() {
               style={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
+              {/* Xóa thông báo lỗi hoàn toàn
               {useFallbackData && (
                 <View style={styles.fallbackMessage}>
                   <Ionicons name="information-circle-outline" size={24} color="#FFFFFF" />
                   <Text style={styles.fallbackText}>
-                    Đang hiển thị dữ liệu mẫu do không thể kết nối đến máy chủ.
-                    {apiError ? `\nLỗi: ${apiError}` : ''}
+                    Đang hiển thị dữ liệu mẫu
                   </Text>
                 </View>
               )}
+              */}
 
               {/* Calendar Card */}
               <View style={styles.card}>

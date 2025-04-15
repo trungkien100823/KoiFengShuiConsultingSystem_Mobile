@@ -98,7 +98,8 @@ export default function CalculationResult() {
             introduction: params.introduction || '',
             imageName: params.imageName || 'buddha.png',
             liked: params.liked || 'false',
-            size: params.size || '2'
+            size: params.size || '2',
+            timestamp: Date.now() // Thêm timestamp để đảm bảo mỗi lần quay lại là một lần mới
           }
         })}
       >

@@ -33,7 +33,7 @@ const elementIcons = {
   Kim: 'diamond',
   Thủy: 'water',
   Mộc: 'leaf',
-  Thổ: 'mountain',
+  Thổ: 'terrain',
 };
 
 export default function PondDetails() {

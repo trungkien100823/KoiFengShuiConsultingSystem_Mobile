@@ -40,7 +40,6 @@ export default function TicketConfirmation() {
         return await apiCall();
       } catch (error) {
         lastError = error;
-        console.log(`Lần thử ${i + 1} thất bại, đang thử lại...`);
         await new Promise(resolve => setTimeout(resolve, 1000)); // Đợi 1 giây trước khi thử lại
       }
     }
@@ -62,12 +61,13 @@ export default function TicketConfirmation() {
           await fetchCurrentUser();
         });
       } catch (error) {
-        console.error('Không thể lấy thông tin người dùng sau nhiều lần thử:', error);
+        // Thay thế console.error bằng Alert
+        Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng. Vui lòng thử lại sau.');
         // Vẫn tiếp tục nếu không lấy được user info
       }
       
     } catch (error) {
-      console.error('Lỗi khi fetch dữ liệu:', error);
+      // Thay thế console.error bằng Alert
       Alert.alert('Lỗi', 'Không thể tải dữ liệu. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
@@ -77,24 +77,26 @@ export default function TicketConfirmation() {
   // Thêm useFocusEffect để re-fetch dữ liệu khi màn hình được focus
   useFocusEffect(
     useCallback(() => {
-      console.log('Màn hình được focus, đang fetch dữ liệu...');
-      
       // Lấy params mới nhất từ route
       const currentParams = route.params || {};
       const currentWorkshopId = currentParams.workshopId;
+      const shouldResetTicketCount = currentParams.resetTicketCount;
       
       // Nếu workshopId thay đổi, cập nhật và fetch lại dữ liệu
       if (currentWorkshopId && currentWorkshopId !== workshopId) {
-        console.log('WorkshopId thay đổi từ', workshopId, 'sang', currentWorkshopId);
         workshopId = currentWorkshopId;
         setFullWorkshopId(currentWorkshopId);
-        setTicketCount(1); // Reset số lượng vé về 1
+        setTicketCount(1); // Reset số lượng vé về 1 khi chọn workshop mới
+      } 
+      // Ngay cả khi workshop không thay đổi nhưng có yêu cầu reset ticket count
+      else if (shouldResetTicketCount) {
+        setTicketCount(1); // Reset số lượng vé về 1 theo yêu cầu
       }
       
       fetchData();
       
       return () => {
-        console.log('Màn hình bị blur');
+        // Màn hình bị blur
       };
     }, [route.params]) // Thêm route.params vào dependency array
   );
@@ -113,7 +115,7 @@ export default function TicketConfirmation() {
         
         // Reset loading state and fetch new data
         setIsLoading(true);
-        setTicketCount(1);
+        setTicketCount(1); // Reset số lượng vé về 1 khi chọn workshop mới
         
         Promise.all([
           verifyTokenAndUser(),
@@ -133,7 +135,7 @@ export default function TicketConfirmation() {
       await fetchCurrentUser();
       await fetchWorkshopDetails();
     } catch (error) {
-      console.error('Lỗi khi refresh màn hình:', error);
+      // Thay thế console.error bằng Alert
       Alert.alert(
         "Thông báo",
         "Không thể tải lại thông tin. Vui lòng thử lại sau."
@@ -153,11 +155,8 @@ export default function TicketConfirmation() {
       // Use the workshopDetailsService from constants
       const response = await workshopDetailsService.getWorkshopDetails(workshopId);
       
-      console.log('Workshop details response in ticket confirmation:', JSON.stringify(response));
-      
       if (response && response.isSuccess) {
         const workshopData = response.data;
-        console.log('Workshop data extracted:', JSON.stringify(workshopData));
         
         // Set workshop information using the correct API response property names
         setWorkshopInfo({
@@ -167,16 +166,24 @@ export default function TicketConfirmation() {
           price: workshopData.price || workshopPrice,
           imageUrl: workshopData.imageUrl || null,
           capacity: workshopData.capacity || 0,
-          status: workshopData.status || 'Pending'
+          status: workshopData.status || 'Pending',
+          startTime: workshopData.startTime || null,
+          endTime: workshopData.endTime || null,
+          masterName: workshopData.masterName || null
         });
         
         // Set the full workshop ID for later use
         setFullWorkshopId(workshopData.workshopId);
       } else {
-        console.error('API response error:', response?.message);
+        // Thay console.error bằng return silently
+        return;
       }
     } catch (error) {
-      console.error('Error fetching workshop details:', error);
+      // Thay console.error bằng Alert
+      Alert.alert(
+        'Thông báo',
+        'Không thể tải thông tin workshop. Vui lòng thử lại sau.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -186,20 +193,16 @@ export default function TicketConfirmation() {
     if (!dateString) return null;
     
     try {
-      console.log('Formatting date string:', dateString);
-      
       const date = new Date(dateString);
       
       if (isNaN(date.getTime())) {
-        console.log('Date không hợp lệ, trả về nguyên mẫu:', dateString);
         return dateString;
       }
       
       const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-      console.log('Formatted date result:', formattedDate);
       return formattedDate;
     } catch (error) {
-      console.error('Lỗi định dạng ngày:', error);
+      // Thay thế console.error bằng silent error handling
       return dateString;
     }
   };
@@ -210,15 +213,12 @@ export default function TicketConfirmation() {
       
       // If no token exists, redirect to login
       if (!token) {
-        console.log('No token found, redirecting to login');
         navigation.reset({
           index: 0,
           routes: [{ name: 'login' }],
         });
         return false;
       }
-      
-      console.log('Đang xác thực token với endpoint current-user');
       
       // Sử dụng endpoint current-user trực tiếp giống như trong online_booking.jsx
       const response = await axios.get(
@@ -232,17 +232,13 @@ export default function TicketConfirmation() {
       
       // Nếu có phản hồi, token hợp lệ
       if (response.data) {
-        console.log('Token verification successful');
         return true;
       }
       
       return false;
     } catch (error) {
-      console.error('Token verification error:', error);
-      
       // If error is 401/403, token is invalid
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-        console.log('Token invalid (401/403), clearing and redirecting to login');
         await AsyncStorage.removeItem('accessToken');
         navigation.reset({
           index: 0,
@@ -252,7 +248,6 @@ export default function TicketConfirmation() {
       }
       
       // For other errors, we can just try to continue
-      console.log('Other error during verification, continuing anyway');
       return true;
     }
   };
@@ -267,15 +262,12 @@ export default function TicketConfirmation() {
       // Get current access token
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
-        console.log('No access token found, redirecting to login');
         navigation.reset({
           index: 0,
           routes: [{ name: 'login' }],
         });
         return;
       }
-      
-      console.log('Đang gọi API để lấy thông tin người dùng hiện tại');
       
       // Sử dụng endpoint current-user trực tiếp giống như trong online_booking.jsx
       const response = await axios.get(
@@ -288,28 +280,20 @@ export default function TicketConfirmation() {
         }
       );
       
-      console.log('Current user API response:', JSON.stringify(response.data));
-      
       // Xử lý dữ liệu trả về từ API
       if (response.data) {
         // Update the UI with user data - Trích xuất đúng dữ liệu như trong online_booking.jsx
         setCustomerName(response.data.fullName || response.data.userName || '');
         setPhoneNumber(response.data.phoneNumber || '');
         setEmail(response.data.email || '');
-        
-        console.log('User profile loaded successfully:', response.data.fullName);
       } else {
-        console.error('Failed to get user data: No data returned');
+        // Thay console.error bằng Alert
         Alert.alert('Thông báo', 'Không thể lấy thông tin người dùng. Vui lòng thử lại sau.');
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
-      
+      // Thay console.error bằng silent error handling
       // Check for authentication errors
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-        console.log('Authentication error, redirecting to login');
         await AsyncStorage.removeItem('accessToken');
         navigation.reset({
           index: 0,
@@ -375,12 +359,8 @@ export default function TicketConfirmation() {
         email: email
       };
       
-      console.log('Dữ liệu vé được chuẩn bị:', JSON.stringify(ticketData));
-      
       // Sử dụng service tạo vé
       const createResult = await ticketService.createTicket(ticketData);
-      
-      console.log('Kết quả tạo vé:', JSON.stringify(createResult));
       
       if (createResult.success) {
         // Lấy GroupId từ response
@@ -404,13 +384,22 @@ export default function TicketConfirmation() {
         
         return; // Kết thúc hàm ở đây để không thực hiện phần code phía dưới
       } else {
-        Alert.alert('Thông báo', 'Không thể tạo vé');
+        Alert.alert('Thông báo', createResult.message || 'Không thể tạo vé');
       }
     } catch (error) {
-      console.error('Lỗi:', error);
+      // Chỉ hiển thị Alert thay vì console.error
       
+      // Kiểm tra lỗi từ API
+      if (error.response && error.response.data) {
+        const apiError = error.response.data;
+        Alert.alert('Thông báo', apiError.message || 'Đã xảy ra lỗi khi tạo vé');
+      } 
+      // Kiểm tra lỗi cụ thể về workshop đã bắt đầu
+      else if (error.message && error.message.includes('Workshop đã bắt đầu')) {
+        Alert.alert('Thông báo', 'Workshop đã bắt đầu, không thể đăng ký hay chỉnh sửa.');
+      }
       // Kiểm tra lỗi cụ thể về thanh toán đang chờ
-      if (error.message && (
+      else if (error.message && (
         error.message.includes('hoàn tất thanh toán') || 
         error.message.includes('chưa thanh toán')
       )) {
@@ -444,8 +433,6 @@ export default function TicketConfirmation() {
     try {
       setIsLoading(true);
       
-      console.log(`Đang xử lý thanh toán cho GroupId: ${groupId}`);
-      
       // Sử dụng service thanh toán với GroupId
       const result = await paymentService.processPayment({
         navigation,
@@ -462,7 +449,7 @@ export default function TicketConfirmation() {
           totalFee: `${workshopInfo.price * numberOfTicket}$`
         },
         onError: (error) => {
-          console.error('Lỗi thanh toán:', error);
+          // Thay console.error bằng Alert
           Alert.alert(
             'Lỗi thanh toán',
             error.message || 'Không thể kết nối đến cổng thanh toán. Vui lòng thử lại.',
@@ -480,10 +467,6 @@ export default function TicketConfirmation() {
       if (result.success) {
         // Lấy paymentUrl và orderId trực tiếp từ result
         const { paymentUrl, orderId } = result;
-        console.log('Payment URL:', paymentUrl); // Thêm log để debug
-        console.log('Order ID:', orderId); // Thêm log để debug
-        
-        // Sử dụng navigation.navigate
         navigation.navigate('payment_webview', {
           paymentUrl: encodeURIComponent(paymentUrl),
           orderId: orderId,
@@ -503,8 +486,7 @@ export default function TicketConfirmation() {
         );
       }
     } catch (error) {
-      console.error('Lỗi xử lý thanh toán:', error);
-      
+      // Thay console.error bằng Alert
       Alert.alert(
         'Lỗi hệ thống',
         'Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.',
@@ -523,12 +505,13 @@ export default function TicketConfirmation() {
 
   const checkPaymentEndpoint = async () => {
     try {
-      console.log('Kiểm tra cấu hình API thanh toán:', API_CONFIG.endpoints.payment);
       if (!API_CONFIG.endpoints.payment) {
-        console.error('Không tìm thấy cấu hình endpoint thanh toán');
+        // Thay console.error bằng return silently
+        return;
       }
     } catch (error) {
-      console.error('Lỗi khi kiểm tra endpoint thanh toán:', error);
+      // Thay console.error bằng return silently
+      return;
     }
   };
 
@@ -646,6 +629,15 @@ export default function TicketConfirmation() {
                     </View>
                     
                     <View style={styles.workshopDetailRow}>
+                      <Ionicons name="time" size={16} color="#8B0000" />
+                      <Text style={styles.workshopDetailText}>
+                        {workshopInfo.startTime && workshopInfo.endTime 
+                          ? `${workshopInfo.startTime} - ${workshopInfo.endTime}`
+                          : 'Đang cập nhật'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.workshopDetailRow}>
                       <Ionicons name="location" size={16} color="#8B0000" />
                       <Text style={styles.workshopDetailText}>{workshopInfo.location}</Text>
                     </View>
@@ -654,6 +646,13 @@ export default function TicketConfirmation() {
                       <FontAwesome name="ticket" size={16} color="#8B0000" />
                       <Text style={styles.workshopDetailText}>{formatPrice(workshopInfo.price)}/vé</Text>
                     </View>
+                    
+                    {workshopInfo.masterName && (
+                      <View style={styles.workshopDetailRow}>
+                        <Ionicons name="person" size={16} color="#8B0000" />
+                        <Text style={styles.workshopDetailText}>{workshopInfo.masterName}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>

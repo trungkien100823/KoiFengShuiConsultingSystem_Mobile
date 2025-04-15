@@ -170,7 +170,7 @@ export default function PaymentWebView() {
         style={styles.header}
       >
         <TouchableOpacity 
-          onPress={() => navigation.navigate('workshop')} 
+          onPress={() => navigation.navigate('menu')} 
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color="white" />

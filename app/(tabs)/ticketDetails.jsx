@@ -65,7 +65,7 @@ export default function TicketDetails() {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'N/A';
       
-      return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+      return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
     } catch (error) {
       console.error('Lỗi định dạng ngày:', error);
       return 'N/A';
@@ -95,6 +95,11 @@ export default function TicketDetails() {
 
   const formatCurrency = (amount) => {
     return amount?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " VNĐ" || 'N/A';
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return 'N/A';
+    return timeString;
   };
 
   const workshopInfo = ticketsList[0] || null;
@@ -152,11 +157,29 @@ export default function TicketDetails() {
               
               <View style={styles.infoRow}>
                 <View style={styles.labelContainer}>
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.label}>Thời gian:</Text>
+                </View>
+                <Text style={styles.value}>{formatTime(workshopInfo.startTime)} - {formatTime(workshopInfo.endTime)}</Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <View style={styles.labelContainer}>
                   <Ionicons name="location-outline" size={20} color="#666" />
                   <Text style={styles.label}>Địa điểm:</Text>
                 </View>
                 <Text style={styles.value}>{workshopInfo.location || 'N/A'}</Text>
               </View>
+              
+              {workshopInfo.masterName && (
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="person-outline" size={20} color="#666" />
+                    <Text style={styles.label}>Người chủ trì:</Text>
+                  </View>
+                  <Text style={styles.value}>{workshopInfo.masterName}</Text>
+                </View>
+              )}
 
               <View style={styles.divider} />
               

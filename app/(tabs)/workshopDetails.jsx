@@ -125,13 +125,8 @@ const WorkshopDetailsScreen = () => {
       // Format date
       const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
       
-      // Format time
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      const formattedTime = `${hours}:${minutes}`;
-      
       // Combine date and time
-      return `${formattedDate} - ${formattedTime}`;
+      return `${formattedDate}`;
     } catch (error) {
       console.error('Lỗi định dạng ngày:', error);
       return dateString;
@@ -237,6 +232,18 @@ const WorkshopDetailsScreen = () => {
             
             <View style={styles.detailRow}>
               <View style={styles.detailIconContainer}>
+                <Ionicons name="time" size={18} color="#8B0000" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Giờ bắt đầu - kết thúc</Text>
+                <Text style={styles.detailValue}>
+                  {displayWorkshop.startTime ? `${displayWorkshop.startTime} - ${displayWorkshop.endTime || 'N/A'}` : 'Đang cập nhật'}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <View style={styles.detailIconContainer}>
                 <Ionicons name="location" size={18} color="#8B0000" />
               </View>
               <View style={styles.detailContent}>
@@ -272,6 +279,24 @@ const WorkshopDetailsScreen = () => {
               </Text>
             </View>
           </View>
+
+          {/* Master Info Section */}
+          {displayWorkshop.masterName && (
+            <View style={styles.masterCard}>
+              <Text style={styles.sectionTitle}>Thông tin người chủ trì</Text>
+              <View style={styles.masterInfo}>
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIconContainer}>
+                    <Ionicons name="person" size={18} color="#8B0000" />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Họ và tên</Text>
+                    <Text style={styles.detailValue}>{displayWorkshop.masterName}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -282,7 +307,8 @@ const WorkshopDetailsScreen = () => {
           onPress={() => navigation.navigate('ticket_confirmation', { 
             workshopId: displayWorkshop.workshopId,
             workshopName: displayWorkshop.workshopName,
-            workshopPrice: displayWorkshop.price
+            workshopPrice: displayWorkshop.price,
+            resetTicketCount: route.params?.resetTicketCount || true
           })}
         >
           <Text style={styles.bookingButtonText}>Đăng ký tham gia</Text>
@@ -582,6 +608,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     flex: 1,
+  },
+  masterCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  masterInfo: {
+    marginTop: 5,
   },
 });
 

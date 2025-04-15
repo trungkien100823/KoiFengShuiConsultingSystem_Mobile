@@ -14,8 +14,6 @@ const axiosInstance = axios.create({
 export const ticketService = {
   createTicket: async (ticketData) => {
     try {
-      console.log('Đang chuẩn bị dữ liệu để tạo vé:', JSON.stringify(ticketData));
-      
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
         throw new Error('Không tìm thấy token đăng nhập');
@@ -31,8 +29,6 @@ export const ticketService = {
         NumberOfTicket: parseInt(ticketData.quantity, 10),
       };
       
-      console.log('Dữ liệu đã được chuẩn bị cho API:', JSON.stringify(apiData));
-      
       // Gọi API tạo vé
       const response = await axios.post(
         `${API_CONFIG.baseURL}${API_CONFIG.endpoints.createRegisterAttend}`,
@@ -45,8 +41,6 @@ export const ticketService = {
         }
       );
       
-      console.log('Kết quả tạo vé từ API:', JSON.stringify(response.data));
-      
       if (response.data && response.data.isSuccess) {
         return {
           success: true,
@@ -57,12 +51,8 @@ export const ticketService = {
       
       throw new Error(response.data?.message || 'Không thể tạo vé');
     } catch (error) {
-      console.error('Lỗi từ service tạo vé:', error);
-      
       // Xử lý lỗi chi tiết hơn
       if (error.response && error.response.data) {
-        console.log('Chi tiết lỗi từ API:', JSON.stringify(error.response.data));
-        
         // Trả về lỗi cụ thể từ server
         throw new Error(error.response.data.message || 'Lỗi từ máy chủ');
       }
@@ -74,8 +64,6 @@ export const ticketService = {
   // Cập nhật phương pháp thứ hai: thay vì FormData, sử dụng JSON nhưng với cách định dạng khác
   createTicketFormData: async (ticketData) => {
     try {
-      console.log('Đang chuẩn bị dữ liệu thay thế để tạo vé:', JSON.stringify(ticketData));
-      
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
         throw new Error('Không tìm thấy token đăng nhập');
@@ -93,8 +81,6 @@ export const ticketService = {
         NumberOfTicket: numberOfTicket
       };
       
-      console.log('Dữ liệu thay thế đã được chuẩn bị:', JSON.stringify(apiData));
-      
       // Gọi API tạo vé với JSON thay vì FormData
       const response = await axios.post(
         `${API_CONFIG.baseURL}${API_CONFIG.endpoints.createRegisterAttend}`,
@@ -109,8 +95,6 @@ export const ticketService = {
         }
       );
       
-      console.log('Kết quả tạo vé từ API (phương pháp thay thế):', JSON.stringify(response.data));
-      
       if (response.data && response.data.isSuccess) {
         return {
           success: true,
@@ -121,15 +105,8 @@ export const ticketService = {
       
       throw new Error(response.data?.message || 'Không thể tạo vé');
     } catch (error) {
-      console.error('Lỗi từ phương pháp thay thế:', error);
-      
       // Chi tiết xử lý lỗi tương tự phương pháp đầu tiên
       if (error.response && error.response.data) {
-        console.log('Chi tiết lỗi từ API (phương pháp thay thế):', JSON.stringify({
-          status: error.response.status,
-          data: error.response.data
-        }));
-        
         // Xử lý các lỗi HTTP cụ thể
         if (error.response.status === 400) {
           const errorMessage = error.response.data.message || '';
