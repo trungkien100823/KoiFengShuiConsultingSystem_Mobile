@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -13,9 +13,14 @@ import {
   Dimensions,
   ImageBackground,
   BackHandler,
-  Animated
+  Animated,
+  Pressable,
+  KeyboardAvoidingView,
+  FlatList,
+  TextInput,
+  Modal
 } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5, AntDesign, Feather } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome5, AntDesign, Feather, Entypo, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import { SelectList } from 'react-native-dropdown-select-list';
@@ -29,6 +34,7 @@ import { API_CONFIG } from '../../constants/config';
 import { getAuthHeaders } from '../../services/authService';
 
 const { width, height } = Dimensions.get('window');
+const isIOS = Platform.OS === 'ios';
 
 const colorCodeMap = {
   'Trắng': '#FFFFFF',
@@ -43,6 +49,65 @@ const colorCodeMap = {
   'Hồng': '#FFC0CB',
   'Cam': '#FFA500',
   'Tím': '#800080'
+};
+
+const shadeColor = (color, percent) => {
+  if (!color) return '#8B0000';
+  let R = parseInt(color.substring(1,3),16);
+  let G = parseInt(color.substring(3,5),16);
+  let B = parseInt(color.substring(5,7),16);
+
+  R = parseInt(R * (100 + percent) / 100);
+  G = parseInt(G * (100 + percent) / 100);
+  B = parseInt(B * (100 + percent) / 100);
+
+  R = (R<255)?R:255;  
+  G = (G<255)?G:255;  
+  B = (B<255)?B:255;  
+
+  R = Math.max(0, R).toString(16).padStart(2, '0');
+  G = Math.max(0, G).toString(16).padStart(2, '0');
+  B = Math.max(0, B).toString(16).padStart(2, '0');
+
+  return `#${R}${G}${B}`;
+}
+
+const ColorSlider = ({ color, index, colorCodeMap, updateColor }) => {
+  const [localValue, setLocalValue] = useState(color.percentage);
+  
+  useEffect(() => {
+    setLocalValue(color.percentage);
+  }, [color.percentage]);
+  
+  return (
+    <View style={styles.colorControlRow}>
+      <View style={styles.colorLabelContainer}>
+        <View 
+          style={[styles.colorDot, { 
+            backgroundColor: colorCodeMap[color.colorName] || '#ccc',
+            borderColor: color.colorName === 'Trắng' ? '#ddd' : 'transparent'
+          }]} 
+        />
+        <Text style={styles.colorLabel}>{color.colorName}</Text>
+        <Text style={styles.percentageLabel}>{Math.round(localValue)}%</Text>
+      </View>
+      
+      <Slider
+        style={styles.colorSlider}
+        minimumValue={0}
+        maximumValue={100}
+        value={localValue}
+        onValueChange={setLocalValue}
+        onSlidingComplete={(value) => {
+          updateColor(index, Math.round(value));
+        }}
+        minimumTrackTintColor={colorCodeMap[color.colorName] || "#8B0000"}
+        maximumTrackTintColor="#E0E0E0"
+        thumbTintColor="#8B0000"
+        step={1}
+      />
+    </View>
+  );
 };
 
 export default function FishDetails() {
@@ -64,13 +129,17 @@ export default function FishDetails() {
   const [pondsByShape, setPondsByShape] = useState([]);
   const [selectedPondDetails, setSelectedPondDetails] = useState(null);
   const [hasCalculated, setHasCalculated] = useState(false);
-  const scrollY = new Animated.Value(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [refreshKey, setRefreshKey] = useState(0);
   const [isNavigatingFromMenu, setIsNavigatingFromMenu] = useState(true);
+  const scrollViewRef = useRef();
+  const [isInputModalVisible, setIsInputModalVisible] = useState(false);
+  const [inputModalData, setInputModalData] = useState({ colorName: '', currentValue: 0, colorIndex: 0 });
+  const [inputValue, setInputValue] = useState('');
 
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 1],
+  const heroScale = scrollY.interpolate({
+    inputRange: [-100, 0, 100],
+    outputRange: [1.1, 1, 1],
     extrapolate: 'clamp'
   });
 
@@ -439,152 +508,371 @@ export default function FishDetails() {
     return () => backHandler.remove();
   }, [router]);
 
+  // Calculate this outside of the render to improve performance
+  const totalPercentage = useMemo(() => {
+    if (!koiDetails?.colors || koiDetails.colors.length === 0) return 0;
+    return Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0));
+  }, [koiDetails?.colors]);
+
+  const updateColorPercentage = (index, newValue) => {
+    const updatedColors = [...koiDetails.colors];
+    updatedColors[index].percentage = newValue;
+    setKoiDetails({...koiDetails, colors: updatedColors});
+  };
+
+  const promptColorPercentage = (colorName, currentValue, index) => {
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        `Tỷ lệ màu ${colorName}`,
+        "Nhập giá trị phần trăm (0-100)",
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xác nhận',
+            onPress: (value) => {
+              const numValue = parseInt(value, 10);
+              if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                updateColorPercentage(index, numValue);
+              } else {
+                Alert.alert('Lỗi', 'Vui lòng nhập số từ 0 đến 100');
+              }
+            }
+          },
+        ],
+        'plain-text',
+        Math.round(currentValue).toString(),
+        'number-pad'
+      );
+    } else {
+      setInputValue(Math.round(currentValue).toString());
+      setIsInputModalVisible(true);
+      setInputModalData({
+        colorName,
+        currentValue: Math.round(currentValue),
+        colorIndex: index
+      });
+    }
+  };
+
   return (
-    <View style={styles.container} key={refreshKey}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      <View style={styles.container}>
+        {/* Hero Image with Parallax Effect */}
+        <Animated.View style={[styles.heroContainer, {transform: [{scale: heroScale}]}]}>
       <ImageBackground 
         source={
           koiDetails?.imageUrl
             ? { uri: koiDetails.imageUrl }
             : require('../../assets/images/koi_image.jpg')
         }
-        style={styles.backgroundImage}
-        resizeMode="cover"
-        onError={(error) => {
-          console.log('Image loading error:', error.nativeEvent.error);
-          if (error.nativeEvent.error) {
-            console.log('URL ảnh lỗi:', koiDetails?.imageUrl);
-          }
-        }}
+            style={styles.heroImage}
       >
         <LinearGradient
-          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)']}
-          style={styles.overlay}
+              colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
+              style={styles.heroGradient}
         >
-          <View style={styles.header}>
             <TouchableOpacity 
-              style={styles.backButton}
+                style={styles.backButtonHero}
               onPress={() => router.push({
                 pathname: '/menu',
-                params: {
-                  timestamp: Date.now()
-                }
-              })}
-            >
-              <Ionicons name="chevron-back-circle" size={32} color="#FFF" />
+                  params: { timestamp: Date.now() }
+                })}
+              >
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)']}
+                  style={styles.backButtonGradient}
+                >
+                  <Ionicons name="chevron-back-circle" size={36} color="#FFF" />
+                </LinearGradient>
             </TouchableOpacity>
-          </View>
-
-          <ScrollView 
-            style={styles.scrollView} 
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.contentCard}>
-              <View style={styles.fishInfoSection}>
-                <Text style={styles.fishName}>{params.name || 'Koi Fish'}</Text>
-                <View style={styles.tagContainer}>
+              
+              <View style={styles.heroContent}>
+                <Text style={styles.heroTitle}>{params.name || 'Koi Fish'}</Text>
+                <View style={styles.tagRow}>
                   <View style={styles.tag}>
                     <FontAwesome5 name="ruler" size={14} color="#FFD700" />
                     <Text style={styles.tagText}>{params.size || 'Medium'}</Text>
                   </View>
+                  {koiDetails?.element && (
+                    <View style={styles.tag}>
+                      <MaterialCommunityIcons name="zodiac-chinese" size={14} color="#FFD700" />
+                      <Text style={styles.tagText}>{koiDetails.element}</Text>
                 </View>
+                  )}
               </View>
-
-              <View style={styles.divider} />
-
-              {/* Introduction Card */}
+              </View>
+            </LinearGradient>
+          </ImageBackground>
+        </Animated.View>
+        
+        {/* Main Content - Simplified ScrollView */}
+        <Animated.ScrollView
+          ref={scrollViewRef}
+          style={styles.contentScroll}
+          contentContainerStyle={[styles.contentContainer, { paddingTop: 0 }]}
+          showsVerticalScrollIndicator={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { 
+              useNativeDriver: true,
+            }
+          )}
+          scrollEventThrottle={8}
+          decelerationRate={0.92}
+          bounces={true}
+          overScrollMode="always"
+          removeClippedSubviews={false}
+          keyboardShouldPersistTaps="handled"
+          directionalLockEnabled={true}
+          alwaysBounceVertical={true}
+        >
+          {/* Keep all content sections but remove the id attribute since we no longer need it for navigation */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  <FontAwesome5 name="fish" size={16} color="#8B0000" style={styles.sectionIcon} />
-                  Giới Thiệu
-                </Text>
+            <View style={styles.sectionHeader}>
+              <FontAwesome5 name="fish" size={20} color="#8B0000" />
+              <Text style={styles.sectionTitle}>Giới Thiệu</Text>
+            </View>
+            
                 <Text style={styles.sectionContent}>
                   {koiDetails?.introduction || 'Thông tin đang được cập nhật...'}
                 </Text>
+            
+            {koiDetails?.description && (
+              <View style={styles.descriptionContainer}>
+                <Text style={styles.descriptionTitle}>Mô Tả Chi Tiết</Text>
+                <Text style={styles.descriptionContent}>
+                  {koiDetails.description}
+                </Text>
               </View>
-
-              {/* Description Card */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  <MaterialIcons name="description" size={16} color="#8B0000" style={styles.sectionIcon} />
-                  Mô Tả
-                </Text>
-                <Text style={styles.sectionContent}>
-                  {koiDetails?.description || 'Thông tin đang được cập nhật...'}
-                </Text>
+            )}
               </View>
               
-              {/* Color Configuration Card */}
+          {/* Elegantly Redesigned Color Configuration Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  <MaterialIcons name="color-lens" size={18} color="#8B0000" style={styles.sectionIcon} />
-                  Màu Sắc
-                </Text>
-                
-                {koiDetails?.colors && koiDetails.colors.map((color, index) => (
-                  <View key={index} style={styles.colorRow}>
-                    <View style={styles.colorLabelContainer}>
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="palette" size={22} color="#8B0000" />
+              <Text style={styles.sectionTitle}>Cấu Hình Màu Sắc</Text>
+              
+              <View style={[
+                styles.headerTotalBadge,
+                totalPercentage === 100 ? styles.totalCorrectBadge : styles.totalErrorBadge
+              ]}>
+                <Text style={styles.totalPercentageText}>{totalPercentage}%</Text>
+                {totalPercentage === 100 ? (
+                  <Ionicons name="checkmark-circle" size={16} color="#fff" style={styles.totalIcon} />
+                ) : (
+                  <Ionicons name="alert-circle" size={16} color="#fff" style={styles.totalIcon} />
+                )}
+              </View>
+            </View>
+            
+            {/* Color Preview Bar with Percentage Labels */}
+            {koiDetails?.colors && koiDetails.colors.length > 0 && (
+              <View style={styles.colorDistributionContainer}>
+                <View style={styles.paletteContainer}>
+                  {koiDetails.colors.map((color, index) => (
                       <View 
-                        style={[styles.colorDot, { 
+                      key={index} 
+                      style={[
+                        styles.paletteSegment,
+                        { 
                           backgroundColor: colorCodeMap[color.colorName] || '#ccc',
-                          borderColor: color.colorName === 'Trắng' ? '#ddd' : 'transparent'
-                        }]} 
-                      />
-                      <Text style={styles.colorLabel}>{color.colorName}</Text>
+                          width: `${color.percentage}%`,
+                        }
+                      ]}
+                    >
+                      {color.percentage >= 10 && (
+                        <Text style={[
+                          styles.segmentLabel,
+                          {color: ['Trắng', 'Vàng'].includes(color.colorName) ? '#333' : '#fff'}
+                        ]}>
+                          {Math.round(color.percentage)}%
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+            
+            {/* Enhanced Color Control Cards with Type Input Option */}
+            <View style={styles.colorControlGrid}>
+              {koiDetails?.colors && koiDetails.colors.map((color, index) => {
+                const colorHex = colorCodeMap[color.colorName] || '#8B0000';
+                const isDarkColor = ['Đen', 'XanhDương', 'XanhLá', 'Nâu', 'Tím', 'Đỏ'].includes(color.colorName);
+                
+                return (
+                  <View 
+                    key={index} 
+                    style={[
+                      styles.colorControlCard,
+                      { 
+                        borderLeftWidth: 5,
+                        borderLeftColor: colorHex
+                      }
+                    ]}
+                  >
+                    {/* Color Header */}
+                    <View style={styles.colorHeaderRow}>
+                      <View style={[styles.colorSwatch, { backgroundColor: colorHex }]} />
+                      <Text style={styles.colorCardTitle}>{color.colorName}</Text>
+                      
+                      {/* Direct Input Button */}
+                      <TouchableOpacity 
+                        style={styles.inputModeButton}
+                        onPress={() => promptColorPercentage(color.colorName, color.percentage, index)}
+                      >
+                        <MaterialIcons name="edit" size={16} color="#555" />
+                      </TouchableOpacity>
                     </View>
                     
-                    <View style={styles.sliderContainer}>
-                      <Slider
-                        style={styles.slider}
-                        minimumValue={0}
-                        maximumValue={100}
-                        value={color.percentage}
-                        onValueChange={(value) => {
-                          const updatedColors = [...koiDetails.colors];
-                          updatedColors[index].percentage = Math.round(value);
-                          setKoiDetails({...koiDetails, colors: updatedColors});
+                    {/* Adjustment Controls */}
+                    <View style={styles.colorValueRow}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.decrementButton, 
+                          color.percentage <= 0 && styles.disabledControlButton
+                        ]}
+                        onPress={() => {
+                          if (color.percentage >= 5) {
+                            updateColorPercentage(index, color.percentage - 5);
+                          } else if (color.percentage > 0) {
+                            updateColorPercentage(index, 0);
+                          }
                         }}
-                        minimumTrackTintColor="#8B0000"
-                        maximumTrackTintColor="#E0E0E0"
-                        thumbTintColor="#8B0000"
-                        step={1}
-                      />
-                      <View style={styles.percentageContainer}>
-                        <Text style={styles.percentageText}>{Math.round(color.percentage)}%</Text>
+                        activeOpacity={0.7}
+                        disabled={color.percentage <= 0}
+                      >
+                        <AntDesign 
+                          name="minus" 
+                          size={18} 
+                          color={color.percentage <= 0 ? "#bbb" : "#fff"} 
+                        />
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={styles.valueDisplay}
+                        onPress={() => promptColorPercentage(color.colorName, color.percentage, index)}
+                      >
+                        <Text style={styles.valueText}>{Math.round(color.percentage)}%</Text>
+                        <LinearGradient
+                          colors={[colorHex, shadeColor(colorHex, -20)]}
+                          start={{x: 0, y: 0}}
+                          end={{x: 1, y: 0}}
+                          style={[
+                            styles.progressBar,
+                            { width: `${Math.min(color.percentage, 100)}%` },
+                          ]}
+                        />
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          styles.incrementButton,
+                          color.percentage >= 100 && styles.disabledControlButton
+                        ]}
+                        onPress={() => {
+                          if (color.percentage <= 95) {
+                            updateColorPercentage(index, color.percentage + 5);
+                          } else if (color.percentage < 100) {
+                            updateColorPercentage(index, 100);
+                          }
+                        }}
+                        activeOpacity={0.7}
+                        disabled={color.percentage >= 100}
+                      >
+                        <AntDesign 
+                          name="plus" 
+                          size={18} 
+                          color={color.percentage >= 100 ? "#bbb" : "#fff"} 
+                        />
+                      </TouchableOpacity>
                       </View>
+                    
+                    {/* Fine Adjustment Buttons */}
+                    <View style={styles.fineAdjustRow}>
+                      <TouchableOpacity 
+                        style={[styles.fineAdjustButton, color.percentage <= 0 && styles.disabledFineButton]}
+                        onPress={() => {
+                          if (color.percentage >= 1) {
+                            updateColorPercentage(index, color.percentage - 1);
+                          }
+                        }}
+                        disabled={color.percentage <= 0}
+                      >
+                        <Text style={[styles.fineAdjustText, color.percentage <= 0 && styles.disabledFineText]}>-1</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[styles.fineAdjustButton, color.percentage <= 0 && styles.disabledFineButton]}
+                        onPress={() => {
+                          if (color.percentage >= 10) {
+                            updateColorPercentage(index, color.percentage - 10);
+                          } else if (color.percentage > 0) {
+                            updateColorPercentage(index, 0);
+                          }
+                        }}
+                        disabled={color.percentage <= 0}
+                      >
+                        <Text style={[styles.fineAdjustText, color.percentage <= 0 && styles.disabledFineText]}>-10</Text>
+                      </TouchableOpacity>
+                      
+                      <View style={styles.fineAdjustSpacer} />
+                      
+                      <TouchableOpacity 
+                        style={[styles.fineAdjustButton, color.percentage >= 100 && styles.disabledFineButton]}
+                        onPress={() => {
+                          if (color.percentage <= 90) {
+                            updateColorPercentage(index, color.percentage + 10);
+                          } else if (color.percentage < 100) {
+                            updateColorPercentage(index, 100);
+                          }
+                        }}
+                        disabled={color.percentage >= 100}
+                      >
+                        <Text style={[styles.fineAdjustText, color.percentage >= 100 && styles.disabledFineText]}>+10</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[styles.fineAdjustButton, color.percentage >= 100 && styles.disabledFineButton]}
+                        onPress={() => {
+                          if (color.percentage <= 99) {
+                            updateColorPercentage(index, color.percentage + 1);
+                          }
+                        }}
+                        disabled={color.percentage >= 100}
+                      >
+                        <Text style={[styles.fineAdjustText, color.percentage >= 100 && styles.disabledFineText]}>+1</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-                ))}
-                
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Tổng phần trăm:</Text>
-                  <Text style={[
-                    styles.totalValue,
-                    koiDetails?.colors && 
-                    Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 ? 
-                    styles.totalValueError : {}
-                  ]}>
-                    {koiDetails?.colors ? 
-                      Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) : 0}%
-                  </Text>
+                );
+              })}
                 </View>
                 
-                {koiDetails?.colors && 
-                Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 && (
-                  <Text style={styles.errorMessage}>
-                    Tổng phần trăm các màu phải bằng 100%
+            {/* Validation Message */}
+            {totalPercentage !== 100 && (
+              <View style={styles.validationMessage}>
+                <Ionicons name="information-circle" size={22} color="#f57c00" />
+                <Text style={styles.validationText}>
+                  Tổng phần trăm cần bằng 100% để có thể tính toán chính xác
                   </Text>
+              </View>
                 )}
               </View>
               
-              {/* Pond Configuration Card */}
+          {/* Pond Configuration Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  <Ionicons name="water-outline" size={18} color="#8B0000" style={styles.sectionIcon} />
-                  Cấu Hình Hồ
-                </Text>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="water" size={20} color="#8B0000" />
+              <Text style={styles.sectionTitle}>Chọn Hồ Cá</Text>
+            </View>
                 
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>Hình Dạng Hồ</Text>
+              <View style={styles.shapeSelectionContainer}>
                   <SelectList
                     setSelected={handleShapeSelect}
                     data={pondShapes}
@@ -595,103 +883,99 @@ export default function FishDetails() {
                     dropdownTextStyles={styles.dropdownText}
                     search={false}
                   />
+              </View>
                 </View>
                 
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Chọn Hồ</Text>
+            {/* Pond Carousel */}
+            <View style={styles.pondCarouselContainer}>
+              <Text style={styles.carouselTitle}>Các Hồ Khả Dụng</Text>
                   
                   {pondsByShape.length > 0 ? (
-                    <ScrollView 
+                <FlatList
+                  data={pondsByShape}
+                  keyExtractor={(item, index) => `pond-${item.koiPondId || index}`}
                       horizontal 
                       showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.pondCardsContainer}
-                    >
-                      {pondsByShape.map((pond, index) => (
+                  contentContainerStyle={styles.carouselContent}
+                  renderItem={({item}) => (
                         <TouchableOpacity 
-                          key={index} 
                           style={[
                             styles.pondCard,
-                            selectedPond === pond.koiPondId && styles.selectedPondCard
+                        selectedPond === item.koiPondId && styles.selectedPondCard
                           ]}
-                          onPress={() => handlePondSelect(pond)}
+                      onPress={() => handlePondSelect(item)}
+                      activeOpacity={0.8}
                         >
                           <Image 
                             source={
-                              pond.shapeName === 'Hình chữ nhật' ? require('../../assets/images/natural_pond.jpg') :
-                              pond.shapeName === 'Hình tròn' ? require('../../assets/images/raised_pond.jpg') :
-                              pond.shapeName === 'Hình bầu dục' ? require('../../assets/images/zen_pond.jpg') :
+                          item.shapeName === 'Hình chữ nhật' ? require('../../assets/images/natural_pond.jpg') :
+                          item.shapeName === 'Hình tròn' ? require('../../assets/images/raised_pond.jpg') :
+                          item.shapeName === 'Hình bầu dục' ? require('../../assets/images/zen_pond.jpg') :
                               require('../../assets/images/formal_pond.jpg')
                             }
-                            style={styles.pondImage}
+                        style={styles.pondCardImage}
                           />
-                          {selectedPond === pond.koiPondId && (
-                            <View style={styles.selectedOverlay}>
+                      
+                      {selectedPond === item.koiPondId && (
+                        <View style={styles.selectedPondOverlay}>
                               <AntDesign name="checkcircle" size={24} color="#FFF" />
                             </View>
                           )}
-                          <View style={styles.pondNameContainer}>
-                            <Text style={styles.pondName}>{pond.pondName}</Text>
+                      
+                      <View style={styles.pondCardInfo}>
+                        <Text style={styles.pondCardName}>{item.pondName}</Text>
+                        <Text style={styles.pondCardShape}>{item.shapeName}</Text>
                           </View>
                         </TouchableOpacity>
-                      ))}
-                    </ScrollView>
+                  )}
+                />
                   ) : (
                     <View style={styles.emptyPondsContainer}>
-                      <Feather name="alert-circle" size={24} color="#999" />
+                  <Ionicons name="water-outline" size={40} color="#ccc" />
                       <Text style={styles.emptyPondsText}>
-                        Không tìm thấy hồ cho hình dạng này
+                    Không tìm thấy hồ phù hợp
                       </Text>
                     </View>
                   )}
                 </View>
                 
                 {selectedPondDetails && (
-                  <View style={styles.pondDetails}>
-                    <View style={styles.pondDetailsHeader}>
-                      <Ionicons name="information-circle-outline" size={18} color="#8B0000" />
-                      <Text style={styles.pondDetailsTitle}>Thông Tin Hồ</Text>
+              <View style={styles.selectedPondDetails}>
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Hình dạng</Text>
+                    <Text style={styles.detailValue}>{selectedPondDetails.shapeName}</Text>
                     </View>
-                    
-                    <View style={styles.pondInfoGrid}>
-                      <View style={styles.pondInfoItem}>
-                        <Text style={styles.pondInfoLabel}>Tên:</Text>
-                        <Text style={styles.pondInfoValue}>{selectedPondDetails.pondName}</Text>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Nguyên tố</Text>
+                    <Text style={styles.detailValue}>{selectedPondDetails.element}</Text>
+                      </View>
                       </View>
                       
-                      <View style={styles.pondInfoItem}>
-                        <Text style={styles.pondInfoLabel}>Hình dạng:</Text>
-                        <Text style={styles.pondInfoValue}>{selectedPondDetails.shapeName}</Text>
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Diện tích</Text>
+                    <Text style={styles.detailValue}>{selectedPondDetails.area} m²</Text>
                       </View>
-                      
-                      <View style={styles.pondInfoItem}>
-                        <Text style={styles.pondInfoLabel}>Nguyên tố:</Text>
-                        <Text style={styles.pondInfoValue}>{selectedPondDetails.element}</Text>
-                      </View>
-                      
-                      <View style={styles.pondInfoItem}>
-                        <Text style={styles.pondInfoLabel}>Diện tích:</Text>
-                        <Text style={styles.pondInfoValue}>{selectedPondDetails.area} m²</Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Hướng Đặt Hồ</Text>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Hướng</Text>
                   <SelectList
                     setSelected={setSelected}
                     data={directions}
-                    placeholder="Chọn hướng đặt hồ"
-                    boxStyles={styles.selectBox}
-                    dropdownStyles={styles.dropdown}
-                    inputStyles={styles.selectInput}
-                    dropdownTextStyles={styles.dropdownText}
+                      placeholder="Chọn hướng"
+                      boxStyles={styles.miniSelectBox}
+                      dropdownStyles={styles.miniDropdown}
+                      inputStyles={styles.miniSelectInput}
+                      dropdownTextStyles={styles.miniDropdownText}
                     search={false}
                   />
                 </View>
+                </View>
+              </View>
+            )}
                 
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Số Lượng Cá</Text>
+            <View style={styles.fishCountContainer}>
+              <Text style={styles.fishCountLabel}>Số Lượng Cá</Text>
                   <View style={styles.fishCountControl}>
                     <TouchableOpacity 
                       style={[
@@ -701,13 +985,10 @@ export default function FishDetails() {
                       onPress={() => adjustFishCount(false)}
                       disabled={fishCount <= 1}
                     >
-                      <AntDesign name="minus" size={20} color="#FFF" />
+                  <AntDesign name="minus" size={20} color={fishCount <= 1 ? "#999" : "#FFF"} />
                     </TouchableOpacity>
                     
-                    <View style={styles.countDisplay}>
-                      <Text style={styles.countValue}>{fishCount}</Text>
-                      <Text style={styles.countUnit}>con</Text>
-                    </View>
+                <Text style={styles.fishCountValue}>{fishCount}</Text>
                     
                     <TouchableOpacity 
                       style={styles.countButton}
@@ -719,248 +1000,516 @@ export default function FishDetails() {
                 </View>
               </View>
               
-              {/* Calculate Button */}
+          {/* Calculation Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="calculator-variant" size={20} color="#8B0000" />
+              <Text style={styles.sectionTitle}>Tính Phong Thủy</Text>
+            </View>
+            
+            <View style={styles.calculationSummary}>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <MaterialIcons name="color-lens" size={18} color="#8B0000" />
+                  <Text style={styles.summaryLabel}>Màu sắc:</Text>
+                  <Text style={styles.summaryValue}>
+                    {koiDetails?.colors && koiDetails.colors.length > 0 
+                      ? koiDetails.colors.map(c => c.colorName).join(', ')
+                      : 'Chưa cấu hình'
+                    }
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Ionicons name="water" size={18} color="#8B0000" />
+                  <Text style={styles.summaryLabel}>Hồ:</Text>
+                  <Text style={styles.summaryValue}>
+                    {selectedPondDetails ? selectedPondDetails.pondName : 'Chưa chọn'}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Ionicons name="compass" size={18} color="#8B0000" />
+                  <Text style={styles.summaryLabel}>Hướng:</Text>
+                  <Text style={styles.summaryValue}>
+                    {selected ? directions.find(d => d.key === selected)?.value : 'Chưa chọn'}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <FontAwesome5 name="fish" size={18} color="#8B0000" />
+                  <Text style={styles.summaryLabel}>Số lượng:</Text>
+                  <Text style={styles.summaryValue}>{fishCount} con</Text>
+                </View>
+              </View>
+            </View>
+            
               <TouchableOpacity 
-                style={styles.calculateButtonContainer}
+              style={styles.calculateButton}
                 onPress={calculateCompatibility}
               >
                 <LinearGradient
-                  colors={['#8B0000', '#650000']}
+                colors={['#8B0000', '#5a0000']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.calculateButton}
+                style={styles.calculateGradient}
                 >
-                  <Text style={styles.calculateButtonText}>Tính Tương Hợp</Text>
-                  <MaterialIcons name="calculate" size={22} color="#FFF" style={styles.calculateIcon} />
+                <Text style={styles.calculateText}>Tính Tương Hợp</Text>
+                <MaterialIcons name="calculate" size={22} color="#FFF" />
                 </LinearGradient>
               </TouchableOpacity>
-              
-              {/* Results Card - Only show if we have calculated */}
-              {hasCalculated && (
-                <View style={styles.section}>
-                  <View style={styles.scoreContainer}>
-                    <View style={styles.scoreCircle}>
-                      <Text style={styles.scoreValue}>{compatibilityScore}%</Text>
-                    </View>
-                    <Text style={styles.scoreLabel}>Mức độ tương hợp</Text>
+          </View>
+          
+          <View style={styles.bottomPadding} />
+        </Animated.ScrollView>
                   </View>
                   
-                  <Text style={styles.compatibilityMessage}>
-                    {compatibilityMessage || 'Không có thông tin tương hợp.'}
-                  </Text>
-                </View>
-              )}
+      {Platform.OS === 'android' && (
+        <Modal
+          visible={isInputModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsInputModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Tỷ lệ màu {inputModalData.colorName}</Text>
+              <Text style={styles.modalSubtitle}>Nhập giá trị phần trăm (0-100)</Text>
               
-              <View style={styles.bottomPadding} />
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Giá trị phần trăm:</Text>
+                <TextInput
+                  style={[
+                    styles.modalInput,
+                    (inputValue && (isNaN(parseInt(inputValue, 10)) || 
+                      parseInt(inputValue, 10) < 0 || 
+                      parseInt(inputValue, 10) > 100)) && styles.inputError
+                  ]}
+                  keyboardType="number-pad"
+                  value={inputValue}
+                  onChangeText={(text) => {
+                    // Allow only numbers
+                    if (text === '' || /^\d+$/.test(text)) {
+                      setInputValue(text);
+                    }
+                  }}
+                  maxLength={3}
+                  autoFocus
+                  selectTextOnFocus
+                  placeholder="0-100"
+                  placeholderTextColor="#aaa"
+                />
+                <View style={styles.valueRange}>
+                  <Text style={styles.rangeLabel}>0</Text>
+                  <View style={styles.rangeLine} />
+                  <Text style={styles.rangeLabel}>100</Text>
+                </View>
+              </View>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => {
+                    setIsInputModalVisible(false);
+                    setInputValue('');
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Hủy</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={() => {
+                    const numValue = parseInt(inputValue || inputModalData.currentValue, 10);
+                    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                      updateColorPercentage(inputModalData.colorIndex, numValue);
+                      setIsInputModalVisible(false);
+                      setInputValue('');
+                    } else {
+                      Alert.alert('Lỗi', 'Vui lòng nhập số từ 0 đến 100');
+                    }
+                  }}
+                >
+                  <Text style={styles.confirmButtonText}>Xác nhận</Text>
+                </TouchableOpacity>
             </View>
-          </ScrollView>
-        </LinearGradient>
-      </ImageBackground>
     </View>
+          </View>
+        </Modal>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#000',
   },
-  backgroundImage: {
+  container: {
     flex: 1,
+  },
+  heroContainer: {
+    height: 280,
     width: '100%',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    overflow: 'hidden',
   },
-  overlay: {
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroGradient: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight + 10),
+  },
+  backButtonHero: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    zIndex: 1,
+    overflow: 'hidden',
   },
-  backButton: {
-    padding: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 20,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    marginTop: 180,
-    paddingTop: 20,
-    minHeight: '100%',
-    paddingHorizontal: 20,
-  },
-  fishInfoSection: {
+  backButtonGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  heroContent: {
     marginBottom: 20,
   },
-  fishName: {
-    fontSize: 24,
+  heroTitle: {
+    color: '#FFF',
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 8,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
-  tagContainer: {
+  tagRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 20,
+    borderRadius: 16,
+    marginRight: 8,
   },
   tagText: {
-    color: '#8B0000',
+    color: '#FFF',
     fontSize: 14,
     marginLeft: 6,
-    fontWeight: '600',
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    marginVertical: 20,
+  contentScroll: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+  },
+  contentContainer: {
+    padding: 20,
+    paddingTop: 0,
   },
   section: {
-    marginBottom: 25,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 20,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  sectionIcon: {
-    marginRight: 8,
-  },
-  sectionContent: {
-    fontSize: 15,
-    color: '#555',
-    lineHeight: 22,
-  },
-  
-  colorRow: {
     marginBottom: 16,
   },
-  colorLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
   },
-  colorDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: 8,
-    borderWidth: 1,
-  },
-  colorLabel: {
-    fontSize: 15,
+  sectionContent: {
+    fontSize: 16,
+    lineHeight: 24,
     color: '#444',
   },
-  sliderContainer: {
+  descriptionContainer: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  descriptionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#555',
+    marginBottom: 8,
+  },
+  descriptionContent: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#666',
+  },
+  colorControlsWrapper: {
+    marginBottom: 15,
+  },
+  colorCard: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    marginBottom: 10,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  colorCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  slider: {
-    flex: 1,
+  colorIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  colorName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  colorAdjuster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  adjustButton: {
+    width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: '#8B0000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  percentageContainer: {
-    width: 50,
-    alignItems: 'flex-end',
+  disabledAdjustButton: {
+    backgroundColor: '#e0e0e0',
   },
-  percentageText: {
-    fontSize: 15,
+  percentageBox: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  percentageValue: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
   },
-  totalRow: {
+  percentageBarContainer: {
+    height: 6,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  percentageBar: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  totalContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 12,
+    marginTop: 5,
+    marginBottom: 15,
+    padding: 16,
+    borderRadius: 12,
+  },
+  totalCorrect: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  },
+  totalError: {
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
   },
   totalLabel: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#555',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
   },
   totalValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#8B0000',
     marginLeft: 8,
   },
+  totalValueCorrect: {
+    color: '#4CAF50',
+  },
   totalValueError: {
-    color: '#e53935',
+    color: '#F44336',
   },
-  errorMessage: {
-    fontSize: 13,
-    color: '#e53935',
-    marginTop: 8,
-    textAlign: 'right',
-    fontStyle: 'italic',
+  errorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F44336',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 'auto',
   },
-  formGroup: {
+  errorBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  colorPreview: {
+    height: 24,
+    flexDirection: 'row',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  colorPreviewSegment: {
+    height: '100%',
+  },
+  shapeSelectionContainer: {
     marginBottom: 20,
   },
   formLabel: {
     fontSize: 16,
     fontWeight: '500',
-    marginBottom: 10,
     color: '#444',
+    marginBottom: 10,
   },
   selectBox: {
+    borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
-    height: 50,
+    padding: 12,
+    backgroundColor: '#fff',
   },
   dropdown: {
+    borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
+    backgroundColor: '#fff',
+    marginTop: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   selectInput: {
     color: '#333',
+    fontSize: 15,
   },
   dropdownText: {
     color: '#333',
+    fontSize: 15,
   },
-  pondCardsContainer: {
-    paddingVertical: 10,
+  pondCarouselContainer: {
+    marginBottom: 20,
+  },
+  carouselTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#444',
+    marginBottom: 12,
+  },
+  carouselContent: {
+    paddingVertical: 8,
   },
   pondCard: {
-    width: 140,
-    height: 140,
+    width: 180,
+    height: 220,
     borderRadius: 12,
     overflow: 'hidden',
-    marginRight: 12,
-    position: 'relative',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    marginRight: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   selectedPondCard: {
+    borderWidth: 2,
     borderColor: '#8B0000',
   },
-  pondImage: {
+  pondCardImage: {
     width: '100%',
-    height: '100%',
+    height: 160,
   },
-  selectedOverlay: {
+  selectedPondOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -970,28 +1519,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pondNameContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingVertical: 6,
+  pondCardInfo: {
+    padding: 10,
+    backgroundColor: '#fff',
+    height: 60,
   },
-  pondName: {
-    color: '#FFF',
-    fontSize: 13,
-    textAlign: 'center',
-    fontWeight: '500',
+  pondCardName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 2,
+  },
+  pondCardShape: {
+    fontSize: 12,
+    color: '#777',
   },
   emptyPondsContainer: {
-    height: 140,
+    height: 180,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#ddd',
     borderStyle: 'dashed',
   },
   emptyPondsText: {
@@ -999,143 +1549,512 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 14,
   },
-  pondDetails: {
+  selectedPondDetails: {
     backgroundColor: '#f9f9f9',
     borderRadius: 12,
-    padding: 14,
+    padding: 15,
     marginBottom: 20,
   },
-  pondDetailsHeader: {
+  detailsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 15,
   },
-  pondDetailsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#444',
-    marginLeft: 6,
+  detailItem: {
+    flex: 1,
   },
-  pondInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  pondInfoItem: {
-    width: '50%',
-    marginBottom: 10,
-    paddingRight: 10,
-  },
-  pondInfoLabel: {
+  detailLabel: {
     fontSize: 13,
     color: '#777',
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  pondInfoValue: {
+  detailValue: {
     fontSize: 15,
-    fontWeight: '500',
     color: '#333',
+    fontWeight: '500',
+  },
+  miniSelectBox: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 8,
+    height: 40,
+    backgroundColor: '#fff',
+  },
+  miniDropdown: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  miniSelectInput: {
+    color: '#333',
+    fontSize: 14,
+  },
+  miniDropdownText: {
+    color: '#333',
+    fontSize: 14,
+  },
+  fishCountContainer: {
+    alignItems: 'center',
+  },
+  fishCountLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#444',
+    marginBottom: 10,
   },
   fishCountControl: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 25,
-    padding: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 50,
+    padding: 5,
+    width: 180,
   },
   countButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#8B0000',
     justifyContent: 'center',
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
-    shadowRadius: 1.41,
+        shadowRadius: 1.5,
+      },
+      android: {
     elevation: 2,
+      },
+    }),
   },
   disabledButton: {
     backgroundColor: '#ccc',
   },
-  countDisplay: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    width: 80,
-    justifyContent: 'center',
-  },
-  countValue: {
-    fontSize: 24,
+  fishCountValue: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#8B0000',
+    color: '#333',
+    paddingHorizontal: 20,
   },
-  countUnit: {
-    fontSize: 16,
+  calculationSummary: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+  },
+  summaryRow: {
+    marginBottom: 12,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 15,
     color: '#555',
-    marginLeft: 5,
+    fontWeight: '500',
+    marginLeft: 8,
+    marginRight: 4,
   },
-  calculateButtonContainer: {
-    marginVertical: 20,
-    borderRadius: 25,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+  summaryValue: {
+    fontSize: 15,
+    color: '#333',
+    flex: 1,
   },
   calculateButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+    shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  calculateGradient: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 15,
   },
-  calculateButtonText: {
-    color: '#FFF',
+  calculateText: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#FFF',
     marginRight: 8,
   },
-  calculateIcon: {
+  bottomPadding: {
+    height: 40,
+  },
+  colorDistributionContainer: {
+    marginBottom: 20,
+  },
+  paletteContainer: {
+    height: 40,
+    flexDirection: 'row',
+    borderRadius: 8,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  paletteSegment: {
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  segmentLabel: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  totalPercentageBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginLeft: 'auto',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.15,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  totalCorrectBadge: {
+    backgroundColor: '#4CAF50',
+  },
+  totalErrorBadge: {
+    backgroundColor: '#f44336',
+  },
+  totalPercentageText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  totalIcon: {
     marginLeft: 4,
   },
-  bottomPadding: {
-    height: 50,
+  colorControlGrid: {
+    marginBottom: 15,
   },
-  scoreContainer: {
+  colorControlCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    marginBottom: 12,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  colorHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
+    marginBottom: 12,
   },
-  scoreCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  colorSwatch: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  colorCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  colorValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 44,
+  },
+  decrementButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#8B0000',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    ...Platform.select({
+      ios: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  scoreValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFF',
+  incrementButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#8B0000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  scoreLabel: {
-    fontSize: 16,
-    color: '#555',
+  disabledControlButton: {
+    backgroundColor: '#e0e0e0',
   },
-  compatibilityMessage: {
+  valueDisplay: {
+    flex: 1,
+    height: 38,
+    marginHorizontal: 10,
+    borderRadius: 19,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  valueText: {
     fontSize: 15,
-    lineHeight: 22,
-    color: '#444',
+    fontWeight: 'bold',
+    color: '#333',
     textAlign: 'center',
-    fontStyle: 'italic',
-    marginBottom: 10,
+    position: 'absolute',
+    width: '100%',
+    zIndex: 2,
+  },
+  progressBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 1,
+    opacity: 0.7,
+  },
+  validationMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3e0',
+    borderRadius: 10,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f57c00',
+  },
+  validationText: {
+    flex: 1,
+    marginLeft: 8,
+    color: '#e65100',
+    fontSize: 14,
+  },
+  inputModeButton: {
+    marginLeft: 'auto',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  fineAdjustRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+    justifyContent: 'space-between',
+  },
+  fineAdjustButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  disabledFineButton: {
+    backgroundColor: '#f8f8f8',
+    borderColor: '#eee',
+  },
+  fineAdjustText: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: '500',
+  },
+  disabledFineText: {
+    color: '#bbb',
+  },
+  fineAdjustSpacer: {
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    width: '100%',
+    padding: 12,
+    fontSize: 24,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#333',
+    backgroundColor: '#f9f9f9',
+  },
+  inputError: {
+    borderColor: '#f44336',
+    backgroundColor: '#ffebee',
+  },
+  valueRange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  rangeLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+    marginHorizontal: 8,
+  },
+  rangeLabel: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '500',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  confirmButton: {
+    backgroundColor: '#8B0000',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '600',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  headerTotalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginLeft: 'auto',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.15,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
 }); 

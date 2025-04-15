@@ -11,7 +11,9 @@ import {
   TouchableWithoutFeedback,
   Alert,
   ActivityIndicator,
-  Image
+  Image,
+  Platform,
+  Modal
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,7 +44,152 @@ const getInitialState = () => ({
   image: null,
   isValidName: true,
   isValidEmail: true,
+  showCalendar: false,
 });
+
+// Add this custom date picker component
+const CustomDatePicker = ({ isVisible, onClose, onSelectDate, initialDate, maxDate }) => {
+  const [selectedDate, setSelectedDate] = useState(initialDate || new Date());
+  const years = Array.from({ length: 100 }, (_, i) => maxDate.getFullYear() - i);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                 'July', 'August', 'September', 'October', 'November', 'December'];
+  
+  // Generate days based on selected month and year
+  const getDaysInMonth = (month, year) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+  
+  const days = Array.from(
+    { length: getDaysInMonth(selectedDate.getMonth(), selectedDate.getFullYear()) }, 
+    (_, i) => i + 1
+  );
+
+  const handleConfirm = () => {
+    onSelectDate(selectedDate);
+    onClose();
+  };
+
+  if (!isVisible) return null;
+
+  return (
+    <Modal
+      visible={isVisible}
+      transparent={true}
+      animationType="slide"
+    >
+      <View style={styles.datePickerModal}>
+        <View style={styles.datePickerContent}>
+          <Text style={styles.datePickerTitle}>Chọn ngày sinh</Text>
+          
+          <View style={styles.dateSelectors}>
+            {/* Day selector */}
+            <View style={styles.pickerColumn}>
+              <Text style={styles.pickerLabel}>Ngày</Text>
+              <ScrollView style={styles.pickerScroll}>
+                {days.map(day => (
+                  <TouchableOpacity 
+                    key={`day-${day}`}
+                    style={[
+                      styles.pickerItem,
+                      selectedDate.getDate() === day && styles.pickerItemSelected
+                    ]}
+                    onPress={() => {
+                      const newDate = new Date(selectedDate);
+                      newDate.setDate(day);
+                      setSelectedDate(newDate);
+                    }}
+                  >
+                    <Text style={[
+                      styles.pickerItemText,
+                      selectedDate.getDate() === day && styles.pickerItemTextSelected
+                    ]}>
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            
+            {/* Month selector */}
+            <View style={styles.pickerColumn}>
+              <Text style={styles.pickerLabel}>Tháng</Text>
+              <ScrollView style={styles.pickerScroll}>
+                {months.map((month, index) => (
+                  <TouchableOpacity 
+                    key={`month-${index}`}
+                    style={[
+                      styles.pickerItem,
+                      selectedDate.getMonth() === index && styles.pickerItemSelected
+                    ]}
+                    onPress={() => {
+                      const newDate = new Date(selectedDate);
+                      newDate.setMonth(index);
+                      // Adjust if day is beyond the new month's max
+                      const maxDays = getDaysInMonth(index, newDate.getFullYear());
+                      if (newDate.getDate() > maxDays) {
+                        newDate.setDate(maxDays);
+                      }
+                      setSelectedDate(newDate);
+                    }}
+                  >
+                    <Text style={[
+                      styles.pickerItemText,
+                      selectedDate.getMonth() === index && styles.pickerItemTextSelected
+                    ]}>
+                      {month.substring(0, 3)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            
+            {/* Year selector */}
+            <View style={styles.pickerColumn}>
+              <Text style={styles.pickerLabel}>Năm</Text>
+              <ScrollView style={styles.pickerScroll}>
+                {years.map(year => (
+                  <TouchableOpacity 
+                    key={`year-${year}`}
+                    style={[
+                      styles.pickerItem,
+                      selectedDate.getFullYear() === year && styles.pickerItemSelected
+                    ]}
+                    onPress={() => {
+                      const newDate = new Date(selectedDate);
+                      newDate.setFullYear(year);
+                      // Adjust if day is beyond the new month's max (e.g., Feb 29 in non-leap year)
+                      const maxDays = getDaysInMonth(newDate.getMonth(), year);
+                      if (newDate.getDate() > maxDays) {
+                        newDate.setDate(maxDays);
+                      }
+                      setSelectedDate(newDate);
+                    }}
+                  >
+                    <Text style={[
+                      styles.pickerItemText,
+                      selectedDate.getFullYear() === year && styles.pickerItemTextSelected
+                    ]}>
+                      {year}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+          
+          <View style={styles.datePickerButtons}>
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelButtonText}>Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+              <Text style={styles.confirmButtonText}>Xác nhận</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 export default function RegisterScreen() {
   // Initialize state with the function
@@ -51,7 +198,7 @@ export default function RegisterScreen() {
     showPassword, showConfirmPassword, gender, isValidInput,
     email, phoneNumber, isEmail, showDatePicker, dob,
     fullName, password, confirmPassword, isLoading, image,
-    isValidName, isValidEmail
+    isValidName, isValidEmail, showCalendar
   } = formState;
   
   const navigation = useNavigation();
@@ -89,11 +236,18 @@ export default function RegisterScreen() {
 
   const pickImage = async () => {
     try {
+      // Request permissions first (especially important for iOS)
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền truy cập', 'Cần quyền truy cập thư viện ảnh để chọn ảnh đại diện');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 1,
+        quality: 0.8, // Reduced quality for better performance
       });
 
       if (!result.canceled) {
@@ -189,12 +343,18 @@ export default function RegisterScreen() {
 
       // Thêm ảnh nếu có
       if (image) {
-        const imageFile = {
-          uri: image.uri,
-          type: 'image/jpeg',
-          name: 'profile-image.jpg'
-        };
-        formData.append('ImageUrl', imageFile);
+        const imageUri = Platform.OS === 'ios' 
+          ? image.uri.replace('file://', '') 
+          : image.uri;
+        const filename = imageUri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('ImageUrl', {
+          uri: imageUri,
+          type: type,
+          name: filename || 'profile-image.jpg',
+        });
       }
   
       console.log('Đang gửi dữ liệu đăng ký:', formData);
@@ -283,12 +443,16 @@ export default function RegisterScreen() {
   };
   
   const onDateChange = (event, selectedDate) => {
-    if (event.type === 'set' && selectedDate) {
-      setFormState(prev => ({
-        ...prev,
-        dob: selectedDate,
-        showDatePicker: false
-      }));
+    const currentDate = selectedDate || dob;
+    // Hide the picker on Android immediately after selection
+    if (Platform.OS === 'android') {
+      updateFormState('showDatePicker', false);
+    }
+    if (selectedDate) {
+      updateFormState('dob', currentDate);
+    }
+    if (Platform.OS === 'ios' && event.type === 'set') {
+      updateFormState('showDatePicker', false);
     }
   };
 
@@ -400,23 +564,13 @@ export default function RegisterScreen() {
                 <Text style={styles.label}>Ngày sinh</Text>
                 <TouchableOpacity 
                   style={styles.dateInput}
-                  onPress={() => updateFormState('showDatePicker', true)}
+                  onPress={() => updateFormState('showCalendar', true)}
                 >
                   <Text style={styles.dateText}>
                     {dob.toISOString().split('T')[0]}
                   </Text>
                   <Ionicons name="calendar-outline" size={22} color="#8B0000" />
                 </TouchableOpacity>
-                
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={dob}
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                    maximumDate={new Date()}
-                  />
-                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -532,6 +686,14 @@ export default function RegisterScreen() {
           </ScrollView>
         </TouchableWithoutFeedback>
       </LinearGradient>
+
+      <CustomDatePicker
+        isVisible={showCalendar}
+        onClose={() => updateFormState('showCalendar', false)}
+        onSelectDate={(date) => updateFormState('dob', date)}
+        initialDate={dob}
+        maxDate={new Date()}
+      />
     </SafeAreaView>
   );
 }
@@ -589,6 +751,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 16,
     color: '#333',
+    paddingHorizontal: Platform.OS === 'ios' ? 0 : 2,
   },
   checkIcon: {
     marginLeft: 10,
@@ -680,6 +843,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#ddd',
+    elevation: Platform.OS === 'android' ? 2 : 0, // Android shadow
+    shadowColor: Platform.OS === 'ios' ? '#000' : undefined,
+    shadowOffset: Platform.OS === 'ios' ? { width: 0, height: 2 } : undefined,
+    shadowOpacity: Platform.OS === 'ios' ? 0.2 : undefined,
+    shadowRadius: Platform.OS === 'ios' ? 2 : undefined,
   },
   previewImage: {
     width: '100%',
@@ -698,5 +866,90 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  datePickerModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  datePickerContent: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B0000',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  dateSelectors: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  pickerColumn: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  pickerLabel: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  pickerScroll: {
+    height: 200,
+  },
+  pickerItem: {
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerItemSelected: {
+    backgroundColor: 'rgba(139,0,0,0.1)',
+    borderRadius: 5,
+  },
+  pickerItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  pickerItemTextSelected: {
+    color: '#8B0000',
+    fontWeight: 'bold',
+  },
+  datePickerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  cancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    backgroundColor: '#f0f0f0',
+  },
+  confirmButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    backgroundColor: '#8B0000',
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 }); 

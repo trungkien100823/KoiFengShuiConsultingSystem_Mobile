@@ -13,6 +13,9 @@ import {
   Alert,
   ImageBackground,
   FlatList,
+  SafeAreaView,
+  StatusBar,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -27,7 +30,10 @@ import { API_CONFIG } from '../../constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const isSmallDevice = width < 375;
+const cardWidth = width * 0.92;
+const imageHeight = height * 0.45;
 
 // Thêm map để định dạng tên màu đẹp hơn cho người dùng
 const colorDisplayMap = {
@@ -107,6 +113,8 @@ export default function MenuScreen() {
   const navigation = useNavigation();
 
   const [retryCount, setRetryCount] = useState({});
+
+  const [showTabMenu, setShowTabMenu] = useState(false);
 
   const handleImageError = (itemId) => {
     // Tăng số lần thử lại cho item này
@@ -1278,76 +1286,160 @@ export default function MenuScreen() {
         colors={['rgba(0,0,0,0.7)', 'rgba(139,0,0,0.6)', 'rgba(0,0,0,0.8)']}
         style={styles.gradientOverlay}
       >
-        <View style={styles.container}>
-          {/* Updated header */}
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
-            <TouchableOpacity style={styles.menuButton}>
-              <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
           
-          {/* Updated search bar */}
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBar}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Tìm kiếm ở đây"
-                placeholderTextColor="rgba(255,255,255,0.7)"
-                value={searchText}
-                onChangeText={setSearchText}
-                onSubmitEditing={handleSearch}
-              />
-              <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-                <Ionicons name="search" size={18} color="#FFFFFF" />
+          <View style={styles.container}>
+            {/* Updated header with safe area support */}
+            <View style={styles.headerContainer}>
+              <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
+              <TouchableOpacity style={styles.menuButton}>
+                <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-          </View>
-
-          {/* Unified header with tabs and filters on same line - more compact */}
-          <View style={styles.unifiedHeaderContainer}>
-            {/* Tab section - scroll horizontal */}
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.tabSectionContainer}
-            >
-              <View style={styles.tabSection}>
-                <TouchableOpacity 
-                  style={[styles.tab, selectedTab === 'Recommendation' && styles.selectedTab]}
-                  onPress={() => handleTabChange('Recommendation')}
-                >
-                  <Text style={[styles.tabText, selectedTab === 'Recommendation' && styles.selectedTabText]}>Đề xuất</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.tab, selectedTab === 'Koi' && styles.selectedTab]}
-                  onPress={() => handleTabChange('Koi')}
-                >
-                  <Text style={[styles.tabText, selectedTab === 'Koi' && styles.selectedTabText]}>Cá Koi</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.tab, selectedTab === 'Pond' && styles.selectedTab]}
-                  onPress={() => handleTabChange('Pond')}
-                >
-                  <Text style={[styles.tabText, selectedTab === 'Pond' && styles.selectedTabText]}>Hồ cá</Text>
+            
+            {/* Updated search bar */}
+            <View style={styles.searchContainer}>
+              <View style={styles.searchBar}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Tìm kiếm ở đây"
+                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  value={searchText}
+                  onChangeText={setSearchText}
+                  onSubmitEditing={handleSearch}
+                />
+                <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+                  <Ionicons name="search" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+            </View>
 
-            {/* Filter section - right aligned and more compact */}
-            <View style={styles.filterControls}>
-              {selectedTab === 'Koi' ? (
-                <>
-                  <TouchableOpacity 
-                    style={styles.miniFilterPill}
-                    onPress={() => handleOpenFilter('destiny')}
-                  >
-                    <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
-                      {filterOptions.destiny !== 'Tất cả' ? filterOptions.destiny : 'Mệnh'}
+            {/* Unified header with tabs and filters */}
+            <View style={styles.unifiedHeaderContainer}>
+              {/* Tab section */}
+              <View style={styles.tabSelectorContainer}>
+                <TouchableOpacity 
+                  style={styles.tabSelectorButton}
+                  onPress={() => setShowTabMenu(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.tabSelectorContent}>
+                    {selectedTab === 'Recommendation' ? (
+                      <Ionicons name="star" size={18} color="#FFFFFF" style={styles.tabIcon} />
+                    ) : selectedTab === 'Koi' ? (
+                      <Ionicons name="fish-outline" size={18} color="#FFFFFF" style={styles.tabIcon} />
+                    ) : (
+                      <Ionicons name="water-outline" size={18} color="#FFFFFF" style={styles.tabIcon} />
+                    )}
+                    
+                    <Text style={styles.tabSelectorText}>
+                      {selectedTab === 'Recommendation' ? 'Đề xuất' : 
+                       selectedTab === 'Koi' ? 'Cá Koi' : 'Hồ cá'}
                     </Text>
-                    <Ionicons name="chevron-down" size={12} color="#fff" />
-                  </TouchableOpacity>
-                  
+                    <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+                
+                {/* Tab selection popup */}
+                {showTabMenu && (
+                  <View style={styles.tabMenuOverlay}>
+                    <TouchableOpacity 
+                      style={styles.tabMenuBackdrop}
+                      activeOpacity={1}
+                      onPress={() => setShowTabMenu(false)}
+                    />
+                    <View style={styles.tabMenuContainer}>
+                      <TouchableOpacity
+                        style={[styles.tabMenuItem, selectedTab === 'Recommendation' && styles.tabMenuItemSelected]}
+                        onPress={() => {
+                          handleTabChange('Recommendation');
+                          setShowTabMenu(false);
+                        }}
+                      >
+                        <Ionicons 
+                          name="star" 
+                          size={20} 
+                          color={selectedTab === 'Recommendation' ? '#FFFFFF' : '#BBBBBB'} 
+                          style={styles.tabMenuIcon}
+                        />
+                        <Text style={[styles.tabMenuText, selectedTab === 'Recommendation' && styles.tabMenuTextSelected]}>
+                          Đề xuất
+                        </Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        style={[styles.tabMenuItem, selectedTab === 'Koi' && styles.tabMenuItemSelected]}
+                        onPress={() => {
+                          handleTabChange('Koi');
+                          setShowTabMenu(false);
+                        }}
+                      >
+                        <Ionicons 
+                          name="fish-outline" 
+                          size={20} 
+                          color={selectedTab === 'Koi' ? '#FFFFFF' : '#BBBBBB'} 
+                          style={styles.tabMenuIcon}
+                        />
+                        <Text style={[styles.tabMenuText, selectedTab === 'Koi' && styles.tabMenuTextSelected]}>
+                          Cá Koi
+                        </Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        style={[styles.tabMenuItem, selectedTab === 'Pond' && styles.tabMenuItemSelected]}
+                        onPress={() => {
+                          handleTabChange('Pond');
+                          setShowTabMenu(false);
+                        }}
+                      >
+                        <Ionicons 
+                          name="water-outline" 
+                          size={20} 
+                          color={selectedTab === 'Pond' ? '#FFFFFF' : '#BBBBBB'} 
+                          style={styles.tabMenuIcon}
+                        />
+                        <Text style={[styles.tabMenuText, selectedTab === 'Pond' && styles.tabMenuTextSelected]}>
+                          Hồ cá
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              {/* Filter section */}
+              <View style={styles.filterControls}>
+                {selectedTab === 'Koi' ? (
+                  <>
+                    <TouchableOpacity 
+                      style={styles.miniFilterPill}
+                      onPress={() => handleOpenFilter('destiny')}
+                    >
+                      <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
+                        {filterOptions.destiny !== 'Tất cả' ? filterOptions.destiny : 'Mệnh'}
+                      </Text>
+                      <Ionicons name="chevron-down" size={12} color="#fff" />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.miniFilterPill}
+                      onPress={handleOpenMultipleColorFilter}
+                    >
+                      <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
+                        {filterOptions.color !== 'Tất cả' ? filterOptions.color : 'Màu'}
+                      </Text>
+                      <Ionicons name="chevron-down" size={12} color="#fff" />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.filterButton}
+                      onPress={() => fetchFilteredKoi()}
+                    >
+                      <Ionicons name="filter" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </>
+                ) : selectedTab === 'Recommendation' ? (
                   <TouchableOpacity 
                     style={styles.miniFilterPill}
                     onPress={handleOpenMultipleColorFilter}
@@ -1357,74 +1449,50 @@ export default function MenuScreen() {
                     </Text>
                     <Ionicons name="chevron-down" size={12} color="#fff" />
                   </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.filterButton}
-                    onPress={() => fetchFilteredKoi()}
-                  >
-                    <Ionicons name="filter" size={16} color="#fff" />
-                  </TouchableOpacity>
-                </>
-              ) : selectedTab === 'Recommendation' ? (
-                <TouchableOpacity 
-                  style={styles.miniFilterPill}
-                  onPress={handleOpenMultipleColorFilter}
-                >
-                  <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
-                    {filterOptions.color !== 'Tất cả' ? filterOptions.color : 'Màu'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={12} color="#fff" />
-                </TouchableOpacity>
-              ) : (
-                <>
-                  <TouchableOpacity 
-                    style={styles.miniFilterPill}
-                    onPress={() => handleOpenFilter('shape')}
-                  >
-                    <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
-                      {filterOptions.shape !== 'Tất cả' ? filterOptions.shape : 'Hình'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={12} color="#FFFFFF" />
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.filterButton}
-                    onPress={() => {
-                      // Use fetchKoiPonds or equivalent function for Pond tab
-                      console.log('Filtering ponds by:', filterOptions.shape);
-                      // Implement pond filtering here based on your existing code
-                    }}
-                  >
-                    <Ionicons name="filter" size={16} color="#fff" />
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-          </View>
-
-          <ScrollView 
-            style={styles.mainContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#8B0000" />
+                ) : (
+                  <>
+                    <TouchableOpacity 
+                      style={styles.miniFilterPill}
+                      onPress={() => handleOpenFilter('shape')}
+                    >
+                      <Text style={styles.miniFilterText} numberOfLines={1} ellipsizeMode="tail">
+                        {filterOptions.shape !== 'Tất cả' ? filterOptions.shape : 'Hình'}
+                      </Text>
+                      <Ionicons name="chevron-down" size={12} color="#FFFFFF" />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.filterButton}
+                      onPress={() => fetchUserPonds('shape', filterOptions.shape)}
+                    >
+                      <Ionicons name="filter" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
-            ) : displayData && displayData.length > 0 ? (
-              <View>
+            </View>
+
+            {/* Main content with adaptive card sizing */}
+            <View style={styles.mainContentContainer}>
+              {isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#8B0000" />
+                </View>
+              ) : displayData && displayData.length > 0 ? (
                 <FlatList
-                  horizontal
                   data={displayData}
                   keyExtractor={(item, index) => `${selectedTab}-${item.koiPondId || item.koiVarietyId || index}`}
                   showsHorizontalScrollIndicator={false}
-                  pagingEnabled={true}
-                  snapToAlignment="center"
+                  horizontal
+                  pagingEnabled
+                  snapToInterval={width}
                   decelerationRate="fast"
                   onScroll={handleScroll}
                   scrollEventThrottle={16}
+                  contentContainerStyle={styles.flatListContent}
                   renderItem={({ item }) => (
-                    <View style={styles.koiCardContainer}>
-                      <View style={styles.koiCard}>
+                    <View style={[styles.koiCardContainer, { width }]}>
+                      <View style={[styles.koiCard, { width: cardWidth }]}>
                         <Image 
                           key={`${item.koiPondId || item.koiVarietyId}-${retryCount[item.koiPondId || item.koiVarietyId] || 0}`}
                           source={
@@ -1436,10 +1504,9 @@ export default function MenuScreen() {
                                   ? { uri: item.imageUrl }
                                   : require('../../assets/images/buddha.png'))
                           } 
-                          style={styles.image}
+                          style={[styles.image, { height: imageHeight }]}
                           resizeMode="cover"
                           onError={() => {
-                            // Chỉ thử lại tối đa 3 lần
                             if ((retryCount[item.koiPondId || item.koiVarietyId] || 0) < 3) {
                               handleImageError(item.koiPondId || item.koiVarietyId);
                             }
@@ -1447,7 +1514,7 @@ export default function MenuScreen() {
                         />
                         <View style={styles.infoContainer}>
                           <View style={styles.nameContainer}>
-                            <Text style={styles.name}>
+                            <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
                               {selectedTab === 'Pond' 
                                 ? (item.pondName || 'Không có tên') 
                                 : (item.varietyName || item.name || 'Không có tên')}
@@ -1465,54 +1532,55 @@ export default function MenuScreen() {
                     </View>
                   )}
                 />
-              </View>
-            ) : (
-              <View style={styles.noDataContainer}>
-              </View>
-            )}
-          </ScrollView>
+              ) : (
+                <View style={styles.noDataContainer}>
+                  <Text style={styles.noDataText}>Không có dữ liệu</Text>
+                </View>
+              )}
+            </View>
 
-          <SortPopup 
-            visible={sortVisible}
-            onClose={() => setSortVisible(false)}
-            onSort={activeFilter === 'color' ? handleMultipleColorSelect : handleFilterSelect}
-            currentSort={activeFilter ? filterOptions[activeFilter] || 'Tất cả' : 'Tất cả'}
-            options={
-              activeFilter === 'destiny' 
-                ? destinyOptions 
-                : activeFilter === 'color' 
-                  ? colorOptions 
-                  : shapeOptions
-            }
-            colorStyles={colorStyles}
-            isLoading={fetchingFilterOptions}
-            title={
-              activeFilter === 'destiny' 
-                ? 'Chọn bản mệnh' 
-                : activeFilter === 'color' 
-                  ? 'Chọn màu sắc (có thể chọn nhiều)' 
-                  : 'Chọn hình dạng hồ'
-            }
-            errorMessage={
-              fetchingFilterOptions ? null :
-              (activeFilter === 'destiny' && apiErrors.destiny) || 
-              (activeFilter === 'color' && apiErrors.color) || 
-              (activeFilter === 'shape' && apiErrors.shape) || 
-              ((activeFilter === 'destiny' && destinyOptions.length <= 1) || 
-               (activeFilter === 'color' && colorOptions.length <= 1) || 
-               (activeFilter === 'shape' && shapeOptions.length <= 1)) 
-                ? 'Không thể tải dữ liệu từ máy chủ, vui lòng thử lại' 
-                : null
-            }
-            onRetry={handleRetryFilterOptions}
-            activeFilter={activeFilter}
-            selectedItems={activeFilter === 'color' ? multipleColors : []}
-            multiSelect={activeFilter === 'color'}
-            onApply={activeFilter === 'color' ? handleApplyMultipleColors : undefined}
-            recommendedItems={activeFilter === 'color' && multipleColors.length > 0 ? multipleColors : []}
-          />
-          <CustomTabBar />
-        </View>
+            <SortPopup 
+              visible={sortVisible}
+              onClose={() => setSortVisible(false)}
+              onSort={activeFilter === 'color' ? handleMultipleColorSelect : handleFilterSelect}
+              currentSort={activeFilter ? filterOptions[activeFilter] || 'Tất cả' : 'Tất cả'}
+              options={
+                activeFilter === 'destiny' 
+                  ? destinyOptions 
+                  : activeFilter === 'color' 
+                    ? colorOptions 
+                    : shapeOptions
+              }
+              colorStyles={colorStyles}
+              isLoading={fetchingFilterOptions}
+              title={
+                activeFilter === 'destiny' 
+                  ? 'Chọn bản mệnh' 
+                  : activeFilter === 'color' 
+                    ? 'Chọn màu sắc (có thể chọn nhiều)' 
+                    : 'Chọn hình dạng hồ'
+              }
+              errorMessage={
+                fetchingFilterOptions ? null :
+                (activeFilter === 'destiny' && apiErrors.destiny) || 
+                (activeFilter === 'color' && apiErrors.color) || 
+                (activeFilter === 'shape' && apiErrors.shape) || 
+                ((activeFilter === 'destiny' && destinyOptions.length <= 1) || 
+                 (activeFilter === 'color' && colorOptions.length <= 1) || 
+                 (activeFilter === 'shape' && shapeOptions.length <= 1)) 
+                  ? 'Không thể tải dữ liệu từ máy chủ, vui lòng thử lại' 
+                  : null
+              }
+              onRetry={handleRetryFilterOptions}
+              activeFilter={activeFilter}
+              selectedItems={activeFilter === 'color' ? multipleColors : []}
+              multiSelect={activeFilter === 'color'}
+              onApply={activeFilter === 'color' ? handleApplyMultipleColors : undefined}
+              recommendedItems={activeFilter === 'color' && multipleColors.length > 0 ? multipleColors : []}
+            />
+            <CustomTabBar />
+          </View>
+        </SafeAreaView>
       </LinearGradient>
     </ImageBackground>
   );
@@ -1527,18 +1595,21 @@ const styles = StyleSheet.create({
   gradientOverlay: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
-    paddingBottom: 80,
+    paddingBottom: 80, // Space for tab bar
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 45,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingBottom: 12,
-    marginTop: 20,
   },
   headerTitle: {
     fontSize: 26,
@@ -1565,6 +1636,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     paddingVertical: 10,
+    paddingHorizontal: Platform.OS === 'ios' ? 0 : 4,
   },
   searchButton: {
     width: 28,
@@ -1581,45 +1653,89 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginBottom: 15,
   },
-  tabSectionContainer: {
-    flexGrow: 1,
-    paddingRight: 8,
+  tabSelectorContainer: {
+    flex: 1,
+    marginRight: 8,
+    position: 'relative',
   },
-  tabSection: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 25,
-    padding: 4,
-  },
-  tab: {
+  tabSelectorButton: {
+    backgroundColor: 'rgba(139, 0, 0, 0.8)',
+    borderRadius: 22,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    marginHorizontal: 1,
+    paddingHorizontal: 14,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  tabSelectorContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 70,
   },
-  selectedTab: {
-    backgroundColor: '#8B0000',
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#CCC',
-    textAlign: 'center',
-    paddingHorizontal: 2,
-  },
-  selectedTabText: {
-    color: '#FFF',
+  tabSelectorText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: 'bold',
+    marginHorizontal: 6,
+  },
+  tabMenuOverlay: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  tabMenuBackdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 999,
+  },
+  tabMenuContainer: {
+    marginTop: 8,
+    backgroundColor: 'rgba(40, 40, 40, 0.95)',
+    borderRadius: 12,
+    padding: 8,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    zIndex: 1000,
+  },
+  tabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  tabMenuItemSelected: {
+    backgroundColor: 'rgba(139, 0, 0, 0.8)',
+  },
+  tabMenuIcon: {
+    marginRight: 12,
+  },
+  tabMenuText: {
+    fontSize: 16,
+    color: '#CCCCCC',
+  },
+  tabMenuTextSelected: {
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   filterControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    flexShrink: 1,
+    flexShrink: 0, // Prevent filters from shrinking too much
+    flexWrap: 'nowrap', // Don't wrap filters
   },
   miniFilterPill: {
     flexDirection: 'row',
@@ -1628,7 +1744,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    marginLeft: 6,
+    marginLeft: 4,
+    maxWidth: 70, // Limit width to prevent overflow
   },
   miniFilterText: {
     color: '#FFF',
@@ -1641,31 +1758,39 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginLeft: 6,
+    marginLeft: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mainContent: {
+  mainContentContainer: {
     flex: 1,
+  },
+  flatListContent: {
+    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 400,
+    height: '100%',
   },
   noDataContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    height: '100%',
+  },
+  noDataText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
   },
   koiCardContainer: {
-    width: width,
-    paddingHorizontal: 16,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 10,
   },
   koiCard: {
-    width: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
     overflow: 'hidden',
@@ -1674,13 +1799,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 12,
-    marginVertical: 12,
     borderWidth: 1,
     borderColor: 'rgba(139, 0, 0, 0.2)',
   },
   image: {
     width: '100%',
-    height: 350,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
@@ -1698,81 +1821,13 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   name: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
     flex: 1,
-  },
-  variant: {
-    fontSize: 18,
-    color: '#8B0000',
-    fontStyle: 'italic',
-    marginLeft: 8,
-  },
-  elementBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(139, 0, 0, 0.85)',
-    paddingHorizontal: 10, 
-    paddingVertical: 5,
-    borderRadius: 12,
-    zIndex: 1,
-  },
-  elementText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  detailSection: {
-    marginTop: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: '#666',
-    width: 70,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-    fontWeight: '500',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(139, 0, 0, 0.1)',
-    paddingTop: 12,
-  },
-  actionButton: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginRight: 4,
   },
   paginationContainer: {
-    display: 'none'
-  },
-  paginationDot: {
-    display: 'none'
-  },
-  paginationDotActive: {
-    display: 'none'
+    display: 'none',
   },
 });
 

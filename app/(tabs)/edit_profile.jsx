@@ -772,9 +772,18 @@ export default function EditProfileScreen() {
   };
   
   const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setDob(selectedDate);
+    if (!selectedDate) return;
+    
+    // Hide picker immediately on Android
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    setDob(selectedDate);
+    
+    // On iOS, only dismiss if 'set' was pressed
+    if (Platform.OS === 'ios' && event.type === 'set') {
+      setShowDatePicker(false);
     }
   };
   
@@ -810,59 +819,34 @@ export default function EditProfileScreen() {
   // Add this function to pick an image
   const pickImage = async () => {
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (!permissionResult.granted) {
-        showAlert('Lỗi', 'Cần quyền truy cập thư viện ảnh để thay đổi ảnh đại diện');
+      // Request permissions first
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền truy cập', 'Cần quyền truy cập thư viện ảnh để chọn ảnh đại diện');
         return;
       }
       
-      console.log('Đang mở thư viện ảnh...');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        base64: false,
-        exif: false,
       });
       
-      console.log('Kết quả chọn ảnh:', result.canceled ? 'Đã hủy' : 'Đã chọn');
-      
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedAsset = result.assets[0];
-        console.log('Đã chọn ảnh: ', selectedAsset.uri);
+      if (!result.canceled) {
+        // Check file size before proceeding
+        const fileInfo = await getFileInfo(result.assets[0].uri);
         
-        // Kiểm tra kích thước tệp
-        const fileInfo = await getFileInfo(selectedAsset.uri);
-        console.log('Thông tin file:', fileInfo);
-        
-        // Kiểm tra kích thước file
-        try {
-          if (Platform.OS === 'ios') {
-            // Đối với iOS, fetch thông tin file từ URI
-            const fileSize = await getFileSizeIOS(selectedAsset.uri);
-            console.log('Kích thước file (iOS):', fileSize, 'bytes');
-            
-            if (fileSize > 5 * 1024 * 1024) { // Kiểm tra nếu lớn hơn 5MB
-              showAlert('Cảnh báo', 'Ảnh quá lớn (>5MB). Việc tải lên có thể bị lỗi hoặc mất thời gian.');
-            }
-          } else if (Platform.OS === 'android') {
-            // Android: Sử dụng fileInfo.fileSize nếu có
-            if (selectedAsset.fileSize && selectedAsset.fileSize > 5 * 1024 * 1024) {
-              showAlert('Cảnh báo', 'Ảnh quá lớn (>5MB). Việc tải lên có thể bị lỗi hoặc mất thời gian.');
-            }
-          }
-        } catch (sizeError) {
-          console.error('Lỗi khi kiểm tra kích thước file:', sizeError);
+        if (fileInfo.size > 5 * 1024 * 1024) { // 5MB limit
+          Alert.alert('Lỗi', 'Kích thước ảnh không được vượt quá 5MB');
+          return;
         }
         
-        // Cập nhật state
-        setImageUrl(selectedAsset.uri);
+        setImageUrl(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      showAlert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      console.error('Lỗi khi chọn ảnh:', error);
+      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
     }
   };
   
@@ -880,22 +864,22 @@ export default function EditProfileScreen() {
   
   // Hàm lấy thông tin file để debug
   const getFileInfo = async (fileUri) => {
-    try {
-      const fileNameMatch = fileUri.match(/[^\\/]+$/);
-      const fileName = fileNameMatch ? fileNameMatch[0] : 'unknown_filename';
-      
-      return {
-        name: fileName,
-        uri: fileUri,
-        type: `image/${fileName.split('.').pop() || 'jpeg'}`
-      };
-    } catch (e) {
-      console.error('Lỗi khi lấy thông tin file:', e);
-      return {
-        name: 'unknown',
-        uri: fileUri,
-        type: 'image/jpeg'
-      };
+    if (Platform.OS === 'ios') {
+      return getFileSizeIOS(fileUri);
+    } else {
+      // For Android
+      try {
+        const response = await fetch(fileUri);
+        const blob = await response.blob();
+        return {
+          size: blob.size,
+          name: fileUri.split('/').pop() || 'image.jpg'
+        };
+      } catch (error) {
+        console.error('Error getting Android file info:', error);
+        // Return default values if unable to get size
+        return { size: 0, name: 'image.jpg' };
+      }
     }
   };
   
@@ -1456,9 +1440,10 @@ export default function EditProfileScreen() {
                 <DateTimePicker
                   value={dob}
                   mode="date"
-                  display="default"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={onDateChange}
                   maximumDate={new Date()}
+                  textColor="#000000"
                 />
               )}
             </View>
@@ -1652,6 +1637,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
+    paddingHorizontal: Platform.OS === 'ios' ? 0 : 2,
   },
   disabledInput: {
     backgroundColor: 'rgba(80,80,80,0.3)',
@@ -1898,5 +1884,12 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+  },
+  imageContainer: {
+    elevation: Platform.OS === 'android' ? 3 : 0,
+    shadowColor: Platform.OS === 'ios' ? '#000' : undefined,
+    shadowOffset: Platform.OS === 'ios' ? { width: 0, height: 2 } : undefined,
+    shadowOpacity: Platform.OS === 'ios' ? 0.2 : undefined,
+    shadowRadius: Platform.OS === 'ios' ? 3 : undefined,
   },
 });

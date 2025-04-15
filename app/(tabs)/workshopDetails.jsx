@@ -19,7 +19,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { workshopDetailsService } from '../../constants/workshopDetails';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const STATUSBAR_HEIGHT = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0;
 
 const WorkshopDetailsScreen = () => {
   const route = useRoute();
@@ -136,8 +137,8 @@ const WorkshopDetailsScreen = () => {
   // Hiển thị loader khi đang tải dữ liệu
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
+      <SafeAreaView style={styles.loadingContainer} edges={['top', 'right', 'left']}>
+        <StatusBar translucent barStyle="light-content" backgroundColor="rgba(139,0,0,0.3)" />
         <ActivityIndicator size="large" color="#8B0000" />
         <Text style={styles.loadingText}>Đang tải thông tin...</Text>
       </SafeAreaView>
@@ -147,8 +148,8 @@ const WorkshopDetailsScreen = () => {
   // Hiển thị màn hình lỗi với nút thử lại
   if (error && !workshopData) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
+      <SafeAreaView style={styles.errorContainer} edges={['top', 'right', 'left']}>
+        <StatusBar translucent barStyle="light-content" backgroundColor="rgba(139,0,0,0.3)" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity 
           style={styles.retryButton}
@@ -157,14 +158,24 @@ const WorkshopDetailsScreen = () => {
             setRetrying(true);
             fetchData();
           }}
+          activeOpacity={0.7}
         >
-          <Text style={styles.retryButtonText}>
-            {retrying ? 'Đang thử lại...' : 'Thử lại'}
-          </Text>
+          <LinearGradient
+            colors={['#8B0000', '#600000']}
+            start={[0, 0]}
+            end={[1, 0]}
+            style={styles.retryButtonGradient}
+          >
+            <Text style={styles.retryButtonText}>
+              {retrying ? 'Đang thử lại...' : 'Thử lại'}
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.backToListButton}
           onPress={() => navigation.navigate('workshop')}
+          activeOpacity={0.6}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
         >
           <Text style={styles.backToListText}>Quay lại danh sách</Text>
         </TouchableOpacity>
@@ -176,31 +187,33 @@ const WorkshopDetailsScreen = () => {
   const displayWorkshop = workshopData || {};
   const displayMaster = masterInfo || {};
 
-  // New helper function to format description with bullet points
-  const formatDescription = (description) => {
-    if (!description) return [];
-    
-    // Split by newlines or other potential delimiters
-    return description.split(/\n|•/).filter(item => item.trim() !== '');
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
+    <SafeAreaView style={styles.container} edges={['top', 'right', 'left']}>
+      <StatusBar translucent barStyle="light-content" backgroundColor="rgba(0,0,0,0.3)" />
       
       {/* Back button */}
       <TouchableOpacity 
-        style={styles.backButton} 
+        style={[styles.backButton, {top: Platform.OS === 'ios' ? 50 : STATUSBAR_HEIGHT + 10}]} 
         onPress={() => navigation.navigate('workshop')}
+        activeOpacity={0.7}
+        hitSlop={{top: 10, right: 10, bottom: 10, left: 10}}
       >
         <Ionicons name="arrow-back" size={24} color="#fff" />
       </TouchableOpacity>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
+        overScrollMode={Platform.OS === 'android' ? 'never' : 'auto'}
+        bounces={true}
+      >
         {/* Hero Image Section */}
         <ImageBackground
           source={{ uri: displayWorkshop.imageUrl }}
           style={styles.heroImage}
+          resizeMode="cover"
+          defaultSource={require('../../assets/images/buddha.png')}
         >
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.8)']}
@@ -208,8 +221,6 @@ const WorkshopDetailsScreen = () => {
           >
             <View style={styles.heroContent}>
               <Text style={styles.title}>{displayWorkshop.workshopName || 'Workshop Title'}</Text>
-              
-              
             </View>
           </LinearGradient>
         </ImageBackground>
@@ -218,7 +229,10 @@ const WorkshopDetailsScreen = () => {
         <View style={styles.contentContainer}>
           {/* Workshop Details Card */}
           <View style={styles.detailsCard}>
-            <Text style={styles.sectionTitle}>Thông tin Workshop</Text>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="information-circle-outline" size={22} color="#8B0000" style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Thông tin Workshop</Text>
+            </View>
             
             <View style={styles.detailRow}>
               <View style={styles.detailIconContainer}>
@@ -262,14 +276,23 @@ const WorkshopDetailsScreen = () => {
               </View>
             </View>
           </View>
+          
           {/* Description Section */}
           <View style={styles.descriptionCard}>
-            <Text style={styles.sectionTitle}>Mô tả chi tiết</Text>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="document-text-outline" size={22} color="#8B0000" style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Mô tả chi tiết</Text>
+            </View>
             <Text style={styles.description}>{displayWorkshop.description || 'Đang cập nhật thông tin...'}</Text>
           </View>
 
-          {/* Add this as the last card before the bottom booking button */}
+          {/* Price Card */}
           <View style={styles.priceCard}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="pricetag-outline" size={22} color="#8B0000" style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Thông tin giá vé</Text>
+            </View>
+            
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>Giá vé tham dự:</Text>
               <Text style={styles.priceValue}>
@@ -283,7 +306,11 @@ const WorkshopDetailsScreen = () => {
           {/* Master Info Section */}
           {displayWorkshop.masterName && (
             <View style={styles.masterCard}>
-              <Text style={styles.sectionTitle}>Thông tin người chủ trì</Text>
+              <View style={styles.sectionTitleContainer}>
+                <Ionicons name="person-outline" size={22} color="#8B0000" style={styles.sectionIcon} />
+                <Text style={styles.sectionTitle}>Thông tin người chủ trì</Text>
+              </View>
+              
               <View style={styles.masterInfo}>
                 <View style={styles.detailRow}>
                   <View style={styles.detailIconContainer}>
@@ -297,6 +324,9 @@ const WorkshopDetailsScreen = () => {
               </View>
             </View>
           )}
+          
+          {/* Spacer for bottom button */}
+          <View style={styles.spacer} />
         </View>
       </ScrollView>
 
@@ -310,8 +340,16 @@ const WorkshopDetailsScreen = () => {
             workshopPrice: displayWorkshop.price,
             resetTicketCount: route.params?.resetTicketCount || true
           })}
+          activeOpacity={0.8}
         >
-          <Text style={styles.bookingButtonText}>Đăng ký tham gia</Text>
+          <LinearGradient
+            colors={['#8B0000', '#600000']}
+            start={[0, 0]}
+            end={[1, 0]}
+            style={styles.bookingButtonGradient}
+          >
+            <Text style={styles.bookingButtonText}>Đăng ký tham gia</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -321,26 +359,36 @@ const WorkshopDetailsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f7f7f7',
   },
   scrollView: {
     flex: 1,
   },
   backButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 30,
     left: 20,
     zIndex: 10,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   heroImage: {
     width: width,
-    height: 250,
+    height: Platform.OS === 'ios' ? height * 0.35 : height * 0.32,
   },
   gradient: {
     width: '100%',
@@ -355,49 +403,48 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 8,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stars: {
-    flexDirection: 'row',
-  },
-  ratingText: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 14,
-  },
-  studentsCount: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 14,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   contentContainer: {
-    padding: 15,
-    paddingBottom: 80,
+    padding: 16,
+    paddingBottom: 100,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionIcon: {
+    marginRight: 8,
   },
   detailsCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
   detailIconContainer: {
     width: 36,
@@ -414,95 +461,119 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 4,
   },
   detailValue: {
     fontSize: 16,
     color: '#333',
     fontWeight: '500',
   },
-  learnCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  learningPoint: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  checkmarkContainer: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#8B0000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-    marginTop: 2,
-  },
-  learningPointText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#444',
-    lineHeight: 22,
-  },
-  includesCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  includeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  includeText: {
-    marginLeft: 12,
-    fontSize: 15,
-    color: '#444',
-  },
   descriptionCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   description: {
     fontSize: 15,
     color: '#444',
     lineHeight: 22,
   },
+  priceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 0, 0, 0.05)',
+    padding: 12,
+    borderRadius: 8,
+  },
+  priceLabel: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  priceValue: {
+    fontSize: 20,
+    color: '#8B0000',
+    fontWeight: 'bold',
+  },
+  masterCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  masterInfo: {
+    marginTop: 5,
+  },
   bookingButtonContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 15,
+    padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#eee',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
   },
   bookingButton: {
-    backgroundColor: '#8B0000',
-    borderRadius: 8,
     height: 50,
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  bookingButtonGradient: {
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -515,7 +586,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f7f7f7',
   },
   loadingText: {
     marginTop: 12,
@@ -526,7 +597,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f7f7f7',
     padding: 20,
   },
   errorText: {
@@ -536,10 +607,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 25,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  retryButtonGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
   },
   retryButtonText: {
     color: '#fff',
@@ -547,81 +631,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   backToListButton: {
-    paddingVertical: 12,
+    padding: 12,
+    marginTop: 12,
   },
   backToListText: {
     color: '#666',
     fontSize: 14,
     textDecorationLine: 'underline',
   },
-  smallErrorContainer: {
-    padding: 10,
-    backgroundColor: '#FFF3F3',
-    borderRadius: 6,
-    marginHorizontal: 16,
-    marginVertical: 10,
-  },
-  smallErrorText: {
-    color: '#8B0000',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  priceCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#f0d9d9',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  priceLabel: {
-    fontSize: 18,
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  priceValue: {
-    fontSize: 24,
-    color: '#8B0000',
-    fontWeight: 'bold',
-  },
-  priceDivider: {
-    height: 1,
-    backgroundColor: '#f0d9d9',
-    marginVertical: 12,
-  },
-  priceNoteContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  priceNote: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-    flex: 1,
-  },
-  masterCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  masterInfo: {
-    marginTop: 5,
+  spacer: {
+    height: 40,
   },
 });
 

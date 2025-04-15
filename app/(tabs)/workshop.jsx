@@ -12,7 +12,8 @@ import {
   Alert,
   Dimensions,
   ImageBackground,
-  Platform
+  Platform,
+  StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import { workshopService } from '../../constants/workshop';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 
 const { width } = Dimensions.get('window');
+const STATUSBAR_HEIGHT = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0;
 
 // Component hiển thị một workshop
 const WorkshopCard = ({ workshop }) => {
@@ -50,6 +52,7 @@ const WorkshopCard = ({ workshop }) => {
           resetTicketCount: true
         });
       }}
+      activeOpacity={0.9}
     >
       <View style={styles.imageContainer}>
         <Image
@@ -126,6 +129,9 @@ const WorkshopSection = ({ title, workshops, loading }) => {
           title === "Newest Workshops" && styles.workshopListReversed
         ]}
         showsHorizontalScrollIndicator={false}
+        snapToInterval={width * 0.65 + 16}
+        decelerationRate="fast"
+        snapToAlignment="start"
       />
     </View>
   );
@@ -230,12 +236,8 @@ export default function Workshop() {
         : [];
   
       // Kiểm tra và hiển thị alert khi không có dữ liệu
-      if (processedTrending.length === 0) {
-        Alert.alert('Thông báo', 'Không tìm thấy trending workshops');
-      }
-      
-      if (processedNewest.length === 0) {
-        Alert.alert('Thông báo', 'Không tìm thấy newest workshops');  
+      if (processedTrending.length === 0 && processedNewest.length === 0) {
+        Alert.alert('Thông báo', 'Không tìm thấy workshops nào');
       }
   
       // Cập nhật state ngay cả khi một trong các API thất bại
@@ -277,6 +279,7 @@ export default function Workshop() {
         setError(null);
         fetchWorkshops();
       }}
+      activeOpacity={0.7}
     >
       <LinearGradient
         colors={['#8B0000', '#600000']}
@@ -294,14 +297,14 @@ export default function Workshop() {
       source={require('../../assets/images/feng shui.png')} 
       style={styles.backgroundImage}
     >
+      <StatusBar translucent barStyle="light-content" backgroundColor="rgba(0,0,0,0.3)" />
       <LinearGradient
         colors={['rgba(0,0,0,0.8)', 'rgba(139,0,0,0.6)', 'rgba(0,0,0,0.8)']}
         style={styles.gradientOverlay}
       >
-        <SafeAreaView style={styles.container}>
-          <View style={styles.headerContainer}>
+        <SafeAreaView style={styles.container} edges={['top', 'right', 'left']}>
+          <View style={[styles.headerContainer, {paddingTop: Platform.OS === 'android' ? STATUSBAR_HEIGHT : 10}]}>
             <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
-            
           </View>
 
           <View style={styles.searchContainer}>
@@ -312,8 +315,14 @@ export default function Workshop() {
                 placeholderTextColor="rgba(255,255,255,0.7)"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                selectionColor="#FFFFFF"
               />
-              <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+              <TouchableOpacity 
+                style={styles.searchButton} 
+                onPress={handleSearch}
+                activeOpacity={0.7}
+                hitSlop={{top: 8, right: 8, bottom: 8, left: 8}}
+              >
                 <Ionicons name="search" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -326,7 +335,12 @@ export default function Workshop() {
               <RetryButton />
             </View>
           ) : (
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentInsetAdjustmentBehavior="automatic"
+              overScrollMode="never"
+              bounces={Platform.OS === 'ios'}
+            >
               {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
               {searchQuery.trim() !== '' && (
                 <View style={styles.section}>
@@ -353,6 +367,9 @@ export default function Workshop() {
                       keyExtractor={(item, index) => `search-${item.id}-${index}`}
                       contentContainerStyle={styles.workshopList}
                       showsHorizontalScrollIndicator={false}
+                      snapToInterval={width * 0.65 + 16}
+                      decelerationRate="fast"
+                      snapToAlignment="start"
                       ListEmptyComponent={
                         <View style={styles.emptySearchResults}>
                           <Ionicons name="search-outline" size={40} color="#ccc" />
@@ -398,24 +415,22 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 45,
     paddingBottom: 12,
-    marginTop: -30,
+    marginTop: Platform.OS === 'android' ? 0 : 0,
   },
   headerTitle: {
     fontSize: 26,
     fontWeight: 'bold',
     color: '#FFFFFF',
-  },
-  menuButton: {
-    padding: 5,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   searchContainer: {
     paddingHorizontal: 16,
@@ -428,12 +443,15 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 16,
     height: 44,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#FFFFFF',
-    paddingVertical: 10,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    height: Platform.OS === 'ios' ? 44 : 42,
   },
   searchButton: {
     width: 28,
@@ -474,6 +492,7 @@ const styles = StyleSheet.create({
   workshopList: {
     paddingLeft: 16,
     paddingRight: 8,
+    paddingVertical: 8,
   },
   workshopListReversed: {
     flexDirection: 'row-reverse',
@@ -486,15 +505,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     marginBottom: 4,
     marginTop: 4,
     borderWidth: 1,
     borderColor: 'rgba(139, 0, 0, 0.5)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   imageContainer: {
     position: 'relative',
@@ -579,6 +604,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
     borderRadius: 20,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   retryButtonGradient: {
     paddingVertical: 10,

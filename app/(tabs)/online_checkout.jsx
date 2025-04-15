@@ -9,7 +9,11 @@ import {
   SafeAreaView,
   TextInput,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform,
+  StatusBar,
+  KeyboardAvoidingView,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,6 +22,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
 import { paymentService } from '../../constants/paymentService';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
+const STATUSBAR_HEIGHT = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0;
 
 export default function OnlineCheckoutScreen() {
   const router = useRouter();
@@ -189,28 +197,49 @@ export default function OnlineCheckoutScreen() {
   
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#8B0000" />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar translucent barStyle="dark-content" backgroundColor="rgba(255,255,255,0.9)" />
+        <View style={[styles.container, styles.loadingContainer]}>
+          <ActivityIndicator size="large" color="#8B0000" />
+          <Text style={styles.loadingText}>Đang tải thông tin...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar translucent barStyle="dark-content" backgroundColor="rgba(255,255,255,0.9)" />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}
+      >
         {/* Header */}
-        <View style={styles.header}>
+        <LinearGradient
+          colors={['#FFFFFF', '#F9F9F9']}
+          style={styles.header}
+        >
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => router.push('/(tabs)/online_booking')}
+            activeOpacity={0.7}
+            hitSlop={{top: 10, right: 10, bottom: 10, left: 10}}
           >
             <Ionicons name="arrow-back" size={24} color="#8B0000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Thanh toán</Text>
-        </View>
+          <View style={styles.headerRight} />
+        </LinearGradient>
         
-        <ScrollView style={styles.scrollView}>
-          <Text style={styles.sectionHeader}>Thông tin đặt lịch tư vấn trực tuyến</Text>
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollViewContent}
+        >
+          <View style={styles.sectionTitleContainer}>
+            <Ionicons name="calendar-outline" size={22} color="#8B0000" style={styles.sectionIcon} />
+            <Text style={styles.sectionHeader}>Thông tin đặt lịch tư vấn</Text>
+          </View>
           
           {/* Booking Info Card */}
           <View style={styles.card}>
@@ -237,12 +266,16 @@ export default function OnlineCheckoutScreen() {
           </View>
           
           {/* Customer Info */}
-          <Text style={styles.sectionHeader}>Thông tin khách hàng</Text>
+          <View style={styles.sectionTitleContainer}>
+            <Ionicons name="person-outline" size={22} color="#8B0000" style={styles.sectionIcon} />
+            <Text style={styles.sectionHeader}>Thông tin khách hàng</Text>
+          </View>
+          
           <View style={styles.card}>
             <View style={styles.customerInfo}>
               <View style={styles.profileRow}>
                 <View style={styles.profileIcon}>
-                  <Ionicons name="person-circle" size={36} color="#8B0000" />
+                  <Ionicons name="person-circle" size={40} color="#8B0000" />
                 </View>
                 <Text style={styles.customerName}>{customerInfo.name}</Text>
               </View>
@@ -258,160 +291,297 @@ export default function OnlineCheckoutScreen() {
           </View>
           
           {/* Price Summary */}
-          <View style={styles.priceSummary}>
-            <View style={styles.priceRow}>
-              <Text style={styles.totalLabel}>Tổng thanh toán</Text>
-              <Text style={styles.totalValue}>{scheduleInfo.price} VND</Text>
+          <View style={styles.summaryCard}>
+            <View style={styles.paymentHeader}>
+              <Ionicons name="card-outline" size={22} color="#8B0000" />
+              <Text style={styles.paymentHeaderText}>Thông tin thanh toán</Text>
             </View>
             
-            {/* Payment Button */}
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Phí tư vấn</Text>
+              <Text style={styles.priceValue}>{scheduleInfo.price} VND</Text>
+            </View>
+            
+            <View style={styles.divider} />
+            
+            <View style={styles.priceRow}>
+              <Text style={styles.totalLabel}>Tổng cộng</Text>
+              <Text style={styles.totalValue}>{scheduleInfo.price} VND</Text>
+            </View>
+          </View>
+        </ScrollView>
+        
+        {/* Footer with Payment Button */}
+        <View style={styles.footer}>
+          <View style={styles.footerContent}>
+            <View style={styles.footerPriceContainer}>
+              <Text style={styles.footerPriceLabel}>Tổng thanh toán</Text>
+              <Text style={styles.footerPrice}>{scheduleInfo.price} VND</Text>
+            </View>
+            
             <TouchableOpacity 
-              style={styles.payButton}
+              style={[styles.payButton, isSubmitting && styles.payButtonDisabled]}
               onPress={handlePayment}
               disabled={isSubmitting}
+              activeOpacity={0.8}
             >
               {isSubmitting ? (
-                <ActivityIndicator color="#8B0000" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.payButtonText}>Thanh toán</Text>
+                <Text style={styles.payButtonText}>Thanh toán ngay</Text>
               )}
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
   safeArea: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'android' ? STATUSBAR_HEIGHT + 10 : 10,
+    paddingBottom: 15,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   backButton: {
-    padding: 5,
+    padding: 8,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#8B0000',
-    marginLeft: 15,
+    color: '#333333',
+  },
+  headerRight: {
+    width: 40,
   },
   scrollView: {
     flex: 1,
-    padding: 15,
+  },
+  scrollViewContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  sectionIcon: {
+    marginRight: 8,
   },
   sectionHeader: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
-    color: '#333',
+    color: '#333333',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderRadius: 12,
+    marginBottom: 24,
+    padding: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   bookingInfo: {
     borderWidth: 1,
-    borderColor: '#8B0000',
-    borderRadius: 8,
-    padding: 15,
+    borderColor: 'rgba(139, 0, 0, 0.3)',
+    borderRadius: 10,
+    padding: 16,
   },
   iconTextRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   bookingDate: {
     fontSize: 16,
     color: '#8B0000',
     fontWeight: 'bold',
-    marginLeft: 10,
+    marginLeft: 12,
   },
   bookingTime: {
     fontSize: 16,
     color: '#8B0000',
     fontWeight: 'bold',
-    marginLeft: 10,
+    marginLeft: 12,
   },
   consultant: {
     fontSize: 16,
-    color: '#333',
-    marginLeft: 10,
+    color: '#333333',
+    marginLeft: 12,
   },
   descriptionContainer: {
-    marginTop: 5,
+    marginTop: 8,
+    backgroundColor: 'rgba(139, 0, 0, 0.05)',
+    padding: 12,
+    borderRadius: 8,
   },
   descriptionLabel: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#666',
-    marginBottom: 5,
+    color: '#666666',
+    marginBottom: 6,
   },
   description: {
     fontSize: 14,
-    color: '#333',
+    color: '#333333',
+    lineHeight: 20,
   },
   customerInfo: {
-    padding: 5,
+    padding: 16,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 16,
   },
   profileIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   customerName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    paddingLeft: 4,
   },
   contactText: {
     fontSize: 14,
-    color: '#666',
-    marginLeft: 10,
+    color: '#666666',
+    marginLeft: 12,
   },
-  priceSummary: {
-    padding: 15,
+  summaryCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    marginBottom: 20,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 30,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  paymentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  paymentHeaderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginLeft: 8,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  priceValue: {
+    fontSize: 14,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#EEEEEE',
+    marginVertical: 12,
   },
   totalLabel: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   totalValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  footerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  footerPriceContainer: {
+    flex: 1,
+  },
+  footerPriceLabel: {
+    fontSize: 12,
+    color: '#666666',
+  },
+  footerPrice: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#8B0000',
@@ -419,12 +589,25 @@ const styles = StyleSheet.create({
   payButton: {
     backgroundColor: '#8B0000',
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 15,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    justifyContent: 'center',
     alignItems: 'center',
-    width: '50%',
-    alignSelf: 'center',
+    minWidth: 160,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  payButtonDisabled: {
+    backgroundColor: '#CCCCCC',
   },
   payButtonText: {
     fontSize: 16,
@@ -433,6 +616,11 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#8B0000',
   }
 });

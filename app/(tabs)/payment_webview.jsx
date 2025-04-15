@@ -1,5 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, StatusBar } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert, 
+  SafeAreaView, 
+  StatusBar, 
+  Platform,
+  Dimensions
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
+
+const { width, height } = Dimensions.get('window');
+const STATUSBAR_HEIGHT = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0;
 
 export default function PaymentWebView() {
   const navigation = useNavigation();
@@ -153,48 +167,74 @@ export default function PaymentWebView() {
         onPress={() => {
           setHasError(false);
           setIsLoading(true);
+          if (webViewRef.current) {
+            webViewRef.current.reload();
+          }
         }}
+        activeOpacity={0.7}
       >
-        <Text style={styles.retryButtonText}>Thử lại</Text>
+        <LinearGradient
+          colors={['#AE1D1D', '#8B0000']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.retryButtonGradient}
+        >
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient
-        colors={['#AE1D1D', '#212121']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('menu')} 
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thanh toán</Text>
-        <View style={{width: 24}} />
-      </LinearGradient>
+    <SafeAreaView style={styles.container} edges={['right', 'left']}>
+      <StatusBar translucent barStyle="light-content" backgroundColor="rgba(174,29,29,0.9)" />
       
-      {hasError ? (
-        renderErrorView()
-      ) : (
-        <WebView
-          ref={webViewRef}
-          source={{ uri: decodedPaymentUrl }}
-          onNavigationStateChange={handleNavigationStateChange}
-          onLoadEnd={handleOnLoadEnd}
-          onError={handleOnError}
-          onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={true}
-          renderLoading={renderLoadingView}
-        />
-      )}
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#AE1D1D', '#212121']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.header, {paddingTop: Platform.OS === 'android' ? STATUSBAR_HEIGHT : 10}]}
+        >
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('menu')} 
+            style={styles.backButton}
+            activeOpacity={0.7}
+            hitSlop={{top: 10, right: 10, bottom: 10, left: 10}}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Thanh toán</Text>
+          <View style={{width: 24}} />
+        </LinearGradient>
+      </View>
+      
+      <View style={styles.webViewContainer}>
+        {hasError ? (
+          renderErrorView()
+        ) : (
+          <WebView
+            ref={webViewRef}
+            source={{ uri: decodedPaymentUrl }}
+            onNavigationStateChange={handleNavigationStateChange}
+            onLoadEnd={handleOnLoadEnd}
+            onError={handleOnError}
+            onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            renderLoading={renderLoadingView}
+            cacheEnabled={false}
+            incognito={true}
+            pullToRefreshEnabled={true}
+            sharedCookiesEnabled={false}
+            thirdPartyCookiesEnabled={false}
+            androidLayerType={Platform.OS === 'android' ? 'hardware' : undefined}
+          />
+        )}
+        
+        {isLoading && !hasError && renderLoadingView()}
+      </View>
     </SafeAreaView>
   );
 }
@@ -204,26 +244,44 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF'
   },
+  headerContainer: {
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16
+    paddingVertical: 16,
+    paddingBottom: 16,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: 'white'
+    color: 'white',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   backButton: {
-    padding: 8
+    padding: 8,
+    borderRadius: 20,
   },
   webViewContainer: {
-    flex: 1
-  },
-  webView: {
-    flex: 1
+    flex: 1,
+    backgroundColor: '#F6F6F6',
   },
   loadingContainer: {
     position: 'absolute',
@@ -233,33 +291,54 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     zIndex: 1000
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 16,
-    color: '#AE1D1D'
+    color: '#AE1D1D',
+    textAlign: 'center',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: 20,
+    backgroundColor: '#FFFFFF',
   },
   errorText: {
     fontSize: 16,
-    marginBottom: 20,
-    textAlign: 'center'
+    marginVertical: 20,
+    textAlign: 'center',
+    color: '#444',
+    maxWidth: '80%',
+    lineHeight: 22,
   },
   retryButton: {
-    backgroundColor: '#AE1D1D',
+    borderRadius: 25,
+    overflow: 'hidden',
+    marginTop: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  retryButtonGradient: {
     paddingHorizontal: 30,
-    paddingVertical: 10,
-    borderRadius: 5
+    paddingVertical: 12,
+    borderRadius: 25,
   },
   retryButtonText: {
     color: '#FFF',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    fontSize: 16,
   }
 });
