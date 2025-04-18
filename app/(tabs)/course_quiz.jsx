@@ -77,9 +77,23 @@ export default function CourseQuizScreen() {
 
       // Fetch questions và khởi động lại timer
       const initializeQuiz = async () => {
-        await fetchQuestions();
-        // Khởi động lại timer sau khi có dữ liệu
-        startTimer();
+        // Kiểm tra nếu đã có câu hỏi thì không fetch lại
+        if (questions.length > 0) {
+          setLoading(false);
+          // Khởi động lại timer với câu hỏi có sẵn
+          const timeLimit = calculateTimeLimit(questions.length);
+          const timeLimitInSeconds = timeLimit * 60;
+          
+          if (timeLimit > 0) {
+            setTimeRemaining(timeLimitInSeconds);
+            setInitialTimeInSeconds(timeLimitInSeconds);
+            startTimer();
+          }
+        } else {
+          await fetchQuestions();
+          // Khởi động lại timer sau khi có dữ liệu
+          startTimer();
+        }
       };
 
       initializeQuiz();
@@ -185,8 +199,6 @@ export default function CourseQuizScreen() {
 
   // Cập nhật hàm startTimer để đảm bảo timer hoạt động đúng
   const startTimer = () => {
-    console.log('Starting timer with remaining time:', timeRemaining);
-    
     // Clear any existing timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -194,12 +206,10 @@ export default function CourseQuizScreen() {
     
     // Chỉ start timer khi timeRemaining > 0
     if (timeRemaining > 0) {
-      console.log('Timer started');
       // Start new timer that counts down every second
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
           const newTime = prev - 1;
-          console.log('Time remaining:', newTime);
           if (newTime <= 0) {
             // When time runs out, clear timer and submit the quiz
             clearInterval(timerRef.current);
@@ -209,8 +219,6 @@ export default function CourseQuizScreen() {
           return newTime;
         });
       }, 1000);
-    } else {
-      console.log('Timer not started - no time remaining');
     }
   };
 
@@ -219,6 +227,9 @@ export default function CourseQuizScreen() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Kiểm tra xem đã có câu hỏi hay chưa - nếu có rồi thì không cần báo lỗi
+      const hasExistingQuestions = questions && questions.length > 0;
       
       if (!quizId) {
         throw new Error('Quiz ID not provided');
@@ -229,8 +240,6 @@ export default function CourseQuizScreen() {
       if (!token) {
         throw new Error('User authentication required');
       }
-      
-      console.log(`Fetching questions for quiz: ${quizId}`);
       
       // Make API request with the actual quizId
       const response = await fetch(
@@ -245,9 +254,8 @@ export default function CourseQuizScreen() {
       );
       
       const result = await response.json();
-      console.log('Questions API response:', result);
       
-      if (result.isSuccess && Array.isArray(result.data)) {
+      if (result.isSuccess && Array.isArray(result.data) && result.data.length > 0) {
         // Initialize timer based on number of questions
         const questionCount = result.data.length;
         const timeLimit = calculateTimeLimit(questionCount);
@@ -264,20 +272,44 @@ export default function CourseQuizScreen() {
           setTimeRemaining(0);
           setInitialTimeInSeconds(0);
         }
+      } else if (Array.isArray(result.data) && result.data.length > 0) {
+        // Nếu có dữ liệu mảng nhưng isSuccess là false, vẫn sử dụng dữ liệu đó
+        const questionCount = result.data.length;
+        const timeLimit = calculateTimeLimit(questionCount);
+        const timeLimitInSeconds = timeLimit * 60;
+        
+        setQuestions(result.data);
+        
+        if (timeLimit > 0) {
+          setTimeRemaining(timeLimitInSeconds);
+          setInitialTimeInSeconds(timeLimitInSeconds);
+        } else {
+          setTimeRemaining(0);
+          setInitialTimeInSeconds(0);
+        }
       } else {
-        throw new Error(result.message || 'Failed to load quiz questions');
+        // Nếu thực sự không có dữ liệu và chưa có câu hỏi
+        if (!hasExistingQuestions) {
+          throw new Error(result.message || 'Failed to load quiz questions');
+        } 
+        // Nếu đã có câu hỏi sẵn, không báo lỗi
+        console.log('Không có dữ liệu mới, sử dụng câu hỏi đã có');
       }
     } catch (error) {
-      console.error('Error fetching questions:', error);
-      setError(error.message || 'Failed to load quiz questions');
-      
-      // Chỉ hiển thị alert khi thực sự có lỗi từ API
-      if (!error.message.includes('Failed to load quiz questions')) {
-        Alert.alert(
-          "Lỗi",
-          "Không thể tải câu hỏi. Vui lòng thử lại sau.",
-          [{ text: "OK" }]
-        );
+      // Kiểm tra xem đã có câu hỏi được tải chưa
+      if (questions && questions.length > 0) {
+        // Đã có câu hỏi, không hiển thị lỗi và sử dụng câu hỏi hiện có
+        console.log('Sử dụng câu hỏi đã tải trước đó, không hiển thị lỗi');
+        // Đặt error về null để đảm bảo không hiển thị lỗi
+        setError(null);
+      } else {
+        // Chưa có câu hỏi, hiển thị lỗi
+        setError(error.message || 'Failed to load quiz questions');
+        
+        // Chỉ ghi log lỗi khi không có câu hỏi (không hiển thị Alert)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Lỗi khi tải câu hỏi (chỉ hiển thị trong môi trường development):', error.message);
+        }
       }
     } finally {
       setLoading(false);
@@ -333,20 +365,12 @@ export default function CourseQuizScreen() {
       // Tính thời gian hoàn thành (giây)
       const timeSpentInSeconds = initialTimeInSeconds - timeRemaining;
       
-      console.log('Time values:', {
-        initialTime: initialTimeInSeconds,
-        remainingTime: timeRemaining, 
-        timeSpent: timeSpentInSeconds
-      });
-      
       // Format answers for API submission
       const answerIds = Object.entries(selectedAnswers).map(([index, answerId]) => {
         return {
           answerId: answerId
         };
       });
-      
-      console.log('Submitting answers to API:', { answerIds });
       
       // Submit to API
       const token = await AsyncStorage.getItem('accessToken');
@@ -371,7 +395,6 @@ export default function CourseQuizScreen() {
       }
       
       const result = await response.json();
-      console.log('Quiz submission response:', result);
       
       if (result.isSuccess && result.data) {
         // Use server provided results
@@ -380,16 +403,16 @@ export default function CourseQuizScreen() {
         // Calculate percentage
         const percentage = Math.round((apiResult.correctAnswers / apiResult.totalQuestions) * 100);
     
-    // Save completion status
-    try {
+        // Save completion status
+        try {
           const completedQuizzes = JSON.parse(await AsyncStorage.getItem('completedQuizzes')) || {};
-      completedQuizzes[quizId] = {
-        completed: true,
+          completedQuizzes[quizId] = {
+            completed: true,
             correctAnswers: apiResult.correctAnswers,
             totalQuestions: apiResult.totalQuestions,
             percentage: percentage,
-        date: new Date().toISOString()
-      };
+            date: new Date().toISOString()
+          };
           await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
         } catch (storageError) {
           console.error('Error saving quiz completion:', storageError);
@@ -436,15 +459,15 @@ export default function CourseQuizScreen() {
             percentage: percentage,
             date: new Date().toISOString()
           };
-      await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
+          await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
         } catch (storageError) {
           console.error('Error saving quiz completion:', storageError);
         }
       
         // Navigate to score screen with locally calculated results
         router.push({
-        pathname: '/(tabs)/course_score',
-        params: {
+          pathname: '/(tabs)/course_score',
+          params: {
             courseId: courseId,
             quizId: quizId,
             score: correctAnswers.toString(),
@@ -458,8 +481,8 @@ export default function CourseQuizScreen() {
     } catch (error) {
       console.error('Error submitting quiz:', error);
       Alert.alert(
-        'Submission Error',
-        'There was a problem submitting your quiz. Please try again.',
+        'Lỗi khi nộp bài',
+        'Có lỗi xảy ra khi nộp bài kiểm tra. Vui lòng thử lại.',
         [{ text: 'OK' }]
       );
     }
@@ -566,7 +589,7 @@ export default function CourseQuizScreen() {
               // If we're looking at completed quiz results, go back
               if (quizCompleted) {
                 router.back();
-    } else {
+              } else {
                 // Otherwise refresh the current screen
                 handleReloadQuiz();
               }

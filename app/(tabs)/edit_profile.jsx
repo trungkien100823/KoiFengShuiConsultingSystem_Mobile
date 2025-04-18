@@ -177,7 +177,7 @@ const modalStyles = StyleSheet.create({
   },
   passwordModalContent: {
     width: '100%',
-    backgroundColor: 'rgba(30, 30, 30, 0.95)',
+    backgroundColor: '#151515',
     borderRadius: 20,
     padding: 25,
     borderWidth: 1,
@@ -189,7 +189,7 @@ const modalStyles = StyleSheet.create({
     elevation: 15,
   },
   passwordModalTitle: {
-    fontSize: 24,
+    fontSize: 22,
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
@@ -199,13 +199,13 @@ const modalStyles = StyleSheet.create({
     textShadowRadius: 3,
   },
   passwordInputContainer: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   passwordInputLabel: {
     fontSize: 16,
     color: 'white',
     marginBottom: 8,
-    fontWeight: '500',
+    fontWeight: '600',
     textShadowColor: 'rgba(0, 0, 0, 0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
@@ -213,10 +213,9 @@ const modalStyles = StyleSheet.create({
   passwordInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 0,
+    borderRadius: 10,
     marginTop: 8,
   },
   passwordInputField: {
@@ -229,7 +228,7 @@ const modalStyles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   passwordErrorText: {
-    color: '#ff6b6b',
+    color: '#FFC0CB',
     fontSize: 14,
     marginTop: 8,
     fontWeight: '500',
@@ -242,10 +241,10 @@ const modalStyles = StyleSheet.create({
   passwordButton: {
     flex: 1,
     paddingVertical: 15,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -253,14 +252,12 @@ const modalStyles = StyleSheet.create({
     elevation: 8,
   },
   passwordCancelButton: {
-    backgroundColor: 'rgba(80, 80, 80, 0.8)',
+    backgroundColor: '#333333',
     marginRight: 10,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   passwordSubmitButton: {
-    backgroundColor: 'rgba(139, 0, 0, 0.9)',
+    backgroundColor: '#FF4500',
     marginLeft: 10,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   passwordButtonText: {
     color: 'white',
@@ -292,7 +289,7 @@ const modalStyles = StyleSheet.create({
     color: '#4cd964',
   },
   passwordRequirementInvalid: {
-    color: '#ff6b6b',
+    color: '#FFC0CB',
   },
   passwordModalHeader: {
     flexDirection: 'row',
@@ -314,9 +311,99 @@ const modalStyles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#ff6b6b',
+    backgroundColor: '#FFC0CB',
     marginRight: 6,
   },
+  headerIcon: {
+    marginBottom: 10,
+  },
+  // Thêm styles cho form thông tin ngân hàng
+  bankInfoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  bankInfoModalContent: {
+    width: '100%',
+    backgroundColor: '#151515',
+    borderRadius: 20,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 15,
+  },
+  bankInfoHeader: {
+    borderBottomWidth: 3,
+    borderBottomColor: 'rgba(255, 255, 255, 0.3)',
+    paddingBottom: 12,
+    marginBottom: 20,
+  },
+  bankInfoHeaderText: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  bankInfoField: {
+    marginBottom: 20,
+  },
+  bankInfoLabel: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
+  },
+  bankInfoInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 10,
+    padding: 15,
+    color: 'white',
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  bankInfoButton: {
+    backgroundColor: '#00A86B',  // Xanh lá đậm
+    borderRadius: 10,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  bankInfoButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  highlightBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 6,
+    backgroundColor: '#228B22',  // Xanh lá đậm
+  }
 });
 
 export default function EditProfileScreen() {
@@ -369,6 +456,9 @@ export default function EditProfileScreen() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Thêm vào phần state biến mới để quản lý form thông tin ngân hàng
+  const [showBankInfoModal, setShowBankInfoModal] = useState(false);
   
   // Helper function to determine element based on year of birth
   // NOTE: KHÔNG CÒN SỬ DỤNG - Giữ lại cho mục đích tham khảo
@@ -899,7 +989,19 @@ export default function EditProfileScreen() {
     }
   };
   
-  // Add UserInfoModal component
+  // Thêm hàm mở form thông tin ngân hàng
+  const toggleBankInfoModal = () => {
+    setShowBankInfoModal(!showBankInfoModal);
+  };
+
+  // Thêm hàm lưu thông tin ngân hàng
+  const saveBankInfo = () => {
+    // Không cần gửi API riêng vì thông tin ngân hàng sẽ được gửi cùng thông tin profile
+    setShowBankInfoModal(false);
+    showAlert('Thành Công', 'Đã cập nhật thông tin ngân hàng');
+  };
+
+  // Thêm UserInfoModal component
   const UserInfoModal = () => {
     const elementColor = elementColors[userElement] || '#FF4500';
     
@@ -917,52 +1019,52 @@ export default function EditProfileScreen() {
           });
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+        <View style={modalStyles.modalOverlay}>
+          <View style={modalStyles.modalContainer}>
             <ImageBackground
               source={require('../../assets/images/feng shui.png')}
-              style={styles.modalBackground}
-              imageStyle={styles.modalBackgroundImage}
+              style={modalStyles.modalBackground}
+              imageStyle={modalStyles.modalBackgroundImage}
             >
-              <View style={styles.modalContent}>
+              <View style={modalStyles.modalContent}>
                 {/* Header with title */}
-                <Text style={styles.modalTitle}>Thông tin của bạn</Text>
+                <Text style={modalStyles.modalTitle}>Thông tin của bạn</Text>
                 
                 {/* Element section with highlight */}
-                <View style={styles.elementSection}>
-                  <Text style={styles.elementLabel}>Ngũ hành của bạn là</Text>
-                  <Text style={[styles.elementText, { color: elementColor }]}>
+                <View style={modalStyles.elementSection}>
+                  <Text style={modalStyles.elementLabel}>Ngũ hành của bạn là</Text>
+                  <Text style={[modalStyles.elementText, { color: elementColor }]}>
                     {userElement}
                   </Text>
                 </View>
 
                 {/* User info container */}
-                <View style={styles.infoContainer}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.label}>Họ và tên:</Text>
-                    <Text style={styles.value}>{name}</Text>
+                <View style={modalStyles.infoContainer}>
+                  <View style={modalStyles.infoRow}>
+                    <Text style={modalStyles.label}>Họ và tên:</Text>
+                    <Text style={modalStyles.value}>{name}</Text>
                   </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.label}>Ngày sinh:</Text>
-                    <Text style={styles.value}>
+                  <View style={modalStyles.infoRow}>
+                    <Text style={modalStyles.label}>Ngày sinh:</Text>
+                    <Text style={modalStyles.value}>
                       {dob.toLocaleDateString('vi-VN')}
                     </Text>
                   </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.label}>Giới tính:</Text>
-                    <Text style={styles.value}>
+                  <View style={modalStyles.infoRow}>
+                    <Text style={modalStyles.label}>Giới tính:</Text>
+                    <Text style={modalStyles.value}>
                       {gender ? 'Nam' : 'Nữ'}
                     </Text>
                   </View>
-                  <View style={[styles.infoRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
-                    <Text style={styles.label}>Cung mệnh:</Text>
-                    <Text style={styles.value}>{userLifePalace}</Text>
+                  <View style={[modalStyles.infoRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
+                    <Text style={modalStyles.label}>Cung mệnh:</Text>
+                    <Text style={modalStyles.value}>{userLifePalace}</Text>
                   </View>
                 </View>
 
                 {/* Close button with element color */}
                 <TouchableOpacity 
-                  style={[styles.button, { backgroundColor: elementColor }]}
+                  style={[modalStyles.button, { backgroundColor: elementColor }]}
                   onPress={() => {
                     setShowUserInfoModal(false);
                     router.replace({
@@ -971,7 +1073,7 @@ export default function EditProfileScreen() {
                     });
                   }}
                 >
-                  <Text style={styles.buttonText}>Đóng</Text>
+                  <Text style={modalStyles.buttonText}>Đóng</Text>
                 </TouchableOpacity>
               </View>
             </ImageBackground>
@@ -1155,7 +1257,7 @@ export default function EditProfileScreen() {
           >
             <View style={modalStyles.passwordModalOverlay}>
               <View style={modalStyles.passwordModalContent}>
-                <View style={modalStyles.passwordModalHeader}>
+                <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20}}>
                   <Text style={modalStyles.passwordModalTitle}>Đổi Mật Khẩu</Text>
                 </View>
                 
@@ -1217,74 +1319,6 @@ export default function EditProfileScreen() {
                   {passwordErrors.new && (
                     <Text style={modalStyles.passwordErrorText}>{passwordErrors.new}</Text>
                   )}
-                  
-                  {newPassword.length > 0 && (
-                    <View style={modalStyles.passwordRequirements}>
-                      <View style={modalStyles.passwordRequirementRow}>
-                        {validations.length ? (
-                          <View style={modalStyles.passwordValidIndicator} />
-                        ) : (
-                          <View style={modalStyles.passwordInvalidIndicator} />
-                        )}
-                        <Text style={[
-                          modalStyles.passwordRequirementText,
-                          validations.length 
-                            ? modalStyles.passwordRequirementValid 
-                            : modalStyles.passwordRequirementInvalid
-                        ]}>
-                          Ít nhất 6 ký tự
-                        </Text>
-                      </View>
-                      
-                      <View style={modalStyles.passwordRequirementRow}>
-                        {validations.uppercase ? (
-                          <View style={modalStyles.passwordValidIndicator} />
-                        ) : (
-                          <View style={modalStyles.passwordInvalidIndicator} />
-                        )}
-                        <Text style={[
-                          modalStyles.passwordRequirementText,
-                          validations.uppercase 
-                            ? modalStyles.passwordRequirementValid 
-                            : modalStyles.passwordRequirementInvalid
-                        ]}>
-                          Ít nhất một chữ cái viết hoa
-                        </Text>
-                      </View>
-                      
-                      <View style={modalStyles.passwordRequirementRow}>
-                        {validations.number ? (
-                          <View style={modalStyles.passwordValidIndicator} />
-                        ) : (
-                          <View style={modalStyles.passwordInvalidIndicator} />
-                        )}
-                        <Text style={[
-                          modalStyles.passwordRequirementText,
-                          validations.number 
-                            ? modalStyles.passwordRequirementValid 
-                            : modalStyles.passwordRequirementInvalid
-                        ]}>
-                          Ít nhất một chữ số
-                        </Text>
-                      </View>
-                      
-                      <View style={[modalStyles.passwordRequirementRow, { marginBottom: 0 }]}>
-                        {validations.special ? (
-                          <View style={modalStyles.passwordValidIndicator} />
-                        ) : (
-                          <View style={modalStyles.passwordInvalidIndicator} />
-                        )}
-                        <Text style={[
-                          modalStyles.passwordRequirementText,
-                          validations.special 
-                            ? modalStyles.passwordRequirementValid 
-                            : modalStyles.passwordRequirementInvalid
-                        ]}>
-                          Ít nhất một ký tự đặc biệt (@#$%^&+=!)
-                        </Text>
-                      </View>
-                    </View>
-                  )}
                 </View>
                 
                 <View style={modalStyles.passwordInputContainer}>
@@ -1312,22 +1346,6 @@ export default function EditProfileScreen() {
                   {passwordErrors.confirm && (
                     <Text style={modalStyles.passwordErrorText}>{passwordErrors.confirm}</Text>
                   )}
-                  
-                  {newPassword && confirmPassword && newPassword === confirmPassword ? (
-                    <View style={[modalStyles.passwordRequirementRow, { marginTop: 8 }]}>
-                      <View style={modalStyles.passwordValidIndicator} />
-                      <Text style={[modalStyles.passwordRequirementText, modalStyles.passwordRequirementValid]}>
-                        Mật khẩu khớp
-                      </Text>
-                    </View>
-                  ) : confirmPassword ? (
-                    <View style={[modalStyles.passwordRequirementRow, { marginTop: 8 }]}>
-                      <View style={modalStyles.passwordInvalidIndicator} />
-                      <Text style={[modalStyles.passwordRequirementText, modalStyles.passwordRequirementInvalid]}>
-                        Mật khẩu không khớp
-                      </Text>
-                    </View>
-                  ) : null}
                 </View>
                 
                 <View style={modalStyles.passwordButtonRow}>
@@ -1356,10 +1374,78 @@ export default function EditProfileScreen() {
                     {submittingPassword ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={modalStyles.passwordButtonText}>Đổi mật khẩu</Text>
+                      <Text style={modalStyles.passwordButtonText}>Lưu Thay Đổi</Text>
                     )}
                   </TouchableOpacity>
                 </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
+
+  // Component cho Modal thông tin ngân hàng
+  const renderBankInfoModal = () => {
+    return (
+      <Modal
+        visible={showBankInfoModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowBankInfoModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
+          >
+            <View style={modalStyles.bankInfoModalOverlay}>
+              <View style={modalStyles.bankInfoModalContent}>
+                <View style={modalStyles.highlightBar} />
+                
+                <View style={modalStyles.bankInfoHeader}>
+                  <Text style={modalStyles.bankInfoHeaderText}>Thông tin của bạn</Text>
+                </View>
+                
+                <View style={modalStyles.bankInfoField}>
+                  <Text style={modalStyles.bankInfoLabel}>Mã Ngân Hàng</Text>
+                  <TextInput
+                    style={modalStyles.bankInfoInput}
+                    value={bankId !== null ? bankId.toString() : '0'}
+                    onChangeText={(text) => setBankId(text ? parseInt(text, 10) : 0)}
+                    placeholder="Nhập mã ngân hàng"
+                    placeholderTextColor="rgba(255,255,255,0.5)"
+                    keyboardType="numeric"
+                  />
+                </View>
+                
+                <View style={modalStyles.bankInfoField}>
+                  <Text style={modalStyles.bankInfoLabel}>Số Tài Khoản</Text>
+                  <TextInput
+                    style={modalStyles.bankInfoInput}
+                    value={accountNo}
+                    onChangeText={setAccountNo}
+                    placeholder="Nhập số tài khoản"
+                    placeholderTextColor="rgba(255,255,255,0.5)"
+                  />
+                </View>
+                
+                <View style={modalStyles.bankInfoField}>
+                  <Text style={modalStyles.bankInfoLabel}>Tên Tài Khoản</Text>
+                  <TextInput
+                    style={modalStyles.bankInfoInput}
+                    value={accountName}
+                    onChangeText={setAccountName}
+                    placeholder="Nhập tên tài khoản"
+                    placeholderTextColor="rgba(255,255,255,0.5)"
+                  />
+                </View>
+                
+                <TouchableOpacity style={modalStyles.bankInfoButton} onPress={saveBankInfo}>
+                  <Text style={modalStyles.bankInfoButtonText}>Lưu Thay Đổi</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -1498,39 +1584,14 @@ export default function EditProfileScreen() {
               <Text style={styles.sectionTitleText}>Thông Tin Ngân Hàng</Text>
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Mã Ngân Hàng</Text>
-              <TextInput
-                style={styles.input}
-                value={bankId !== null ? bankId.toString() : '0'}
-                onChangeText={(text) => setBankId(text ? parseInt(text, 10) : 0)}
-                placeholder="Nhập mã ngân hàng"
-                placeholderTextColor="rgba(255,255,255,0.5)"
-                keyboardType="numeric"
-              />
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Số Tài Khoản</Text>
-              <TextInput
-                style={styles.input}
-                value={accountNo}
-                onChangeText={setAccountNo}
-                placeholder="Nhập số tài khoản"
-                placeholderTextColor="rgba(255,255,255,0.5)"
-              />
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Tên Tài Khoản</Text>
-              <TextInput
-                style={styles.input}
-                value={accountName}
-                onChangeText={setAccountName}
-                placeholder="Nhập tên tài khoản"
-                placeholderTextColor="rgba(255,255,255,0.5)"
-              />
-            </View>
+            <TouchableOpacity 
+              style={styles.changePasswordButton}
+              onPress={toggleBankInfoModal}
+            >
+              <Ionicons name="card-outline" size={22} color="#fff" style={styles.changePasswordIcon} />
+              <Text style={styles.changePasswordText}>Thông tin ngân hàng</Text>
+              <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
             
             {/* Thêm nút đổi mật khẩu */}
             <View style={styles.sectionTitle}>
@@ -1565,6 +1626,7 @@ export default function EditProfileScreen() {
       </SafeAreaView>
       <UserInfoModal />
       {renderPasswordChangeModal()}
+      {renderBankInfoModal()}
     </ImageBackground>
   );
 }

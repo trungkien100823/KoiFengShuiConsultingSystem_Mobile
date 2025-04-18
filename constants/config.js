@@ -88,6 +88,7 @@ export const API_CONFIG = {
     getCourseById: '/api/Course/get-details-for-mobile/{id}',
     getCourseByCategory: '/api/Course/get-by-category/{id}',
     getPaidCourses: '/api/Course/get-paid-courses',
+    rateCourse: '/api/Course/rate',
 
     //Category endpoints
     getAllCategory: '/api/Category/get-all',
@@ -122,6 +123,7 @@ export const API_CONFIG = {
     // registerCourse endpoints
     updateProccessCourse: '/api/RegisterCourse/{chapterId}',
     getEnrollChaptersByEnrollCourseId: '/api/RegisterCourse/get-enroll-chapters-by/{enrollCourseId}',
+    getRegisterCourseById: '/api/RegisterCourse/{id}',
   },
   timeoutDuration: 30000 // 30 seconds
 };

@@ -478,57 +478,81 @@ const AttachmentBookingOffline = () => {
       );
     }
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html style="height: 100%;">
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-          <style>
-            html, body {
-              margin: 0;
-              padding: 0;
-              height: 100%;
-              width: 100%;
-              overflow: hidden;
-            }
-            iframe {
-              border: none;
-              width: 100%;
-              height: 100%;
-              position: absolute;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-            }
-          </style>
-        </head>
-        <body>
-          <iframe src="${attachmentUrl}" frameborder="0" allowfullscreen></iframe>
-        </body>
-      </html>
+    // Thử sử dụng nhiều phương pháp hiển thị PDF khác nhau
+    // Option 1: Google PDF Viewer
+    let pdfViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(attachmentUrl)}&embedded=true`;
+    
+    // Chuẩn bị fallback URLs để thử khi cần
+    const pdfJsViewerUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(attachmentUrl)}`;
+    
+    console.log('PDF Viewer URL:', pdfViewerUrl);
+
+    // Thêm mã JavaScript để tối ưu hiển thị PDF khi tải xong
+    const injectedJavaScript = `
+      document.addEventListener('DOMContentLoaded', function() {
+        // Tối ưu khung hiển thị PDF để vừa với màn hình
+        var viewerContainer = document.querySelector('.viewer-container');
+        if (viewerContainer) {
+          viewerContainer.style.width = '100%';
+          viewerContainer.style.height = '100%';
+        }
+        
+        // Tối ưu các điều khiển cuộn trang
+        var controls = document.querySelector('.controls');
+        if (controls) {
+          controls.style.position = 'sticky';
+          controls.style.top = '0';
+          controls.style.zIndex = '1000';
+        }
+        
+        // Kiểm tra nếu Google Viewer không hiển thị đúng thì tự động chuyển sang PDF.js
+        setTimeout(function() {
+          var googlePdfElement = document.querySelector('#viewer');
+          if (!googlePdfElement || googlePdfElement.style.display === 'none') {
+            window.location.href = "${pdfJsViewerUrl}";
+          }
+        }, 5000);
+      });
+      true;
     `;
 
     return (
       <WebView
-        source={{ html: htmlContent }}
+        source={{ uri: pdfViewerUrl }}
         style={styles.webView}
         renderLoading={() => (
-          <ActivityIndicator size="large" color="#8B0000" />
+          <View style={styles.webViewLoadingContainer}>
+            <ActivityIndicator size="large" color="#8B0000" />
+            <Text style={styles.loadingText}>Đang tải biên bản PDF...</Text>
+          </View>
         )}
         startInLoadingState={true}
-        scalesPageToFit={true}
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        allowFileAccess={true}
+        scalesPageToFit={true}
+        bounces={false}
+        originWhitelist={['*']}
+        mixedContentMode="always"
+        injectedJavaScript={injectedJavaScript}
         onError={(syntheticEvent) => {
-          // Chỉ log lỗi, không hiển thị alert
           const { nativeEvent } = syntheticEvent;
-          setAttachmentUrl(null); // Reset URL để hiển thị thông báo "Không tìm thấy biên bản"
+          console.error('WebView error:', nativeEvent);
+          
+          // Nếu Google PDF Viewer không hoạt động, thử dùng PDF.js trực tiếp
+          setAttachmentUrl(pdfJsViewerUrl);
         }}
         onHttpError={(syntheticEvent) => {
-          // Chỉ log lỗi, không hiển thị alert
           const { nativeEvent } = syntheticEvent;
-          setAttachmentUrl(null); // Reset URL để hiển thị thông báo "Không tìm thấy biên bản"
+          console.error('WebView HTTP error:', nativeEvent);
+          
+          // Thử fallback sang PDF.js của Mozilla
+          if (pdfViewerUrl.includes('docs.google.com')) {
+            console.log('Trying PDF.js fallback');
+            setAttachmentUrl(pdfJsViewerUrl);
+          } else {
+            setAttachmentUrl(null);
+          }
         }}
       />
     );
@@ -580,7 +604,7 @@ const AttachmentBookingOffline = () => {
         return null;
       }
     }
-
+    //documentconfirmedbycustomer
     // Kiểm tra trạng thái AttachmentConfirmed và VerifyingOTPAttachment
     if (status.includes('attachmentconfirmed') || status.includes('verifyingotpattachment')) {
       return (
@@ -834,6 +858,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 15,
     overflow: 'hidden',
+  },
+  webViewLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   modalOverlay: {
     flex: 1,

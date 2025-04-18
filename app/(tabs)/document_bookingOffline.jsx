@@ -408,57 +408,130 @@ const DocumentBookingOffline = () => {
       );
     }
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html style="height: 100%;">
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-          <style>
-            html, body {
-              margin: 0;
-              padding: 0;
-              height: 100%;
-              width: 100%;
-              overflow: hidden;
-            }
-            iframe {
-              border: none;
-              width: 100%;
-              height: 100%;
-              position: absolute;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-            }
-          </style>
-        </head>
-        <body>
-          <iframe src="${documentUrl}" frameborder="0" allowfullscreen></iframe>
-        </body>
-      </html>
+    // Thử sử dụng nhiều phương pháp hiển thị PDF khác nhau
+    // Option 1: Google PDF Viewer
+    let pdfViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(documentUrl)}&embedded=true`;
+    
+    // Chuẩn bị fallback URLs để thử khi cần
+    const pdfJsViewerUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(documentUrl)}`;
+    
+    console.log('PDF Viewer URL:', pdfViewerUrl);
+
+    // Thêm mã JavaScript để tối ưu hiển thị PDF khi tải xong
+    const injectedJavaScript = `
+      document.addEventListener('DOMContentLoaded', function() {
+        // Tối ưu khung hiển thị PDF để vừa với màn hình
+        var viewerContainer = document.querySelector('.viewer-container');
+        if (viewerContainer) {
+          viewerContainer.style.width = '100%';
+          viewerContainer.style.height = '100%';
+          viewerContainer.style.padding = '0';
+          viewerContainer.style.margin = '0';
+          viewerContainer.style.overflow = 'hidden';
+        }
+        
+        // Tối ưu các điều khiển cuộn trang
+        var controls = document.querySelector('.controls');
+        if (controls) {
+          controls.style.position = 'sticky';
+          controls.style.top = '0';
+          controls.style.zIndex = '1000';
+        }
+        
+        // Loại bỏ padding và margin cho các phần tử con
+        var allDivs = document.querySelectorAll('div');
+        allDivs.forEach(function(div) {
+          if (div.style.padding) {
+            div.style.padding = '0';
+          }
+          if (div.style.margin) {
+            div.style.margin = '0';
+          }
+        });
+        
+        // Điều chỉnh style cho trang PDF
+        var pdfContainer = document.querySelector('.goog-container');
+        if (pdfContainer) {
+          pdfContainer.style.backgroundColor = 'white';
+          pdfContainer.style.margin = '0';
+          pdfContainer.style.padding = '0';
+          pdfContainer.style.borderRadius = '0';
+          pdfContainer.style.overflow = 'hidden';
+        }
+        
+        // Điều chỉnh các trang PDF
+        var pdfPages = document.querySelectorAll('.page');
+        if (pdfPages.length > 0) {
+          pdfPages.forEach(function(page) {
+            page.style.margin = '0 auto';
+            page.style.padding = '0';
+            page.style.borderRadius = '0';
+            page.style.border = 'none';
+            page.style.boxShadow = 'none';
+            page.style.width = '100%';
+          });
+        }
+        
+        // Điều chỉnh thêm cho viewer của PDF.js
+        var viewerContainer = document.getElementById('viewer');
+        if (viewerContainer) {
+          viewerContainer.style.width = '100%';
+          viewerContainer.style.height = '100%';
+          viewerContainer.style.padding = '0';
+          viewerContainer.style.margin = '0';
+          viewerContainer.style.overflow = 'hidden';
+          viewerContainer.style.backgroundColor = 'white';
+        }
+        
+        // Kiểm tra nếu Google Viewer không hiển thị đúng thì tự động chuyển sang PDF.js
+        setTimeout(function() {
+          var googlePdfElement = document.querySelector('#viewer');
+          if (!googlePdfElement || googlePdfElement.style.display === 'none') {
+            window.location.href = "${pdfJsViewerUrl}";
+          }
+        }, 5000);
+      });
+      true;
     `;
 
     return (
       <WebView
-        source={{ html: htmlContent }}
+        source={{ uri: pdfViewerUrl }}
         style={styles.webView}
+        containerStyle={styles.webViewContainer}
         renderLoading={() => (
-          <ActivityIndicator size="large" color="#8B0000" />
+          <View style={styles.webViewLoadingContainer}>
+            <ActivityIndicator size="large" color="#8B0000" />
+            <Text style={styles.loadingText}>Đang tải hồ sơ PDF...</Text>
+          </View>
         )}
         startInLoadingState={true}
-        scalesPageToFit={true}
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        allowFileAccess={true}
+        scalesPageToFit={true}
+        bounces={false}
+        originWhitelist={['*']}
+        mixedContentMode="always"
+        injectedJavaScript={injectedJavaScript}
         onError={(syntheticEvent) => {
-          // Chỉ log lỗi, không hiển thị alert
           const { nativeEvent } = syntheticEvent;
-          setDocumentUrl(null); // Reset URL để hiển thị thông báo "Không tìm thấy hồ sơ"
+          console.error('WebView error:', nativeEvent);
+          
+          // Nếu Google PDF Viewer không hoạt động, thử dùng PDF.js trực tiếp
+          setDocumentUrl(pdfJsViewerUrl);
         }}
         onHttpError={(syntheticEvent) => {
-          // Chỉ log lỗi, không hiển thị alert
           const { nativeEvent } = syntheticEvent;
-          setDocumentUrl(null); // Reset URL để hiển thị thông báo "Không tìm thấy hồ sơ"
+          console.error('WebView HTTP error:', nativeEvent);
+          
+          // Thử fallback sang PDF.js của Mozilla
+          if (pdfViewerUrl.includes('docs.google.com')) {
+            console.log('Trying PDF.js fallback');
+            setDocumentUrl(pdfJsViewerUrl);
+          } else {
+            setDocumentUrl(null);
+          }
         }}
       />
     );
@@ -546,8 +619,9 @@ const styles = StyleSheet.create({
   },
   documentContainer: {
     flex: 1,
-    margin: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    margin: 0,
+    padding: 0,
+    backgroundColor: 'white',
     borderRadius: 15,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -624,8 +698,29 @@ const styles = StyleSheet.create({
   },
   webView: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+    margin: 0,
+    padding: 0,
+    backgroundColor: 'white',
     borderRadius: 15,
     overflow: 'hidden',
+  },
+  webViewContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    margin: 0,
+    padding: 0,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  webViewLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
 });
 

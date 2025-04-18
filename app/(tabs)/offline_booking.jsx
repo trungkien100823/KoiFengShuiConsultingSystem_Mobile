@@ -225,7 +225,7 @@ export default function OfflineBookingScreen() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const selectedDate = new Date(dateString);
-    return selectedDate < today;
+    return selectedDate <= today;
   };
 
   // Thêm hàm kiểm tra ngày không khả dụng
@@ -239,9 +239,9 @@ export default function OfflineBookingScreen() {
     if (!date) return;
     const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
     
-    // Kiểm tra ngày quá khứ
+    // Kiểm tra ngày quá khứ và ngày hiện tại
     if (isDateInPast(dateString)) {
-      Alert.alert('Thông báo', 'Không thể chọn ngày trong quá khứ');
+      Alert.alert('Thông báo', 'Không thể chọn ngày hôm nay hoặc ngày trong quá khứ');
       return;
     }
     
@@ -503,16 +503,22 @@ export default function OfflineBookingScreen() {
                       // Kiểm tra xem ngày có không khả dụng không
                       const isUnavailable = isDateUnavailable(dateString);
                       
+                      // Kiểm tra xem có phải ngày hiện tại không
+                      const isCurrentDate = day === currentDay && 
+                        currentMonth === currentMonthActual && 
+                        currentYear === currentYearActual;
+                      
                       return (
                         <TouchableOpacity
                           key={`day-${day}`}
                           style={[
                             styles.dateCell,
                             isPastDate && styles.pastDateCell,
-                            isUnavailable && styles.unavailableCell
+                            isUnavailable && styles.unavailableCell,
+                            isCurrentDate && styles.pastDateCell
                           ]}
                           onPress={() => selectDate(day)}
-                          disabled={isPastDate || isUnavailable}
+                          disabled={isPastDate || isUnavailable || isCurrentDate}
                         >
                           <View style={[
                             styles.dateCellInner,

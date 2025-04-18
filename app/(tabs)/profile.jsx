@@ -157,7 +157,6 @@ export default function ProfileScreen() {
               <Text style={styles.userName}>{user.userName || user.fullName || 'User'}</Text>
               <Text style={styles.phone}>{user.phoneNumber || 'No phone'}</Text>
               <Text style={styles.email}>{user.email || 'No email'}</Text>
-              <Text style={styles.address}>{user.address || 'No address'}</Text>
             </View>
           </View>
         ) : (
