@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,15 @@ import {
   Image,
   Share,
   ScrollView,
+  Modal,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import axios from 'axios';
+import { API_CONFIG } from '../../constants/config';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +40,11 @@ export default function CourseScoreScreen() {
   const [scoreData, setScoreData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasRatedBefore, setHasRatedBefore] = useState(false);
+  const [enrollCourseId, setEnrollCourseId] = useState(null);
 
   // Quiz data mapping
   const quizTitles = {
@@ -62,6 +71,296 @@ export default function CourseScoreScreen() {
   const numericTotalQuestions = parseInt(totalQuestions || 0);
   const numericCorrectAnswers = parseInt(correctAnswers || 0);
   const numericTimeSpent = parseInt(timeSpent || 0);
+
+  // Kiểm tra xem người dùng đã đánh giá khóa học chưa
+  const checkPreviousRating = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      
+      if (!token || !courseId) {
+        setHasRatedBefore(false);
+        setRating(0);
+        return;
+      }
+      
+      // Reset rating và hasRatedBefore trước khi bắt đầu kiểm tra
+      setRating(0);
+      setHasRatedBefore(false);
+      
+      // Add debug log
+      console.log('Bắt đầu kiểm tra trạng thái đánh giá cho khóa học:', courseId);
+      
+      // Kiểm tra nếu đã có enrollCourseId lưu trong AsyncStorage
+      try {
+        const enrollCourseData = await AsyncStorage.getItem(`enrollCourse_${courseId}`);
+        if (enrollCourseData) {
+          const parsedData = JSON.parse(enrollCourseData);
+          if (parsedData.enrollCourseId) {
+            console.log('Đã tìm thấy enrollCourseId từ AsyncStorage:', parsedData.enrollCourseId);
+            setEnrollCourseId(parsedData.enrollCourseId);
+            
+            // Sử dụng endpoint cụ thể thay vì getRegisterCourseById
+            try {
+              const enrollCourseResponse = await fetch(
+                `${API_CONFIG.baseURL}/api/RegisterCourse/${parsedData.enrollCourseId}`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+              
+              if (enrollCourseResponse.ok) {
+                const enrollCourseResult = await enrollCourseResponse.json();
+                
+                if (enrollCourseResult.isSuccess && enrollCourseResult.data) {
+                  console.log('Đã lấy được thông tin đánh giá từ API RegisterCourse');
+                  console.log('Giá trị rating:', enrollCourseResult.data.rating);
+                  
+                  if (enrollCourseResult.data.rating !== null && enrollCourseResult.data.rating !== undefined && enrollCourseResult.data.rating > 0) {
+                    console.log('Người dùng đã đánh giá khóa học này');
+                    setHasRatedBefore(true);
+                    setRating(enrollCourseResult.data.rating);
+                  } else {
+                    console.log('Người dùng chưa đánh giá khóa học này');
+                    setHasRatedBefore(false);
+                    setRating(0); // Nếu rating là null, set thành 0
+                  }
+                  return; // Đã có dữ liệu, không cần gọi API khác
+                }
+              }
+            } catch (enrollApiError) {
+              console.log('Lỗi khi gọi API RegisterCourse:', enrollApiError);
+            }
+          }
+        }
+      } catch (storageError) {
+        console.log('Lỗi khi đọc enrollCourseId từ AsyncStorage:', storageError);
+      }
+      
+      // Gọi API để lấy thông tin đăng ký khóa học của người dùng
+      try {
+        const response = await fetch(
+          `${API_CONFIG.baseURL}/api/RegisterCourse/get-enroll-course/${courseId}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          console.log('Không thể kiểm tra đánh giá trước đó từ API get-enroll-course:', response.status);
+          
+          // Thử lấy thông tin từ API khóa học
+          try {
+            const courseResponse = await fetch(
+              `${API_CONFIG.baseURL}/api/Course/get-details-for-mobile/${courseId}`,
+              {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            
+            if (courseResponse.ok) {
+              const courseResult = await courseResponse.json();
+              
+              if (courseResult.isSuccess && courseResult.data) {
+                console.log('Đã lấy được thông tin khóa học');
+                console.log('Giá trị customerRating:', courseResult.data.customerRating);
+                
+                if (courseResult.data.customerRating !== null && courseResult.data.customerRating !== undefined && courseResult.data.customerRating > 0) {
+                  console.log('Người dùng đã đánh giá khóa học này (từ API khóa học)');
+                  setHasRatedBefore(true);
+                  setRating(courseResult.data.customerRating);
+                } else {
+                  console.log('Người dùng chưa đánh giá khóa học này (từ API khóa học)');
+                  setHasRatedBefore(false);
+                  setRating(0);
+                }
+                
+                // Lưu enrollCourseId từ dữ liệu khóa học nếu có
+                if (courseResult.data.enrollCourseId) {
+                  setEnrollCourseId(courseResult.data.enrollCourseId);
+                  
+                  // Lưu vào AsyncStorage để sử dụng sau này
+                  await AsyncStorage.setItem(`enrollCourse_${courseId}`, JSON.stringify({
+                    enrollCourseId: courseResult.data.enrollCourseId
+                  }));
+                  
+                  // Gọi API RegisterCourse trực tiếp
+                  try {
+                    const enrollResponse = await fetch(
+                      `${API_CONFIG.baseURL}/api/RegisterCourse/${courseResult.data.enrollCourseId}`,
+                      {
+                        method: 'GET',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        }
+                      }
+                    );
+                    
+                    if (enrollResponse.ok) {
+                      const enrollResult = await enrollResponse.json();
+                      
+                      if (enrollResult.isSuccess && enrollResult.data) {
+                        console.log('Đã lấy được thông tin từ API RegisterCourse');
+                        console.log('Dữ liệu rating từ API RegisterCourse:', enrollResult.data.rating);
+                        
+                        if (enrollResult.data.rating !== null && enrollResult.data.rating !== undefined && enrollResult.data.rating > 0) {
+                          console.log('Người dùng đã đánh giá khóa học này (từ API RegisterCourse qua enrollCourseId)');
+                          setHasRatedBefore(true);
+                          setRating(enrollResult.data.rating);
+                        } else {
+                          console.log('Người dùng chưa đánh giá khóa học này (từ API RegisterCourse qua enrollCourseId)');
+                          setHasRatedBefore(false);
+                          setRating(0); // Nếu rating là null, set thành 0
+                        }
+                        return; // Đã lấy được thông tin, không cần kiểm tra tiếp
+                      }
+                    }
+                  } catch (enrollError) {
+                    console.log('Lỗi khi gọi API RegisterCourse:', enrollError);
+                  }
+                }
+              }
+            }
+          } catch (courseError) {
+            console.log('Không thể lấy thông tin khóa học:', courseError);
+          }
+        } else {
+          const result = await response.json();
+          
+          // Kiểm tra xem người dùng đã đăng ký khóa học chưa
+          if (result.isSuccess && result.data) {
+            console.log('Đã nhận dữ liệu từ get-enroll-course API');
+            
+            // Lưu enrollCourseId
+            if (result.data.enrollCourseId) {
+              setEnrollCourseId(result.data.enrollCourseId);
+              
+              // Lưu vào AsyncStorage để sử dụng sau này
+              await AsyncStorage.setItem(`enrollCourse_${courseId}`, JSON.stringify({
+                enrollCourseId: result.data.enrollCourseId
+              }));
+              
+              // Gọi API RegisterCourse trực tiếp
+              try {
+                const enrollResponse = await fetch(
+                  `${API_CONFIG.baseURL}/api/RegisterCourse/${result.data.enrollCourseId}`,
+                  {
+                    method: 'GET',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+                
+                if (enrollResponse.ok) {
+                  const enrollResult = await enrollResponse.json();
+                  
+                  if (enrollResult.isSuccess && enrollResult.data) {
+                    console.log('Đã lấy được thông tin từ API RegisterCourse');
+                    console.log('Dữ liệu rating từ API:', enrollResult.data.rating);
+                    
+                    if (enrollResult.data.rating !== null && enrollResult.data.rating !== undefined && enrollResult.data.rating > 0) {
+                      console.log('Người dùng đã đánh giá khóa học này (từ API RegisterCourse)');
+                      setHasRatedBefore(true);
+                      setRating(enrollResult.data.rating);
+                    } else {
+                      console.log('Người dùng chưa đánh giá khóa học này (từ API RegisterCourse)');
+                      setHasRatedBefore(false);
+                      setRating(0); // Nếu rating là null, set thành 0
+                    }
+                    return; // Đã lấy được thông tin, không cần kiểm tra tiếp
+                  }
+                }
+              } catch (enrollError) {
+                console.log('Lỗi khi gọi API RegisterCourse:', enrollError);
+              }
+            }
+            
+            // Nếu không lấy được từ API RegisterCourse, thử dùng dữ liệu từ get-enroll-course
+            if (result.data.rating !== null && result.data.rating !== undefined && result.data.rating > 0) {
+              console.log('Người dùng đã đánh giá khóa học này (từ get-enroll-course API)');
+              setHasRatedBefore(true);
+              setRating(result.data.rating);
+            } else {
+              console.log('Người dùng chưa đánh giá khóa học này (từ get-enroll-course API)');
+              setHasRatedBefore(false);
+              setRating(0);
+            }
+          } else {
+            console.log('Không tìm thấy dữ liệu đăng ký khóa học');
+            setHasRatedBefore(false);
+            setRating(0);
+          }
+        }
+      } catch (apiError) {
+        console.log('Lỗi khi gọi API RegisterCourse:', apiError);
+      }
+      
+      console.log('Kết thúc kiểm tra đánh giá - hasRatedBefore:', hasRatedBefore, 'rating:', rating);
+    } catch (error) {
+      console.log('Lỗi kiểm tra đánh giá:', error);
+      setHasRatedBefore(false);
+      setRating(0);
+    }
+  }, [courseId]);
+
+  // Sử dụng useEffect để kiểm tra đánh giá lần đầu khi component mount
+  useEffect(() => {
+    checkPreviousRating();
+  }, [checkPreviousRating]);
+
+  // Sử dụng useFocusEffect để kiểm tra lại đánh giá mỗi khi màn hình được focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Course Score Screen focused - refreshing rating data');
+      
+      // Lấy token mới nhất để kiểm tra xem user đã thay đổi hay chưa
+      const checkTokenAndRefresh = async () => {
+        const currentToken = await AsyncStorage.getItem('accessToken');
+        
+        // Lấy token đã lưu trước đó để so sánh
+        const previousToken = await AsyncStorage.getItem('previousRatingToken');
+        
+        // Nếu token khác với token đã lưu trước đó, hoặc chưa có token đã lưu
+        // thì gọi lại API để lấy dữ liệu đánh giá mới
+        if (currentToken !== previousToken) {
+          console.log('Token đã thay đổi hoặc chưa được lưu, đang tải lại dữ liệu đánh giá');
+          
+          // Lưu token hiện tại để so sánh lần sau
+          await AsyncStorage.setItem('previousRatingToken', currentToken || '');
+          
+          // Xóa cache enrollCourseId để đảm bảo lấy dữ liệu mới
+          if (courseId) {
+            await AsyncStorage.removeItem(`enrollCourse_${courseId}`);
+          }
+          
+          // Gọi lại hàm kiểm tra đánh giá
+          checkPreviousRating();
+        } else {
+          console.log('Token không thay đổi, không cần tải lại dữ liệu đánh giá');
+        }
+      };
+      
+      checkTokenAndRefresh();
+      
+      return () => {
+        // Cleanup nếu cần
+      };
+    }, [checkPreviousRating, courseId])
+  );
 
   useEffect(() => {
     const loadScoreData = async () => {
@@ -193,11 +492,167 @@ export default function CourseScoreScreen() {
     }
   };
 
+  // Mở modal đánh giá
+  const openRatingModal = () => {
+    // Đảm bảo rằng modal luôn hiển thị rating = 0 khi mở lần đầu
+    if (!hasRatedBefore) {
+      setRating(0);
+    }
+    setModalVisible(true);
+  };
+
+  // Đóng modal đánh giá
+  const closeRatingModal = () => {
+    setModalVisible(false);
+  };
+
+  // Chọn số sao
+  const handleRatingPress = (value) => {
+    setRating(value);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Gửi đánh giá
+  const submitRating = async () => {
+    try {
+      // Kiểm tra xem người dùng đã chọn sao chưa
+      if (rating <= 0) {
+        Alert.alert('Thông báo', 'Vui lòng chọn số sao đánh giá');
+        return;
+      }
+
+      setIsSubmitting(true);
+      const token = await AsyncStorage.getItem('accessToken');
+      
+      if (!token) {
+        Alert.alert('Lỗi', 'Bạn cần đăng nhập để đánh giá khóa học');
+        return;
+      }
+
+      // Chuẩn bị dữ liệu gửi lên
+      const requestData = {
+        courseId: courseId,
+        rating: rating
+      };
+
+      // Thêm enrollCourseId nếu có
+      if (enrollCourseId) {
+        requestData.enrollCourseId = enrollCourseId;
+      }
+
+      // Sử dụng URL trực tiếp thay vì từ config để tránh lỗi undefined
+      const baseUrl = API_CONFIG.baseURL;
+      const endpoint = `${baseUrl}/api/Course/rate`;
+      
+      console.log('Gửi đánh giá với dữ liệu:', requestData);
+      console.log('Endpoint:', endpoint);
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+          console.log('Lỗi khi gửi đánh giá. Status:', response.status);
+          const errorText = await response.text();
+          console.log('Response body:', errorText);
+          throw new Error(`Lỗi khi gửi đánh giá: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Kết quả đánh giá:', result);
+
+        if (result.isSuccess) {
+          Alert.alert('Thành công', 'Đánh giá thành công!');
+          setHasRatedBefore(true);
+          closeRatingModal();
+        } else {
+          console.log('API trả về lỗi:', result.message);
+          Alert.alert('Lỗi', result.message || 'Có lỗi xảy ra khi đánh giá khóa học');
+        }
+      } catch (fetchError) {
+        console.log('Lỗi fetch khi gửi đánh giá:', fetchError);
+        Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet và thử lại.');
+      }
+    } catch (error) {
+      console.error('Lỗi tổng thể khi đánh giá:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi đánh giá khóa học');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Check if quiz was passed
   const passThreshold = 80; // 80% threshold for passing
   const isPassed = scoreData 
     ? (scoreData.correctAnswers / scoreData.totalQuestions) >= 0.8
     : (parseInt(correctAnswers) / parseInt(totalQuestions)) >= 0.8;
+
+  // Render star component
+  const renderStars = () => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <TouchableOpacity 
+          key={i} 
+          onPress={() => handleRatingPress(i)}
+          style={styles.starButton}
+        >
+          <Ionicons 
+            name={i <= rating ? "star" : "star-outline"} 
+            size={40} 
+            color={i <= rating ? "#FFD700" : "#ccc"} 
+          />
+        </TouchableOpacity>
+      );
+    }
+    return stars;
+  };
+
+  // Modal content
+  const renderModalContent = () => {
+    return (
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Đánh giá khóa học</Text>
+        <Text style={styles.modalSubtitle}>Hãy đánh giá trải nghiệm học tập của bạn</Text>
+        
+        <View style={styles.starsContainer}>
+          {renderStars()}
+        </View>
+        
+        <View style={styles.modalButtonsContainer}>
+          <TouchableOpacity 
+            style={styles.cancelButton}
+            onPress={closeRatingModal}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.cancelButtonText}>Hủy</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[
+              styles.submitButton,
+              rating <= 0 && styles.disabledSubmitButton
+            ]}
+            onPress={submitRating}
+            disabled={isSubmitting || rating <= 0}
+          >
+            <Text style={[
+              styles.submitButtonText,
+              rating <= 0 && styles.disabledSubmitButtonText
+            ]}>
+              {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -280,14 +735,43 @@ export default function CourseScoreScreen() {
       
       {/* Action Buttons */}
       <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity 
-          style={styles.continueButton}
-          onPress={handleReturnToCourse}
-        >
-          <Text style={styles.continueButtonText}>Tiếp tục học</Text>
-          <Ionicons name="arrow-forward-circle" size={24} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.buttonGroup}>
+          {!hasRatedBefore && (
+            <TouchableOpacity 
+              style={styles.rateButton}
+              onPress={openRatingModal}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.rateButtonText}>Đánh giá</Text>
+              <Ionicons name="star" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity 
+            style={[
+              styles.continueButton,
+              !hasRatedBefore ? { flex: 1, marginLeft: 8 } : { flex: 1, marginLeft: 0 }
+            ]}
+            onPress={handleReturnToCourse}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.continueButtonText}>Tiếp tục học</Text>
+            <Ionicons name="arrow-forward-circle" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Modal Đánh giá */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeRatingModal}
+      >
+        <View style={styles.modalContainer}>
+          {renderModalContent()}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -449,7 +933,10 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
-    alignItems: 'center',
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   continueButton: {
     flexDirection: 'row',
@@ -457,9 +944,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#8B0000',
     paddingVertical: 14,
-    paddingHorizontal: 36,
+    paddingHorizontal: 20,
     borderRadius: 30,
-    width: '90%',
+    flex: 1,
+    marginLeft: 8,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -468,8 +956,117 @@ const styles = StyleSheet.create({
   },
   continueButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     marginRight: 8,
+  },
+  rateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF9800',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    flex: 0.8,
+    marginRight: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  rateButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: width - 40,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginVertical: 20,
+  },
+  starButton: {
+    padding: 5,
+  },
+  modalButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    flex: 1,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+  },
+  submitButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#8B0000',
+    flex: 1,
+    marginLeft: 10,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  disabledRateButton: {
+    backgroundColor: '#cccccc',
+    opacity: 0.7,
+  },
+  disabledSubmitButton: {
+    backgroundColor: '#cccccc',
+    opacity: 0.7,
+  },
+  disabledSubmitButtonText: {
+    color: '#999',
   },
 });

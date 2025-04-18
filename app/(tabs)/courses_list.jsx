@@ -111,7 +111,13 @@ export default function CoursesListScreen() {
               {[1, 2, 3, 4, 5].map((star) => (
                 <Ionicons
                   key={star}
-                  name={star <= Math.round(item.rating) ? "star" : "star-outline"}
+                  name={
+                    star <= item.rating
+                      ? "star"
+                      : star - 0.5 <= item.rating
+                      ? "star-half"
+                      : "star-outline"
+                  }
                   size={14}
                   color="#FFD700"
                   style={{marginRight: 2}}

@@ -147,7 +147,6 @@ export default function RegisterScreen() {
       return false;
     }
 
-    // Kiểm tra tuổi (phải từ 18 tuổi trở lên)
     const today = new Date();
     const birthDate = new Date(dob);
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -155,12 +154,7 @@ export default function RegisterScreen() {
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    if (age < 18) {
-      Alert.alert('Lỗi', 'Bạn phải đủ 18 tuổi để đăng ký');
-      return false;
-    }
-  
-    // Validate giới tính
+
     if (!gender) {
       Alert.alert('Lỗi', 'Vui lòng chọn giới tính');
       return false;

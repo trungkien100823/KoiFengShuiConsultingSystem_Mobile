@@ -209,7 +209,13 @@ export default function CourseDetailsScreen() {
               {[1, 2, 3, 4, 5].map((star) => (
                 <Ionicons
                   key={star}
-                  name={star <= Math.round(courseDetails.rating || 0) ? "star" : "star-outline"}
+                  name={
+                    star <= courseDetails.rating
+                      ? "star"
+                      : star - 0.5 <= courseDetails.rating
+                      ? "star-half"
+                      : "star-outline"
+                  }
                   size={16}
                   color="#FFD700"
                 />
@@ -282,7 +288,13 @@ export default function CourseDetailsScreen() {
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Ionicons
                             key={star}
-                            name={star <= masterInfo?.rating ? "star" : "star-outline"}
+                            name={
+                              star <= masterInfo?.rating
+                                ? "star"
+                                : star - 0.5 <= masterInfo?.rating
+                                ? "star-half"
+                                : "star-outline"
+                            }
                             size={14}
                             color="#FFD700"
                           />
