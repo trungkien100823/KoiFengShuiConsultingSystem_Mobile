@@ -30,7 +30,6 @@ export default function CustomTabBar() {
     { name: 'Tư vấn', route: '../../(tabs)/consulting', icon: 'people' },
     { name: 'Khóa học', route: '/(tabs)/courses', icon: 'book' },
     { name: 'Workshop', route: '../../(tabs)/workshop', icon: 'construct' },
-    { name: 'Order', route: '../../(tabs)/your_order', icon: 'receipt-outline' },
     { name: 'Profile', route: '../../(tabs)/profile', icon: 'person' }
   ];
 

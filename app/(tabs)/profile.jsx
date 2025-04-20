@@ -171,21 +171,9 @@ export default function ProfileScreen() {
         )}
         
         <View style={styles.menuSection}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(tabs)/settings')}>
-            <Ionicons name="settings-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>Cài đặt</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(tabs)/support')}>
-            <Ionicons name="help-circle-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>Hỗ trợ</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-          
           <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(tabs)/edit_profile')}>
             <Ionicons name="person-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>My Profile</Text>
+            <Text style={styles.menuItemText}>Thông tin cá nhân</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
           
@@ -194,7 +182,7 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(tabs)/your_paid_courses')}
           >
             <Ionicons name="book-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>My Courses</Text>
+            <Text style={styles.menuItemText}>Khóa học</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
           
@@ -203,7 +191,7 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(tabs)/your_booking')}
           >
             <Ionicons name="calendar-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>My Bookings</Text>
+            <Text style={styles.menuItemText}>Lịch tư vấn</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
           
@@ -212,9 +200,28 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(tabs)/your_registerAttend')}
           >
             <Ionicons name="ticket-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>My Tickets</Text>
+            <Text style={styles.menuItemText}>Vé tham dự hội thảo</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>       
+          </TouchableOpacity>      
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/(tabs)/your_order')}
+          >
+            <Ionicons name="cart-outline" size={24} color="#333" />
+            <Text style={styles.menuItemText}>Dịch vụ chưa thanh toán</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>   
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/(tabs)/your_certificate')}
+          >
+            <Ionicons name="document-text-outline" size={24} color="#333" />
+            <Text style={styles.menuItemText}>Chứng chỉ</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>  
+
           {user && (
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={24} color="#d9534f" />

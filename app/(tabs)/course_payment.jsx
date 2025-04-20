@@ -147,9 +147,10 @@ export default function CoursePaymentScreen() {
       console.error('Lỗi xử lý thanh toán:', error);
       setIsLoading(false);
       
+      // Hiển thị thông báo lỗi từ backend thay vì thông báo cố định
       Alert.alert(
-        'Lỗi',
-        'Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại.',
+        'Thông báo',
+        error.message || 'Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại.',
         [{ text: 'OK' }]
       );
     }

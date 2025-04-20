@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   Modal,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -158,6 +159,106 @@ const YourRegisterAttend = () => {
     }
   };
 
+  // Thêm hàm hủy vé
+  const cancelTicket = async (ticket) => {
+    try {
+      // Kiểm tra điều kiện hủy vé
+      const canCancel = ticket.status.toLowerCase() === 'pending' || ticket.status.toLowerCase() === 'pendingconfirm';
+      
+      if (!canCancel) {
+        Alert.alert('Thông báo', 'Không thể hủy vé trong trạng thái hiện tại');
+        return;
+      }
+
+      Alert.alert(
+        'Xác nhận hủy vé',
+        'Bạn có chắc chắn muốn hủy vé tham gia workshop này không?',
+        [
+          {
+            text: 'Hủy',
+            style: 'cancel',
+          },
+          {
+            text: 'Xác nhận',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                
+                const token = await getAuthToken();
+                if (!token) {
+                  Alert.alert('Thông báo', 'Vui lòng đăng nhập lại để tiếp tục');
+                  setLoading(false);
+                  return;
+                }
+                
+                // Sử dụng API để hủy vé
+                const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.cancelOrder.replace('{id}', ticket.groupId)}`;
+                const response = await axios.put(
+                  url,
+                  null,
+                  {
+                    params: {
+                      type: 'RegisterAttend'
+                    },
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+                
+                if (response.data && response.data.isSuccess) {
+                  // Giữ màn hình loading hiển thị trong khi xử lý
+                  setTimeout(() => {
+                    setLoading(false);
+                    Alert.alert(
+                      'Thành công',
+                      'Đã hủy vé thành công',
+                      [
+                        {
+                          text: 'OK',
+                          onPress: async () => {
+                            try {
+                              setLoading(true); // Hiển thị loading khi làm mới danh sách
+                              // Xóa dữ liệu hiện tại
+                              setTickets([]);
+                              
+                              // Chờ một chút để backend cập nhật trạng thái
+                              await new Promise(resolve => setTimeout(resolve, 1000));
+                              
+                              // Lấy dữ liệu mới
+                              await fetchTickets(selectedStatus);
+                              
+                              setLoading(false);
+                            } catch (error) {
+                              console.error('Lỗi khi refresh sau khi hủy vé:', error);
+                              setLoading(false);
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }, 100);
+                } else {
+                  setLoading(false);
+                  Alert.alert('Thông báo', response.data?.message || 'Không thể hủy vé. Vui lòng thử lại sau.');
+                }
+              } catch (error) {
+                console.error('Lỗi khi hủy vé:', error);
+                setLoading(false);
+                Alert.alert('Thông báo', 'Đã xảy ra lỗi khi hủy vé. Vui lòng thử lại sau.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Lỗi khi hủy vé:', error);
+      Alert.alert('Thông báo', 'Đã xảy ra lỗi. Vui lòng thử lại sau.');
+    }
+  };
+
   const renderStatusSelect = () => (
     <View style={styles.filterContainer}>
       <Text style={styles.filterLabel}>Trạng thái:</Text>
@@ -178,42 +279,64 @@ const YourRegisterAttend = () => {
     setModalVisible(false);
   };
 
-  const renderTicketItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.ticketItem}
-      onPress={() => router.push({
-        pathname: '/(tabs)/ticketDetails',
-        params: { 
-          groupId: item.groupId,
-          totalPrice: item.totalPrice
-        }
-      })}
-    >
-      <View style={styles.ticketHeader}>
-        <Text style={styles.workshopName}>{item.workshopName}</Text>
-        <Text style={[
-          styles.statusTag,
-          { backgroundColor: getStatusColor(item.status) }
-        ]}>
-          {item.status}
-        </Text>
-      </View>
-      
-      <View style={styles.ticketContent}>
-        <Text style={styles.ticketCount}>Số lượng vé: {item.numberOfTickets}</Text>
+  const renderTicketItem = ({ item }) => {
+    // Kiểm tra điều kiện hiển thị nút thanh toán
+    const showPaymentButton = item.status.toLowerCase() === 'pending';
+    
+    // Kiểm tra điều kiện hiển thị nút hủy vé
+    const showCancelButton = 
+      item.status.toLowerCase() === 'pending' || 
+      item.status.toLowerCase() === 'pendingconfirm';
+    
+    return (
+      <TouchableOpacity 
+        style={styles.ticketItem}
+        onPress={() => router.push({
+          pathname: '/(tabs)/ticketDetails',
+          params: { 
+            groupId: item.groupId,
+            totalPrice: item.totalPrice
+          }
+        })}
+      >
+        <View style={styles.ticketHeader}>
+          <Text style={styles.workshopName}>{item.workshopName}</Text>
+          <Text style={[
+            styles.statusTag,
+            { backgroundColor: getStatusColor(item.status) }
+          ]}>
+            {item.status}
+          </Text>
+        </View>
         
-        {item.status.toLowerCase() === 'pending' && (
-          <TouchableOpacity 
-            style={styles.paymentButton}
-            onPress={() => handlePayment(item)}
-          >
-            <Ionicons name="wallet-outline" size={20} color="#fff" />
-            <Text style={styles.paymentButtonText}>Thanh toán</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.ticketContent}>
+          <Text style={styles.ticketCount}>Số lượng vé: {item.numberOfTickets}</Text>
+          
+          <View style={styles.buttonContainer}>
+            {showPaymentButton && (
+              <TouchableOpacity 
+                style={styles.paymentButton}
+                onPress={() => handlePayment(item)}
+              >
+                <Ionicons name="wallet-outline" size={20} color="#fff" />
+                <Text style={styles.paymentButtonText}>Tạo đơn thanh toán</Text>
+              </TouchableOpacity>
+            )}
+            
+            {showCancelButton && (
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => cancelTicket(item)}
+              >
+                <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                <Text style={styles.cancelButtonText}>Hủy vé</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const handlePayment = async (ticket) => {
     try {
@@ -258,6 +381,7 @@ const YourRegisterAttend = () => {
       case 'paid': return '#4CAF50';
       case 'confirmed': return '#2196F3';
       case 'pending': return '#FFA726';
+      case 'pendingconfirm': return '#FFA726';
       case 'canceled': return '#F44336';
       default: return '#999';
     }
@@ -265,8 +389,16 @@ const YourRegisterAttend = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>My Tickets</Text>
+        <TouchableOpacity 
+          onPress={() => router.push('/(tabs)/profile')}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Vé tham dự hội thảo</Text>
       </View>
 
       {renderStatusSelect()}
@@ -351,18 +483,26 @@ const YourRegisterAttend = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#FFF',
   },
   header: {
-    paddingTop: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 20,
-    paddingBottom: 15,
-    backgroundColor: '#fff',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+    backgroundColor: '#8B0000',
   },
-  pageTitle: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFF',
+    marginLeft: 10,
+  },
+  backButton: {
+    padding: 8,
   },
   filterContainer: {
     flexDirection: 'row',
@@ -520,6 +660,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 5,
+  },
   paymentButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -529,10 +677,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 8,
     alignSelf: 'flex-start',
-    marginTop: 5,
     gap: 5,
   },
   paymentButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F44336',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 5,
+  },
+  cancelButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',

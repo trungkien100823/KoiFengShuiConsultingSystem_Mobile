@@ -889,7 +889,7 @@ export default function CourseChapterScreen() {
       );
     });
   }, [chapters, isRegistered, handleChapterClick]);
-
+  console.log(chapters);
   // Sửa lại phần hiển thị thông tin khóa học
   const renderCourseInfo = () => {
     return (

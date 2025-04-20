@@ -27,7 +27,7 @@ const { width } = Dimensions.get('window');
 export default function CourseDetailsScreen() {
   const navigation = useNavigation();
   const router = useRouter();
-  const { courseId, courseData, source } = useLocalSearchParams();
+  const { courseId, courseData, source, orderStatus } = useLocalSearchParams();
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [courseDetails, setCourseDetails] = useState(null);
   const [masterInfo, setMasterInfo] = useState(null);
@@ -35,7 +35,11 @@ export default function CourseDetailsScreen() {
   
   // Thêm hàm handleBack
   const handleBack = () => {
-    router.push('/(tabs)/courses');
+    if (source === 'your_paid_courses') {
+      router.push('/(tabs)/your_paid_courses');
+    } else {
+      router.push('/(tabs)/courses');
+    }
   };
 
   useFocusEffect(
@@ -169,6 +173,17 @@ export default function CourseDetailsScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Hàm kiểm tra xem có hiển thị nút mua hay không
+  const shouldShowBuyButton = () => {
+    // Nếu đến từ màn hình your_paid_courses với trạng thái Pending hoặc PendingConfirm thì ẩn nút mua
+    if (source === 'your_paid_courses') {
+      if (orderStatus === 'Pending' || orderStatus === 'PendingConfirm') {
+        return false;
+      }
+    }
+    return true;
   };
 
   // Render loading state
@@ -350,22 +365,24 @@ export default function CourseDetailsScreen() {
               </View>
             </View>
             
-            <View style={styles.buttonsContainer}>
-              <TouchableOpacity 
-                style={styles.buyButton}
-                onPress={() => router.push({
-                  pathname: '/(tabs)/course_payment',
-                  params: {
-                    courseId: courseDetails.id,
-                    courseTitle: courseDetails.title,
-                    coursePrice: courseDetails.price,
-                    courseImage: courseDetails.image.uri
-                  }
-                })}
-              >
-                <Text style={styles.buyButtonText}>Mua</Text>
-              </TouchableOpacity>
-            </View>
+            {shouldShowBuyButton() && (
+              <View style={styles.buttonsContainer}>
+                <TouchableOpacity 
+                  style={styles.buyButton}
+                  onPress={() => router.push({
+                    pathname: '/(tabs)/course_payment',
+                    params: {
+                      courseId: courseDetails.id,
+                      courseTitle: courseDetails.title,
+                      coursePrice: courseDetails.price,
+                      courseImage: courseDetails.image.uri
+                    }
+                  })}
+                >
+                  <Text style={styles.buyButtonText}>Mua</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
           
           {/* Space at the bottom for tab bar */}

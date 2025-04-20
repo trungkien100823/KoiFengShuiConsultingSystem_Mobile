@@ -11,6 +11,7 @@ import {
   Alert,
   ScrollView,
   Linking,
+  StatusBar,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import axios from 'axios';
@@ -146,6 +147,13 @@ const YourBooking = () => {
       );
 
       if (response.data && response.data.isSuccess) {
+        // Log chi tiết dữ liệu từ API
+        console.log('API Response data:', {
+          firstItem: response.data.data[0],
+          totalItems: response.data.data.length,
+          dataStructure: Object.keys(response.data.data[0])
+        });
+        
         // Đảm bảo dữ liệu mới được set
         setBookings([]);
         setTimeout(() => {
@@ -290,8 +298,16 @@ const YourBooking = () => {
   // Thêm hàm cancelBooking
   const cancelBooking = async (booking) => {
     try {
-      if (booking.status.trim() !== 'Pending') {
-        Alert.alert('Thông báo', 'Chỉ có thể hủy các đặt lịch đang ở trạng thái chờ xử lý');
+      // Kiểm tra điều kiện hủy lịch theo loại booking
+      let canCancel = false;
+      if (booking.type === 'Online') {
+        canCancel = booking.status.trim() === 'Pending' || booking.status.trim() === 'PendingConfirm';
+      } else if (booking.type === 'Offline') {
+        canCancel = booking.status.trim() === 'Pending';
+      }
+
+      if (!canCancel) {
+        Alert.alert('Thông báo', 'Không thể hủy lịch đặt tư vấn trong trạng thái hiện tại');
         return;
       }
 
@@ -317,10 +333,15 @@ const YourBooking = () => {
                   return;
                 }
                 
-                // Gọi API để hủy booking
-                const response = await axios.get(
-                  `${API_CONFIG.baseURL}/api/Booking/cancel-pending-booking/${booking.id}?bookingType=${booking.type}`,
+                // Sử dụng API mới để hủy booking
+                const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.cancelOrder.replace('{id}', booking.id)}`;
+                const response = await axios.put(
+                  url,
+                  null,
                   {
+                    params: {
+                      type: booking.type === 'Online' ? 'BookingOnline' : 'BookingOffline'
+                    },
                     headers: {
                       'Authorization': `Bearer ${token}`,
                       'Content-Type': 'application/json'
@@ -369,7 +390,7 @@ const YourBooking = () => {
                         }
                       ]
                     );
-                  }, 100); // Hiển thị loading thêm 0.5 giây trước khi hiện thông báo thành công
+                  }, 100); // Hiển thị loading thêm 0.1 giây trước khi hiện thông báo thành công
                 } else {
                   setLoading(false);
                   Alert.alert('Thông báo', response.data?.message || 'Không thể hủy lịch đặt tư vấn. Vui lòng thử lại sau.');
@@ -389,15 +410,53 @@ const YourBooking = () => {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Chưa có ngày';
+    
+    try {
+      // Log để kiểm tra giá trị đầu vào
+      console.log('Date string received:', dateString);
+      
+      // Parse ngày từ định dạng YYYY-MM-DD
+      const [year, month, day] = dateString.split('-');
+      const date = new Date(year, month - 1, day);
+      
+      // Kiểm tra tính hợp lệ của date
+      if (isNaN(date.getTime())) {
+        console.log('Invalid date after parsing');
+        return 'Ngày không hợp lệ';
+      }
+      
+      // Format theo định dạng Việt Nam
+      return date.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Ngày không hợp lệ';
+    }
+  };
+
   const renderBookingItem = ({ item }) => {
+    // Log để kiểm tra dữ liệu
+    console.log('Booking item:', {
+      id: item.id,
+      type: item.type,
+      bookingDate: item.bookingDate
+    });
+    
     // Điều kiện hiển thị nút thanh toán cho Online và Offline
     const showPaymentButton = 
       (item.type === 'Online' && item.status.trim() === 'Pending') ||
       (item.type === 'Offline' && (item.status.trim() === 'VerifiedOTP' || 
                                    item.status.trim() === 'VerifiedOTPAttachment'));
     
-    // Điều kiện hiển thị nút hủy lịch cho các booking có status Pending
-    const showCancelButton = item.status.trim() === 'Pending';
+    // Điều kiện hiển thị nút hủy lịch - cập nhật theo yêu cầu mới
+    const showCancelButton = 
+      (item.type === 'Online' && (item.status.trim() === 'Pending' || item.status.trim() === 'PendingConfirm')) ||
+      (item.type === 'Offline' && item.status.trim() === 'Pending');
 
     // Điều kiện hiển thị nút xem hợp đồng cho Offline
     const isOffline = item.type === 'Offline';
@@ -469,7 +528,7 @@ const YourBooking = () => {
           </Text>
           
           <Text style={styles.bookingTime}>
-            Ngày: {new Date(item.bookingDate).toLocaleDateString('vi-VN')}
+            Ngày: {formatDate(item.bookingDate)}
           </Text>
 
           <View style={styles.buttonContainer}>
@@ -518,7 +577,7 @@ const YourBooking = () => {
                 onPress={() => handlePayment(item)}
               >
                 <Ionicons name="wallet-outline" size={20} color="#fff" />
-                <Text style={styles.paymentButtonText}>Thanh toán</Text>
+                <Text style={styles.paymentButtonText}>Tạo đơn thanh toán</Text>
               </TouchableOpacity>
             )}
             
@@ -758,7 +817,7 @@ const YourBooking = () => {
       <View style={styles.detailRow}>
         <Text style={styles.detailLabel}>Ngày:</Text>
         <Text style={styles.detailValue}>
-          {booking?.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('vi-VN') : 'Chưa có ngày'}
+          {formatDate(booking?.bookingDate)}
         </Text>
       </View>
 
@@ -855,7 +914,7 @@ const YourBooking = () => {
       <View style={styles.detailRow}>
         <Text style={styles.detailLabel}>Ngày:</Text>
         <Text style={styles.detailValue}>
-          {booking?.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('vi-VN') : 'Chưa có ngày'}
+          {formatDate(booking?.bookingDate)}
         </Text>
       </View>
 
@@ -965,12 +1024,20 @@ const YourBooking = () => {
 
   const header = (
     <View style={styles.header}>
-      <Text style={styles.pageTitle}>My Bookings</Text>
+      <TouchableOpacity 
+        onPress={() => router.push('/(tabs)/profile')}
+        style={styles.backButton}
+      >
+        <Ionicons name="arrow-back" size={24} color="#FFF" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Lịch tư vấn</Text>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
       {header}
       
       <View style={styles.filtersContainer}>
@@ -1004,7 +1071,7 @@ const YourBooking = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF',
   },
   loadingContainer: {
     flex: 1,
@@ -1018,15 +1085,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   header: {
-    paddingTop: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 20,
-    paddingBottom: 15,
-    backgroundColor: '#fff',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+    backgroundColor: '#8B0000',
   },
-  pageTitle: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFF',
+    marginLeft: 10,
+  },
+  backButton: {
+    padding: 8,
   },
   listContainer: {
     padding: 16,
