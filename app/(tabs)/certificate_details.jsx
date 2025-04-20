@@ -1,0 +1,328 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  StatusBar,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { images } from '../../constants/images';
+import { certificateService } from '../../services/certificateService';
+
+export default function CertificateDetailsScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams();
+  const [certificate, setCertificate] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+  const [learningItems, setLearningItems] = useState([]);
+
+  useEffect(() => {
+    fetchCertificateDetails();
+  }, [id]);
+
+  const fetchCertificateDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await certificateService.getEnrollCertificateByEnrollCourseId(id);
+      if (response.isSuccess) {
+        setCertificate(response.data);
+        if (response.data.introduction) {
+          const items = response.data.introduction.split(',').map(item => item.trim());
+          setLearningItems(items);
+        }
+      } else {
+        setError(response.message);
+      }
+    } catch (error) {
+      setError('Có lỗi xảy ra khi tải chi tiết chứng chỉ');
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
+
+  const handleImageError = () => {
+    setImageLoading(false);
+    setImageError(true);
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B0000" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={fetchCertificateDetails}
+          >
+            <Text style={styles.retryText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!certificate) {
+    return null;
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => router.push('/(tabs)/your_certificate')}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Chi tiết chứng chỉ</Text>
+      </View>
+
+      <ScrollView style={styles.content}>
+        <View style={styles.certificateContainer}>
+          {imageLoading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#8B0000" />
+            </View>
+          )}
+          <Image
+            source={certificate.certificateImageUrl ? { uri: certificate.certificateImageUrl } : images['buddha.png']}
+            style={[
+              styles.certificateImage,
+              imageError && styles.errorImage
+            ]}
+            resizeMode="contain"
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+          />
+          {imageError && (
+            <Text style={styles.errorText}>Không thể tải hình ảnh chứng chỉ</Text>
+          )}
+        </View>
+
+        <View style={styles.detailsContainer}>
+          <Text style={styles.title}>{certificate.courseName}</Text>
+          
+          <View style={styles.infoRow}>
+            <Ionicons name="person" size={20} color="#666" />
+            <Text style={styles.infoText}>Giảng viên: {certificate.masterName}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar" size={20} color="#666" />
+            <Text style={styles.infoText}>Ngày hoàn thành: {new Date(certificate.createDate).toLocaleDateString()}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Ionicons name="trophy" size={20} color="#666" />
+            <Text style={styles.infoText}>Điểm số: {certificate.point}/10</Text>
+          </View>
+
+          <Text style={styles.sectionTitle}>Mô tả khóa học</Text>
+          <Text style={styles.description}>{certificate.description}</Text>
+
+          <Text style={styles.sectionTitle}>Bạn đã học được</Text>
+          <View style={styles.section}>
+            {learningItems.length > 0 ? (
+              learningItems.map((item, index) => (
+                <View key={index} style={styles.learningItem}>
+                  <View style={styles.checkmarkContainer}>
+                    <Ionicons name="checkmark" size={20} color="#8B0000" />
+                  </View>
+                  <Text style={styles.learningText}>{item}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.learningItem}>
+                <View style={styles.checkmarkContainer}>
+                  <Ionicons name="information-circle" size={20} color="#666" />
+                </View>
+                <Text style={styles.learningText}>Chưa có thông tin về nội dung đã học</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFF',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+    backgroundColor: '#8B0000',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginLeft: 10,
+  },
+  backButton: {
+    padding: 8,
+  },
+  content: {
+    flex: 1,
+  },
+  certificateContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    zIndex: 1,
+  },
+  certificateImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  errorImage: {
+    opacity: 0.5,
+  },
+  errorText: {
+    color: '#d9534f',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  detailsContainer: {
+    padding: 16,
+    backgroundColor: '#fff',
+    margin: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoText: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  description: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 24,
+    marginBottom: 10,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  retryButton: {
+    backgroundColor: '#8B0000',
+    padding: 10,
+    borderRadius: 5,
+  },
+  retryText: {
+    color: '#FFF',
+    fontSize: 16,
+  },
+  section: {
+    padding: 16,
+    backgroundColor: '#fff',
+    margin: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  learningItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    backgroundColor: '#FFF',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#8B0000',
+  },
+  checkmarkContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  learningText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+    lineHeight: 24,
+  },
+}); 

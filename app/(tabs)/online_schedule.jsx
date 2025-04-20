@@ -821,35 +821,104 @@ export default function OnlineScheduleScreen() {
   };
   
   // Thêm hàm handleSubmit để xử lý khi người dùng nhấn nút xác nhận đặt lịch
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedDate || !selectedStartTime || !selectedEndTime) {
       Alert.alert("Thông báo", "Vui lòng chọn đầy đủ ngày và giờ");
       return;
     }
-    
-    // Lưu thông tin đặt lịch vào bộ nhớ
-    AsyncStorage.setItem('onlineBookingDate', selectedDate);
-    AsyncStorage.setItem('onlineBookingStartTime', selectedStartTime);
-    AsyncStorage.setItem('onlineBookingEndTime', selectedEndTime);
-    
-    // Tạo thông tin đặt lịch để gửi đến trang xác nhận
-    const bookingInfo = {
-      date: selectedDate,
-      formattedDate: formatDisplayDate(selectedDate),
-      startTime: selectedStartTime,
-      endTime: selectedEndTime,
-      duration: calculateDuration(selectedStartTime, selectedEndTime),
-      customerInfo: customerInfo
-    };
-    
-    // Chuyển hướng đến trang xác nhận đặt lịch
-    router.push({
-      pathname: '/(tabs)/booking_confirmation',
-      params: {
-        bookingInfo: JSON.stringify(bookingInfo),
-        bookingType: 'online'
+
+    try {
+      // Lấy token từ AsyncStorage
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert("Thông báo", "Vui lòng đăng nhập để tiếp tục");
+        router.push('/(tabs)/login');
+        return;
       }
-    });
+
+      // Format ngày tháng theo chuẩn ISO
+      const bookingDate = new Date(selectedDateObj.year, selectedDateObj.month - 1, selectedDateObj.day);
+      // Thêm 12 giờ để tránh vấn đề múi giờ
+      bookingDate.setHours(12, 0, 0, 0);
+      const formattedDate = bookingDate.toISOString().split('T')[0];
+
+      // Tạo dữ liệu booking
+      const bookingData = {
+        bookingDate: formattedDate,
+        startTime: `${selectedStartTime}:00`,
+        endTime: `${selectedEndTime}:00`,
+        masterId: customerInfo?.masterId || null,
+        customerName: customerInfo?.name || '',
+        customerEmail: customerInfo?.email || '',
+        customerPhone: customerInfo?.phone || '',
+        description: customerInfo?.description || '',
+        type: 'Online',
+        status: 'Pending',
+        isOnline: true,
+        isActive: true,
+        createdDate: new Date().toISOString(),
+        modifiedDate: new Date().toISOString()
+      };
+
+      console.log('Booking data:', bookingData);
+
+      // Gọi API tạo booking
+      const response = await axios.post(
+        `${API_CONFIG.baseURL}/api/Booking/create`,
+        bookingData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('API Response:', response.data);
+
+      if (response.data && response.data.isSuccess) {
+        const bookingId = response.data.data.bookingOnlineId;
+        const price = response.data.data.price;
+        console.log('BookingId before redirect:', bookingId);
+        console.log('Price from response:', price);
+        
+        // Hiển thị thông báo thành công
+        Alert.alert(
+          "Thành công",
+          "Đặt lịch thành công! Vui lòng thanh toán để hoàn tất.",
+          [
+            {
+              text: "Xác nhận",
+              onPress: () => {
+                // Chuyển đến màn hình thanh toán với thông tin booking
+                router.push({
+                  pathname: '/(tabs)/online_checkout',
+                  params: { 
+                    bookingId: bookingId,
+                    customerInfo: JSON.stringify(customerInfo),
+                    scheduleInfo: JSON.stringify({
+                      date: formattedDate,
+                      startTime: selectedStartTime,
+                      endTime: selectedEndTime,
+                      price: price
+                    })
+                  }
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        throw new Error(response.data?.message || 'Không thể tạo booking');
+      }
+    } catch (error) {
+      console.error('Lỗi khi tạo booking:', error);
+      console.error('Chi tiết lỗi:', error.response?.data);
+      Alert.alert(
+        "Lỗi",
+        error.response?.data?.message || "Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại."
+      );
+    }
   };
   
   // Thêm hàm selectDate để xử lý khi người dùng chọn ngày

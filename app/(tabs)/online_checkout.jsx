@@ -22,7 +22,9 @@ import { useFocusEffect } from '@react-navigation/native';
 export default function OnlineCheckoutScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  console.log('Params received in checkout:', params);
   const bookingId = params.bookingId;
+  console.log('BookingId in checkout:', bookingId);
   const initializedRef = useRef(false);
   
   const [customerInfo, setCustomerInfo] = useState({
@@ -62,6 +64,32 @@ export default function OnlineCheckoutScreen() {
             return;
           }
 
+          // Kiểm tra xem có thông tin được truyền từ màn hình trước không
+          if (params.customerInfo && params.scheduleInfo) {
+            try {
+              const customerInfoData = JSON.parse(params.customerInfo);
+              const scheduleInfoData = JSON.parse(params.scheduleInfo);
+              
+              setCustomerInfo({
+                name: customerInfoData.name,
+                phone: customerInfoData.phone,
+                email: customerInfoData.email,
+                masterName: customerInfoData.masterName,
+                description: customerInfoData.description
+              });
+
+              setScheduleInfo({
+                date: scheduleInfoData.date,
+                startTime: scheduleInfoData.startTime,
+                endTime: scheduleInfoData.endTime,
+                price: scheduleInfoData.price
+              });
+            } catch (error) {
+              console.error('Error parsing customer/schedule info:', error);
+              // Nếu parse lỗi thì tiếp tục lấy từ API
+            }
+          }
+
           // Lấy thông tin user hiện tại
           const userResponse = await axios.get(
             `${API_CONFIG.baseURL}/api/Account/current-user`,
@@ -88,25 +116,28 @@ export default function OnlineCheckoutScreen() {
           if (bookingResponse.data.isSuccess && bookingResponse.data.data) {
             const bookingData = bookingResponse.data.data;
             
-            // Cập nhật schedule info
-            setScheduleInfo({
-              date: bookingData.bookingDate,
-              startTime: bookingData.startTime?.slice(0, 5),
-              endTime: bookingData.endTime?.slice(0, 5),
-              price: bookingData.price || 0
-            });
+            // Chỉ cập nhật nếu chưa có thông tin từ params
+            if (!params.customerInfo || !params.scheduleInfo) {
+              // Cập nhật schedule info
+              setScheduleInfo({
+                date: bookingData.bookingDate,
+                startTime: bookingData.startTime?.slice(0, 5),
+                endTime: bookingData.endTime?.slice(0, 5),
+                price: bookingData.price || 0
+              });
 
-            // Cập nhật customer info với thông tin từ booking
-            setCustomerInfo({
-              name: bookingData.customerName,
-              phone: userResponse.data.phoneNumber,
-              email: bookingData.customerEmail,
-              masterName: bookingData.masterName,
-              description: bookingData.description,
-              bookingId: bookingData.bookingOnlineId,
-              status: bookingData.status,
-              type: bookingData.type,
-            });
+              // Cập nhật customer info với thông tin từ booking
+              setCustomerInfo({
+                name: bookingData.customerName,
+                phone: userResponse.data.phoneNumber,
+                email: bookingData.customerEmail,
+                masterName: bookingData.masterName,
+                description: bookingData.description,
+                bookingId: bookingData.bookingOnlineId,
+                status: bookingData.status,
+                type: bookingData.type,
+              });
+            }
           }
 
         } catch (error) {

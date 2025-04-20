@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-const DEV_API_URL = 'http://192.168.1.44:5261';
+const DEV_API_URL = 'http://192.168.0.44:5261';
 //const DEV_API_URL = 'http://192.168.31.148:5261';
 
 export const API_CONFIG = {
@@ -28,7 +28,6 @@ export const API_CONFIG = {
     getAllBookingOnlineEnums: '/api/Booking/get-all-bookingOnlineEnums',
     getAllBookingOfflineEnums: '/api/Booking/get-all-bookingOfflineEnums',
     getBookingsByTypeAndStatus: '/api/Booking/get-bookings-by-type-and-status',
-    cancelPendingBooking: '/api/Booking/cancel-pending-booking/{bookingId}',
 
     // Pond endpoints
     allPonds: '/api/KoiPond/get-all',
@@ -75,6 +74,7 @@ export const API_CONFIG = {
 
     // order endpoints
     pendingOrders: "/api/Order/get-pending-order",
+    paidOrders: "/api/Order/get-paid-orders",
     cancelOrder: "/api/Order/cancel/{id}",
     updatePendingConfirm: '/api/Order/update-to-PENDINGCONFIRM/{id}',
 
@@ -124,6 +124,10 @@ export const API_CONFIG = {
     updateProccessCourse: '/api/RegisterCourse/{chapterId}',
     getEnrollChaptersByEnrollCourseId: '/api/RegisterCourse/get-enroll-chapters-by/{enrollCourseId}',
     getRegisterCourseById: '/api/RegisterCourse/{id}',
+
+    // enrollCertificate endpoints
+    getEnrollCertificatesCurrentCustomer: '/api/RegisterCourse/get-enrollcertificates-current-customer',
+    getEnrollCertificateByEnrollCourseId: '/api/RegisterCourse/get-enrollcertificate-by/{id}',
   },
   timeoutDuration: 30000 // 30 seconds
 };

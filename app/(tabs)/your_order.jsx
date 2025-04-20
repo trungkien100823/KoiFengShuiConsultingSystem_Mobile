@@ -11,14 +11,14 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { orderService } from '../../constants/order';
 import { useFocusEffect } from '@react-navigation/native';
+import CustomTabBar from '../../components/ui/CustomTabBar';
 
 export default function YourOrderScreen() {
   const router = useRouter();
@@ -187,27 +187,19 @@ export default function YourOrderScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      <LinearGradient
-        colors={['#AE1D1D', '#212121']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
+      <View style={styles.header}>
         <TouchableOpacity 
+          onPress={() => router.push('/(tabs)/profile')}
           style={styles.backButton}
-          onPress={() => router.push('/(tabs)/menu')}
         >
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Your order</Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <Feather name="more-horizontal" size={24} color="white" />
-        </TouchableOpacity>
-      </LinearGradient>
+        <Text style={styles.headerTitle}>Dịch vụ chưa thanh toán</Text>
+      </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#AE1D1D" />
+          <ActivityIndicator size="large" color="#8B0000" />
           <Text style={styles.loadingText}>Đang tải đơn hàng...</Text>
         </View>
       ) : orders.length > 0 ? (
@@ -215,7 +207,6 @@ export default function YourOrderScreen() {
           {orders.map((order, index) => (
             <View key={index} style={styles.orderCard}>
               <View style={styles.orderInfo}>
-                <Image source={order.image || require('../../assets/images/buddha.png')} style={styles.orderImage} />
                 <View style={styles.orderDetails}>
                   <Text style={styles.serviceType}>Loại dịch vụ: {order.type}</Text>
                   <Text style={styles.orderPrice}>Tổng tiền: {order.price.toLocaleString('vi-VN')} VNĐ</Text>
@@ -225,30 +216,18 @@ export default function YourOrderScreen() {
               </View>
               <View style={styles.buttonContainer}>
                 <TouchableOpacity 
-                  style={styles.buttonWrapper}
+                  style={styles.paymentButton}
                   onPress={() => handlePayment(order)}
                 >
-                  <LinearGradient
-                    colors={['#AE1D1D', '#212121']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.gradientButton}
-                  >
-                    <Text style={styles.buttonText}>Thanh toán</Text>
-                  </LinearGradient>
+                  <Ionicons name="wallet-outline" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Thanh toán</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={styles.buttonWrapper}
+                  style={styles.cancelButton}
                   onPress={() => handleCancelOrder(order.id)}
                 >
-                  <LinearGradient
-                    colors={['#AE1D1D', '#212121']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.gradientButton}
-                  >
-                    <Text style={styles.buttonText}>Hủy đơn</Text>
-                  </LinearGradient>
+                  <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Hủy đơn</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -259,6 +238,7 @@ export default function YourOrderScreen() {
           <Text style={styles.emptyText}>Không có đơn hàng nào đang xử lý</Text>
         </View>
       )}
+      <CustomTabBar />
     </SafeAreaView>
   );
 }
@@ -266,29 +246,25 @@ export default function YourOrderScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
-  },
-  backButton: {
-    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+    backgroundColor: '#8B0000',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 16
+    color: '#FFF',
+    marginLeft: 10,
   },
-  menuButton: {
+  backButton: {
     padding: 8,
   },
   orderList: {
@@ -296,32 +272,26 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     backgroundColor: '#fff',
+    marginHorizontal: 15,
+    marginVertical: 8,
     borderRadius: 10,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
+    padding: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4
+    shadowRadius: 2,
+    elevation: 2,
   },
   orderInfo: {
-    flexDirection: 'row',
     marginBottom: 12
   },
-  orderImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 12
-  },
   orderDetails: {
-    flex: 1,
-    justifyContent: 'space-between'
+    gap: 8
   },
   serviceType: {
     fontSize: 16,
-    fontWeight: '500'
+    fontWeight: '500',
+    color: '#333'
   },
   orderId: {
     fontSize: 14,
@@ -337,26 +307,38 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  buttonWrapper: {
-    flex: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
-    height: 35,
-    marginHorizontal: 4,
-  },
-  gradientButton: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 5,
+  },
+  paymentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#AE1D1D',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 5,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F44336',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 5,
   },
   buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: '#fff',
     fontSize: 14,
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,
@@ -364,9 +346,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginTop: 10,
+    color: '#666',
   },
   emptyContainer: {
     flex: 1,
@@ -375,8 +356,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyText: {
-    fontSize: 16,
     color: '#666',
-    textAlign: 'center',
+    fontSize: 16,
   },
 });
