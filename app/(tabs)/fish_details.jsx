@@ -13,9 +13,11 @@ import {
   Dimensions,
   ImageBackground,
   BackHandler,
-  Animated
+  Animated,
+  ActivityIndicator,
+  TextInput
 } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5, AntDesign, Feather } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome5, AntDesign, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import { SelectList } from 'react-native-dropdown-select-list';
@@ -45,6 +47,20 @@ const colorCodeMap = {
   'Tím': '#800080'
 };
 
+// Update the color constants for better contrast and elegance
+const COLORS = {
+  primary: '#8B0000',        // Wine red
+  primaryLight: '#D9B3B3',   // Soft red for backgrounds
+  primaryDark: '#5A0000',    // Deep red for accents
+  white: '#FFFFFF',
+  offWhite: '#F9F9F9',       // For subtle background variations
+  black: '#000000',
+  gray: '#555555',
+  lightGray: '#EAEAEA',
+  background: '#F5F5F5',
+  gold: '#D4AF37',           // For accent highlights
+};
+
 export default function FishDetails() {
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -67,6 +83,10 @@ export default function FishDetails() {
   const scrollY = new Animated.Value(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isNavigatingFromMenu, setIsNavigatingFromMenu] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [expandedSection, setExpandedSection] = useState(null);
+  const [fadeAnim, setFadeAnim] = useState(new Animated.Value(1));
+  const [slideAnim, setSlideAnim] = useState(new Animated.Value(0));
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -439,703 +459,889 @@ export default function FishDetails() {
     return () => backHandler.remove();
   }, [router]);
 
+  const toggleSection = (section) => {
+    if (expandedSection === section) {
+      setExpandedSection(null);
+      setFadeAnim(new Animated.Value(1));
+      setSlideAnim(new Animated.Value(0));
+    } else {
+      setExpandedSection(section);
+      setFadeAnim(new Animated.Value(0));
+      setSlideAnim(new Animated.Value(-100));
+    }
+  };
+
+  const handleColorChange = (index, value) => {
+    const updatedColors = [...koiDetails.colors];
+    updatedColors[index].percentage = Math.round(value);
+    setKoiDetails({...koiDetails, colors: updatedColors});
+  };
+
+  const getDirectionIconName = (direction) => {
+    switch (direction) {
+      case 'Đông':
+        return 'arrow-right';
+      case 'Tây':
+        return 'arrow-left';
+      case 'Nam':
+        return 'arrow-down';
+      case 'Bắc':
+        return 'arrow-up';
+      case 'Đông Bắc':
+        return 'arrow-top-right';
+      case 'Tây Bắc':
+        return 'arrow-top-left';
+      case 'Đông Nam':
+        return 'arrow-bottom-right';
+      case 'Tây Nam':
+        return 'arrow-bottom-left';
+      default:
+        return 'compass';
+    }
+  };
+
   return (
-    <View style={styles.container} key={refreshKey}>
-      <ImageBackground 
-        source={
-          koiDetails?.imageUrl
-            ? { uri: koiDetails.imageUrl }
-            : require('../../assets/images/koi_image.jpg')
-        }
-        style={styles.backgroundImage}
-        resizeMode="cover"
-        onError={(error) => {
-          console.log('Image loading error:', error.nativeEvent.error);
-          if (error.nativeEvent.error) {
-            console.log('URL ảnh lỗi:', koiDetails?.imageUrl);
-          }
-        }}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
+      
+      {/* Header with cleaner gradient and better shadow */}
+      <LinearGradient
+        colors={[COLORS.primary, COLORS.primaryDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
       >
-        <LinearGradient
-          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)']}
-          style={styles.overlay}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.push('/menu')}
+          activeOpacity={0.7}
         >
-          <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => router.push({
-                pathname: '/menu',
-                params: {
-                  timestamp: Date.now()
-                }
-              })}
-            >
-              <Ionicons name="chevron-back-circle" size={32} color="#FFF" />
-            </TouchableOpacity>
+          <Ionicons name="chevron-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Chi tiết cá Koi</Text>
+        <View style={styles.headerSpacer} />
+      </LinearGradient>
+
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Enhanced Hero Section with better overlay gradient */}
+        <View style={styles.heroSection}>
+          <Image
+            source={
+              koiDetails?.imageUrl
+                ? { uri: koiDetails.imageUrl }
+                : require('../../assets/images/koi_image.jpg')
+            }
+            style={styles.fishImage}
+            resizeMode="cover"
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)']}
+            locations={[0, 0.6, 1]}
+            style={styles.heroOverlay}
+          >
+            <View style={styles.heroContent}>
+              <Text style={styles.fishName}>{params.name || 'Koi Fish'}</Text>
+              <View style={styles.tagContainer}>
+                <View style={styles.tag}>
+                  <FontAwesome5 name="ruler" size={12} color={COLORS.gold} />
+                  <Text style={styles.tagText}>{params.size || 'Medium'}</Text>
+                </View>
+                {koiDetails?.element && (
+                  <View style={styles.tag}>
+                    <MaterialCommunityIcons name="water" size={12} color={COLORS.gold} />
+                    <Text style={styles.tagText}>{koiDetails.element}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Main Content with Improved Cards */}
+        <View style={styles.mainContent}>
+          {/* Description Card with better typography */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.iconContainer}>
+                <MaterialCommunityIcons name="information-outline" size={20} color={COLORS.white} />
+              </View>
+              <Text style={styles.cardTitle}>Thông tin</Text>
+            </View>
+            <Text style={styles.descriptionText}>
+              {koiDetails?.description || 'Thông tin đang được cập nhật...'}
+            </Text>
           </View>
 
-          <ScrollView 
-            style={styles.scrollView} 
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.contentCard}>
-              <View style={styles.fishInfoSection}>
-                <Text style={styles.fishName}>{params.name || 'Koi Fish'}</Text>
-                <View style={styles.tagContainer}>
-                  <View style={styles.tag}>
-                    <FontAwesome5 name="ruler" size={14} color="#FFD700" />
-                    <Text style={styles.tagText}>{params.size || 'Medium'}</Text>
-                  </View>
-                </View>
+          {/* Color Configuration Card with enhanced UI */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.iconContainer}>
+                <MaterialCommunityIcons name="palette-outline" size={20} color={COLORS.white} />
               </View>
-
-              <View style={styles.divider} />
-
-              {/* Introduction Card */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  <FontAwesome5 name="fish" size={16} color="#8B0000" style={styles.sectionIcon} />
-                  Giới Thiệu
-                </Text>
-                <Text style={styles.sectionContent}>
-                  {koiDetails?.introduction || 'Thông tin đang được cập nhật...'}
-                </Text>
-              </View>
-
-              {/* Description Card */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  <MaterialIcons name="description" size={16} color="#8B0000" style={styles.sectionIcon} />
-                  Mô Tả
-                </Text>
-                <Text style={styles.sectionContent}>
-                  {koiDetails?.description || 'Thông tin đang được cập nhật...'}
-                </Text>
-              </View>
-              
-              {/* Color Configuration Card */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  <MaterialIcons name="color-lens" size={18} color="#8B0000" style={styles.sectionIcon} />
-                  Màu Sắc
-                </Text>
-                
-                {koiDetails?.colors && koiDetails.colors.map((color, index) => (
-                  <View key={index} style={styles.colorRow}>
-                    <View style={styles.colorLabelContainer}>
-                      <View 
-                        style={[styles.colorDot, { 
-                          backgroundColor: colorCodeMap[color.colorName] || '#ccc',
-                          borderColor: color.colorName === 'Trắng' ? '#ddd' : 'transparent'
-                        }]} 
-                      />
-                      <Text style={styles.colorLabel}>{color.colorName}</Text>
-                    </View>
-                    
-                    <View style={styles.sliderContainer}>
-                      <Slider
-                        style={styles.slider}
-                        minimumValue={0}
-                        maximumValue={100}
-                        value={color.percentage}
-                        onValueChange={(value) => {
-                          const updatedColors = [...koiDetails.colors];
-                          updatedColors[index].percentage = Math.round(value);
-                          setKoiDetails({...koiDetails, colors: updatedColors});
-                        }}
-                        minimumTrackTintColor="#8B0000"
-                        maximumTrackTintColor="#E0E0E0"
-                        thumbTintColor="#8B0000"
-                        step={1}
-                      />
-                      <View style={styles.percentageContainer}>
-                        <Text style={styles.percentageText}>{Math.round(color.percentage)}%</Text>
-                      </View>
-                    </View>
-                  </View>
+              <Text style={styles.cardTitle}>Tỷ lệ màu sắc</Text>
+            </View>
+            
+            {/* Color Preview Bar */}
+            <View style={styles.colorPreviewContainer}>
+              <View style={styles.colorPreview}>
+                {koiDetails?.colors?.map((color, index) => (
+                  <View 
+                    key={index}
+                    style={[
+                      styles.colorStrip,
+                      {
+                        backgroundColor: colorCodeMap[color.colorName] || '#ccc',
+                        flex: color.percentage / 100,
+                        borderWidth: color.colorName === 'Trắng' ? 1 : 0,
+                        borderColor: COLORS.lightGray
+                      }
+                    ]}
+                  />
                 ))}
-                
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Tổng phần trăm:</Text>
-                  <Text style={[
-                    styles.totalValue,
-                    koiDetails?.colors && 
-                    Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 ? 
-                    styles.totalValueError : {}
-                  ]}>
-                    {koiDetails?.colors ? 
-                      Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) : 0}%
-                  </Text>
-                </View>
-                
-                {koiDetails?.colors && 
-                Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) !== 100 && (
-                  <Text style={styles.errorMessage}>
-                    Tổng phần trăm các màu phải bằng 100%
-                  </Text>
-                )}
               </View>
-              
-              {/* Pond Configuration Card */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  <Ionicons name="water-outline" size={18} color="#8B0000" style={styles.sectionIcon} />
-                  Cấu Hình Hồ
-                </Text>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Hình Dạng Hồ</Text>
-                  <SelectList
-                    setSelected={handleShapeSelect}
-                    data={pondShapes}
-                    placeholder="Chọn hình dạng hồ"
-                    boxStyles={styles.selectBox}
-                    dropdownStyles={styles.dropdown}
-                    inputStyles={styles.selectInput}
-                    dropdownTextStyles={styles.dropdownText}
-                    search={false}
-                  />
-                </View>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Chọn Hồ</Text>
-                  
-                  {pondsByShape.length > 0 ? (
-                    <ScrollView 
-                      horizontal 
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.pondCardsContainer}
-                    >
-                      {pondsByShape.map((pond, index) => (
-                        <TouchableOpacity 
-                          key={index} 
-                          style={[
-                            styles.pondCard,
-                            selectedPond === pond.koiPondId && styles.selectedPondCard
-                          ]}
-                          onPress={() => handlePondSelect(pond)}
-                        >
-                          <Image 
-                            source={
-                              pond.shapeName === 'Hình chữ nhật' ? require('../../assets/images/natural_pond.jpg') :
-                              pond.shapeName === 'Hình tròn' ? require('../../assets/images/raised_pond.jpg') :
-                              pond.shapeName === 'Hình bầu dục' ? require('../../assets/images/zen_pond.jpg') :
-                              require('../../assets/images/formal_pond.jpg')
-                            }
-                            style={styles.pondImage}
-                          />
-                          {selectedPond === pond.koiPondId && (
-                            <View style={styles.selectedOverlay}>
-                              <AntDesign name="checkcircle" size={24} color="#FFF" />
-                            </View>
-                          )}
-                          <View style={styles.pondNameContainer}>
-                            <Text style={styles.pondName}>{pond.pondName}</Text>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  ) : (
-                    <View style={styles.emptyPondsContainer}>
-                      <Feather name="alert-circle" size={24} color="#999" />
-                      <Text style={styles.emptyPondsText}>
-                        Không tìm thấy hồ cho hình dạng này
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                
-                {selectedPondDetails && (
-                  <View style={styles.pondDetails}>
-                    <View style={styles.pondDetailsHeader}>
-                      <Ionicons name="information-circle-outline" size={18} color="#8B0000" />
-                      <Text style={styles.pondDetailsTitle}>Thông Tin Hồ</Text>
-                    </View>
-                    
-                    <View style={styles.pondInfoGrid}>
-                      <View style={styles.pondInfoItem}>
-                        <Text style={styles.pondInfoLabel}>Tên:</Text>
-                        <Text style={styles.pondInfoValue}>{selectedPondDetails.pondName}</Text>
-                      </View>
-                      
-                      <View style={styles.pondInfoItem}>
-                        <Text style={styles.pondInfoLabel}>Hình dạng:</Text>
-                        <Text style={styles.pondInfoValue}>{selectedPondDetails.shapeName}</Text>
-                      </View>
-                      
-                      <View style={styles.pondInfoItem}>
-                        <Text style={styles.pondInfoLabel}>Nguyên tố:</Text>
-                        <Text style={styles.pondInfoValue}>{selectedPondDetails.element}</Text>
-                      </View>
-                      
-                      <View style={styles.pondInfoItem}>
-                        <Text style={styles.pondInfoLabel}>Diện tích:</Text>
-                        <Text style={styles.pondInfoValue}>{selectedPondDetails.area} m²</Text>
-                      </View>
-                    </View>
+            </View>
+
+            {/* Color Controls with numeric inputs */}
+            <View style={styles.colorControls}>
+              {koiDetails?.colors?.map((color, index) => (
+                <View key={index} style={styles.colorControl}>
+                  {/* Color name and dot */}
+                  <View style={styles.colorInfo}>
+                    <View 
+                      style={[
+                        styles.colorDot,
+                        { 
+                          backgroundColor: colorCodeMap[color.colorName] || '#ccc',
+                          borderWidth: color.colorName === 'Trắng' ? 1 : 0,
+                          borderColor: COLORS.lightGray
+                        }
+                      ]} 
+                    />
+                    <Text style={styles.colorLabel}>{color.colorName}</Text>
                   </View>
-                )}
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Hướng Đặt Hồ</Text>
-                  <SelectList
-                    setSelected={setSelected}
-                    data={directions}
-                    placeholder="Chọn hướng đặt hồ"
-                    boxStyles={styles.selectBox}
-                    dropdownStyles={styles.dropdown}
-                    inputStyles={styles.selectInput}
-                    dropdownTextStyles={styles.dropdownText}
-                    search={false}
-                  />
-                </View>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Số Lượng Cá</Text>
-                  <View style={styles.fishCountControl}>
+                  
+                  {/* Percentage Controls */}
+                  <View style={styles.percentageControl}>
+                    {/* Minus button */}
                     <TouchableOpacity 
                       style={[
-                        styles.countButton,
-                        fishCount <= 1 && styles.disabledButton
+                        styles.percentageButton,
+                        color.percentage <= 0 && styles.disabledButton
                       ]}
-                      onPress={() => adjustFishCount(false)}
-                      disabled={fishCount <= 1}
+                      onPress={() => {
+                        if (color.percentage > 0) {
+                          const updatedColors = [...koiDetails.colors];
+                          updatedColors[index].percentage = Math.max(0, Math.round(color.percentage) - 5);
+                          setKoiDetails({...koiDetails, colors: updatedColors});
+                        }
+                      }}
+                      disabled={color.percentage <= 0}
+                      activeOpacity={0.7}
                     >
-                      <AntDesign name="minus" size={20} color="#FFF" />
+                      <AntDesign 
+                        name="minus" 
+                        size={16} 
+                        color={color.percentage <= 0 ? COLORS.lightGray : COLORS.primary} 
+                      />
                     </TouchableOpacity>
                     
-                    <View style={styles.countDisplay}>
-                      <Text style={styles.countValue}>{fishCount}</Text>
-                      <Text style={styles.countUnit}>con</Text>
+                    {/* Typeable percentage input */}
+                    <View style={[
+                      styles.percentageValueContainer,
+                      { borderColor: colorCodeMap[color.colorName] || COLORS.primary }
+                    ]}>
+                      <TextInput
+                        style={styles.percentageInput}
+                        value={Math.round(color.percentage).toString()}
+                        keyboardType="number-pad"
+                        maxLength={3}
+                        selectTextOnFocus
+                        onChangeText={(text) => {
+                          const value = parseInt(text) || 0;
+                          const updatedColors = [...koiDetails.colors];
+                          updatedColors[index].percentage = Math.min(100, Math.max(0, value));
+                          setKoiDetails({...koiDetails, colors: updatedColors});
+                        }}
+                      />
+                      <Text style={styles.percentSymbol}>%</Text>
                     </View>
                     
+                    {/* Plus button */}
                     <TouchableOpacity 
-                      style={styles.countButton}
-                      onPress={() => adjustFishCount(true)}
+                      style={[
+                        styles.percentageButton,
+                        color.percentage >= 100 && styles.disabledButton
+                      ]}
+                      onPress={() => {
+                        if (color.percentage < 100) {
+                          const updatedColors = [...koiDetails.colors];
+                          updatedColors[index].percentage = Math.min(100, Math.round(color.percentage) + 5);
+                          setKoiDetails({...koiDetails, colors: updatedColors});
+                        }
+                      }}
+                      disabled={color.percentage >= 100}
+                      activeOpacity={0.7}
                     >
-                      <AntDesign name="plus" size={20} color="#FFF" />
+                      <AntDesign 
+                        name="plus" 
+                        size={16} 
+                        color={color.percentage >= 100 ? COLORS.lightGray : COLORS.primary} 
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
-              
-              {/* Calculate Button */}
-              <TouchableOpacity 
-                style={styles.calculateButtonContainer}
-                onPress={calculateCompatibility}
-              >
-                <LinearGradient
-                  colors={['#8B0000', '#650000']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.calculateButton}
-                >
-                  <Text style={styles.calculateButtonText}>Tính Tương Hợp</Text>
-                  <MaterialIcons name="calculate" size={22} color="#FFF" style={styles.calculateIcon} />
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              {/* Results Card - Only show if we have calculated */}
-              {hasCalculated && (
-                <View style={styles.section}>
-                  <View style={styles.scoreContainer}>
-                    <View style={styles.scoreCircle}>
-                      <Text style={styles.scoreValue}>{compatibilityScore}%</Text>
-                    </View>
-                    <Text style={styles.scoreLabel}>Mức độ tương hợp</Text>
-                  </View>
-                  
-                  <Text style={styles.compatibilityMessage}>
-                    {compatibilityMessage || 'Không có thông tin tương hợp.'}
-                  </Text>
-                </View>
-              )}
-              
-              <View style={styles.bottomPadding} />
+              ))}
             </View>
-          </ScrollView>
-        </LinearGradient>
-      </ImageBackground>
-    </View>
+
+            {/* Fine-tune adjustment note */}
+            <Text style={styles.adjustmentNote}>
+              Sử dụng nút +/- hoặc nhập trực tiếp để điều chỉnh tỷ lệ màu sắc
+            </Text>
+
+            {/* Total percentage indicator */}
+            {koiDetails?.colors && (
+              <View style={styles.totalPercentageContainer}>
+                <Text style={styles.totalPercentageLabel}>Tổng phần trăm:</Text>
+                <Text style={[
+                  styles.totalPercentageValue,
+                  Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0)) === 100
+                    ? styles.totalCorrect
+                    : styles.totalIncorrect
+                ]}>
+                  {Math.round(koiDetails.colors.reduce((sum, color) => sum + color.percentage, 0))}%
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Pond Configuration Card with better layout */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.iconContainer}>
+                <MaterialCommunityIcons name="waves" size={20} color={COLORS.white} />
+              </View>
+              <Text style={styles.cardTitle}>Cấu hình hồ</Text>
+            </View>
+
+            {/* Shape Selection with better styled dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Hình dạng hồ</Text>
+              <SelectList
+                setSelected={handleShapeSelect}
+                data={pondShapes}
+                placeholder="Chọn hình dạng hồ"
+                boxStyles={styles.selectBox}
+                dropdownStyles={styles.dropdown}
+                inputStyles={styles.selectInput}
+                dropdownTextStyles={styles.dropdownText}
+                search={false}
+              />
+            </View>
+
+            {/* Pond Selection with improved cards */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Chọn hồ</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pondGrid}
+              >
+                {pondsByShape.length > 0 ? (
+                  pondsByShape.map((pond, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.pondCard,
+                        selectedPond === pond.koiPondId && styles.selectedPondCard
+                      ]}
+                      onPress={() => handlePondSelect(pond)}
+                      activeOpacity={0.8}
+                    >
+                      <LinearGradient
+                        colors={[COLORS.primary, COLORS.primaryDark]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.pondCardGradient}
+                        opacity={selectedPond === pond.koiPondId ? 1 : 0.8}
+                      >
+                        <Text style={styles.pondName} numberOfLines={1} ellipsizeMode="tail">
+                          {pond.pondName}
+                        </Text>
+                        <View style={styles.pondDetails}>
+                          <View style={styles.pondDetail}>
+                            <MaterialCommunityIcons name="shape-outline" size={14} color={COLORS.white} />
+                            <Text style={styles.pondDetailText}>{pond.shapeName}</Text>
+                          </View>
+                          {pond.element && (
+                            <View style={styles.pondDetail}>
+                              <MaterialCommunityIcons name="water" size={14} color={COLORS.white} />
+                              <Text style={styles.pondDetailText}>{pond.element}</Text>
+                            </View>
+                          )}
+                        </View>
+                        
+                        {selectedPond === pond.koiPondId && (
+                          <View style={styles.selectedIndicator}>
+                            <MaterialCommunityIcons name="check-circle" size={24} color={COLORS.white} />
+                          </View>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={styles.emptyPondContainer}>
+                    <MaterialCommunityIcons name="pond" size={32} color={COLORS.lightGray} />
+                    <Text style={styles.emptyPondText}>Không có hồ nào được tìm thấy</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+
+            {/* Direction Selection with better touch targets */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Hướng đặt hồ</Text>
+              <View style={styles.directionGrid}>
+                {directions.map((direction) => (
+                  <TouchableOpacity
+                    key={direction.key}
+                    style={[
+                      styles.directionButton,
+                      selected === direction.key && styles.selectedDirectionButton
+                    ]}
+                    onPress={() => setSelected(direction.key)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons 
+                      name={getDirectionIconName(direction.value)}
+                      size={22}
+                      color={selected === direction.key ? COLORS.white : COLORS.primary}
+                    />
+                    <Text style={[
+                      styles.directionText,
+                      selected === direction.key && styles.selectedDirectionText
+                    ]}>
+                      {direction.value}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Fish Count with more elegant controls */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Số lượng cá</Text>
+              <View style={styles.countControl}>
+                <TouchableOpacity 
+                  style={[
+                    styles.countButton,
+                    fishCount <= 1 && styles.disabledButton
+                  ]}
+                  onPress={() => adjustFishCount(false)}
+                  disabled={fishCount <= 1}
+                  activeOpacity={0.7}
+                >
+                  <AntDesign 
+                    name="minus" 
+                    size={20} 
+                    color={fishCount <= 1 ? COLORS.lightGray : COLORS.primary} 
+                  />
+                </TouchableOpacity>
+                <View style={styles.countDisplayContainer}>
+                  <Text style={styles.countText}>{fishCount}</Text>
+                  <Text style={styles.countUnit}>con</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.countButton}
+                  onPress={() => adjustFishCount(true)}
+                  activeOpacity={0.7}
+                >
+                  <AntDesign name="plus" size={20} color={COLORS.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Calculate Button with more refined design */}
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity 
+          style={styles.calculateButton}
+          onPress={calculateCompatibility}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={[COLORS.primary, COLORS.primaryDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.calculateGradient}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} size="small" />
+            ) : (
+              <>
+                <Text style={styles.calculateText}>Tính tương hợp phong thủy</Text>
+                <MaterialCommunityIcons name="calculator" size={22} color={COLORS.white} />
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
-  },
-  overlay: {
-    flex: 1,
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    zIndex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingBottom: 16,
+    elevation: 4,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 24, // Matches backButton width for centering
   },
   backButton: {
-    padding: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 20,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
   },
-  contentCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    marginTop: 180,
-    paddingTop: 20,
-    minHeight: '100%',
-    paddingHorizontal: 20,
+  scrollContent: {
+    paddingBottom: 90, // Ensure enough space for the button at bottom
   },
-  fishInfoSection: {
-    alignItems: 'center',
-    marginBottom: 20,
+  heroSection: {
+    height: 220,
+    position: 'relative',
+  },
+  fishImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  heroContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
   },
   fishName: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.white,
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   tagContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(139, 0, 0, 0.1)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: COLORS.gold,
   },
   tagText: {
-    color: '#8B0000',
-    fontSize: 14,
-    marginLeft: 6,
-    fontWeight: '600',
+    fontSize: 12,
+    color: COLORS.white,
+    marginLeft: 4,
+    fontWeight: '500',
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    marginVertical: 20,
+  mainContent: {
+    padding: 16,
+    gap: 16,
   },
-  section: {
-    marginBottom: 25,
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    gap: 16,
   },
-  sectionTitle: {
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    color: COLORS.primary,
   },
-  sectionIcon: {
-    marginRight: 8,
-  },
-  sectionContent: {
+  descriptionText: {
     fontSize: 15,
-    color: '#555',
     lineHeight: 22,
+    color: COLORS.gray,
   },
-  
-  colorRow: {
-    marginBottom: 16,
+  colorPreviewContainer: {
+    paddingVertical: 8,
   },
-  colorLabelContainer: {
+  colorPreview: {
+    flexDirection: 'row',
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+    elevation: 1,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  colorStrip: {
+    height: '100%',
+  },
+  colorControls: {
+    marginVertical: 10,
+    gap: 12,
+  },
+  colorControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.offWhite,
+    borderRadius: 10,
+    padding: 10,
+  },
+  colorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   colorDot: {
     width: 16,
     height: 16,
     borderRadius: 8,
     marginRight: 8,
-    borderWidth: 1,
   },
   colorLabel: {
-    fontSize: 15,
-    color: '#444',
+    fontSize: 14,
+    color: COLORS.gray,
   },
-  sliderContainer: {
+  percentageControl: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  slider: {
-    flex: 1,
-    height: 40,
+  percentageButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
-  percentageContainer: {
-    width: 50,
-    alignItems: 'flex-end',
+  percentageValueContainer: {
+    minWidth: 70,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 8,
   },
-  percentageText: {
-    fontSize: 15,
+  percentageInput: {
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.primary,
+    textAlign: 'center',
+    padding: 0,
+    minWidth: 30,
   },
-  totalRow: {
+  percentSymbol: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginLeft: 2,
+  },
+  disabledButton: {
+    borderColor: COLORS.lightGray,
+    backgroundColor: COLORS.offWhite,
+  },
+  adjustmentNote: {
+    fontSize: 12,
+    color: COLORS.gray,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  totalPercentageContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 12,
+    borderTopColor: COLORS.lightGray,
   },
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#555',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8B0000',
-    marginLeft: 8,
-  },
-  totalValueError: {
-    color: '#e53935',
-  },
-  errorMessage: {
-    fontSize: 13,
-    color: '#e53935',
-    marginTop: 8,
-    textAlign: 'right',
-    fontStyle: 'italic',
-  },
-  formGroup: {
-    marginBottom: 20,
-  },
-  formLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 10,
-    color: '#444',
-  },
-  selectBox: {
-    borderColor: '#ddd',
-    borderRadius: 10,
-    height: 50,
-  },
-  dropdown: {
-    borderColor: '#ddd',
-    borderRadius: 10,
-  },
-  selectInput: {
-    color: '#333',
-  },
-  dropdownText: {
-    color: '#333',
-  },
-  pondCardsContainer: {
-    paddingVertical: 10,
-  },
-  pondCard: {
-    width: 140,
-    height: 140,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginRight: 12,
-    position: 'relative',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  selectedPondCard: {
-    borderColor: '#8B0000',
-  },
-  pondImage: {
-    width: '100%',
-    height: '100%',
-  },
-  selectedOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(139, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pondNameContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingVertical: 6,
-  },
-  pondName: {
-    color: '#FFF',
-    fontSize: 13,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  emptyPondsContainer: {
-    height: 140,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderStyle: 'dashed',
-  },
-  emptyPondsText: {
-    marginTop: 10,
-    color: '#999',
+  totalPercentageLabel: {
     fontSize: 14,
-  },
-  pondDetails: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-  },
-  pondDetailsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  pondDetailsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#444',
-    marginLeft: 6,
-  },
-  pondInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  pondInfoItem: {
-    width: '50%',
-    marginBottom: 10,
-    paddingRight: 10,
-  },
-  pondInfoLabel: {
-    fontSize: 13,
-    color: '#777',
-    marginBottom: 2,
-  },
-  pondInfoValue: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-  },
-  fishCountControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 25,
-    padding: 10,
-  },
-  countButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#8B0000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  countDisplay: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    width: 80,
-    justifyContent: 'center',
-  },
-  countValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#8B0000',
-  },
-  countUnit: {
-    fontSize: 16,
-    color: '#555',
-    marginLeft: 5,
-  },
-  calculateButtonContainer: {
-    marginVertical: 20,
-    borderRadius: 25,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
-  },
-  calculateButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  calculateButtonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: COLORS.gray,
     marginRight: 8,
   },
-  calculateIcon: {
-    marginLeft: 4,
+  totalPercentageValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  bottomPadding: {
-    height: 50,
+  totalCorrect: {
+    color: '#4CAF50', // Green
   },
-  scoreContainer: {
-    alignItems: 'center',
-    marginVertical: 16,
+  totalIncorrect: {
+    color: '#F44336', // Red
   },
-  scoreCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#8B0000',
-    justifyContent: 'center',
-    alignItems: 'center',
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.gray,
     marginBottom: 10,
-    shadowColor: '#000',
+  },
+  selectBox: {
+    borderColor: COLORS.lightGray,
+    borderRadius: 10,
+    height: 48,
+    padding: 12,
+    backgroundColor: COLORS.offWhite,
+  },
+  selectInput: {
+    color: COLORS.gray,
+    fontSize: 15,
+  },
+  dropdown: {
+    borderColor: COLORS.lightGray,
+    borderRadius: 10,
+    backgroundColor: COLORS.white,
+    padding: 6,
+    marginTop: 4,
+  },
+  dropdownText: {
+    color: COLORS.gray,
+    fontSize: 14,
+  },
+  pondGrid: {
+    paddingVertical: 8,
+    gap: 12,
+  },
+  pondCard: {
+    width: 170,
+    height: 110,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
-    elevation: 5,
   },
-  scoreValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFF',
+  selectedPondCard: {
+    borderWidth: 2,
+    borderColor: COLORS.gold,
   },
-  scoreLabel: {
+  pondCardGradient: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  pondName: {
     fontSize: 16,
-    color: '#555',
+    fontWeight: 'bold',
+    color: COLORS.white,
+    marginBottom: 8,
   },
-  compatibilityMessage: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#444',
+  pondDetails: {
+    gap: 4,
+  },
+  pondDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pondDetailText: {
+    fontSize: 12,
+    color: COLORS.white,
+    opacity: 0.9,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  emptyPondContainer: {
+    width: width - 32,
+    height: 110,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.offWhite,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderStyle: 'dashed',
+  },
+  emptyPondText: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginTop: 8,
+  },
+  directionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  directionButton: {
+    width: '23%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.offWhite,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    padding: 8,
+  },
+  selectedDirectionButton: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  directionText: {
+    fontSize: 12,
+    marginTop: 6,
+    color: COLORS.primary,
     textAlign: 'center',
-    fontStyle: 'italic',
-    marginBottom: 10,
+  },
+  selectedDirectionText: {
+    color: COLORS.white,
+  },
+  countControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  countButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    elevation: 2,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  countDisplayContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    minWidth: 60,
+    justifyContent: 'center',
+  },
+  countText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  countUnit: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginLeft: 4,
+  },
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.lightGray,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+  },
+  calculateButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: COLORS.primaryDark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  calculateGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  calculateText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.white,
   },
 }); 
