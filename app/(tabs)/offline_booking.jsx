@@ -67,18 +67,37 @@ export default function OfflineBookingScreen() {
       // Gọi lại API để lấy lịch master mới nhất
       const fetchMasterSchedules = async () => {
         if (isFetchingRef.current) return;
-        
-        setLoadingSchedules(true);
         isFetchingRef.current = true;
-        
+        setLoadingSchedules(true);
+
         try {
           const token = await AsyncStorage.getItem('accessToken');
           if (!token) {
             console.error('Không tìm thấy token đăng nhập');
             return;
           }
-          
-          const response = await axios.get(
+
+          // Bước 1: Lấy danh sách tất cả master
+          const mastersResponse = await axios.get(
+            `${API_CONFIG.baseURL}/api/Master/get-all`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (!mastersResponse.data?.isSuccess) {
+            throw new Error('Không thể lấy danh sách master');
+          }
+
+          const allMasters = mastersResponse.data.data;
+          console.log('Tổng số master:', allMasters.length);
+          console.log('Danh sách master:', allMasters.map(m => m.masterId));
+
+          // Bước 2: Lấy lịch trình của các master
+          const schedulesResponse = await axios.get(
             `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getSchedulesForMobile}`,
             {
               headers: {
@@ -87,34 +106,22 @@ export default function OfflineBookingScreen() {
               }
             }
           );
-          
-          if (response.data && response.data.isSuccess) {
-            const scheduleData = response.data.data;
+
+          if (schedulesResponse.data && schedulesResponse.data.isSuccess) {
+            const scheduleData = schedulesResponse.data.data;
             setMasterSchedules(scheduleData);
-            
+
             // Xử lý dữ liệu lịch để xác định ngày không khả dụng
             const unavailableDatesMap = {};
             const mastersByDatesMap = {}; // Lưu trữ masterIds theo ngày
-            const allMasterIds = new Set(); // Lưu trữ tất cả các masterId độc nhất
-            
-            // Thu thập tất cả các masterId
-            scheduleData.forEach(schedule => {
-              if (schedule.masterId) {
-                allMasterIds.add(schedule.masterId.trim());
-              }
-            });
-            
-            // Log số lượng master
-            console.log(`Số lượng master: ${allMasterIds.size}`);
-            console.log('Danh sách master:', [...allMasterIds]);
-            
+
             // Tổ chức dữ liệu theo ngày và masterId
             scheduleData.forEach(schedule => {
               const { date, type, masterId } = schedule;
               const trimmedMasterId = masterId ? masterId.trim() : null;
-              
+
               if (!date || !trimmedMasterId) return;
-              
+
               // Lưu trữ thông tin master theo ngày
               if (!mastersByDatesMap[date]) {
                 mastersByDatesMap[date] = {
@@ -123,17 +130,17 @@ export default function OfflineBookingScreen() {
                   both: new Set() // Lưu tất cả các master có lịch bất kể loại nào
                 };
               }
-              
+
               if (type === 'Offline') {
                 mastersByDatesMap[date].offline.add(trimmedMasterId);
               } else if (type === 'Online') {
                 mastersByDatesMap[date].online.add(trimmedMasterId);
               }
-              
+
               // Thêm master vào tập hợp 'both' bất kể loại lịch
               mastersByDatesMap[date].both.add(trimmedMasterId);
             });
-            
+
             // Log thông tin lịch theo ngày
             for (const [date, masters] of Object.entries(mastersByDatesMap)) {
               console.log(`Ngày ${date}:`);
@@ -142,18 +149,18 @@ export default function OfflineBookingScreen() {
               console.log(`- Tổng số master có lịch: ${masters.both.size}`);
               console.log(`- Master có lịch: `, [...masters.both]);
             }
-            
+
             // Kiểm tra từng ngày và đánh dấu ngày không khả dụng nếu tất cả master đều có lịch
             for (const [date, masters] of Object.entries(mastersByDatesMap)) {
               // Chỉ khi tất cả master đều có lịch vào ngày này
-              if (masters.both.size === allMasterIds.size) {
+              if (masters.both.size === allMasters.length) {
                 unavailableDatesMap[date] = true;
-                console.log(`Ngày ${date} bị bôi đen vì tất cả ${masters.both.size}/${allMasterIds.size} master đều có lịch`);
+                console.log(`Ngày ${date} bị bôi đen vì tất cả ${masters.both.size}/${allMasters.length} master đều có lịch`);
               } else {
-                console.log(`Ngày ${date} không bị bôi đen vì chỉ có ${masters.both.size}/${allMasterIds.size} master có lịch`);
+                console.log(`Ngày ${date} không bị bôi đen vì chỉ có ${masters.both.size}/${allMasters.length} master có lịch`);
               }
             }
-            
+
             setUnavailableDates(unavailableDatesMap);
           }
         } catch (error) {
