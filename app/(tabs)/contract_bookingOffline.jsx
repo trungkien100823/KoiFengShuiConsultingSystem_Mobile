@@ -13,6 +13,8 @@ import {
   TextInput,
   Alert,
   ImageBackground,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,8 +25,8 @@ import { getAuthToken } from '../../services/authService';
 import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const windowWidth = Dimensions.get('window').width;
-const windowHeight = Dimensions.get('window').height;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HEADER_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
 
 const ContractBookingOffline = () => {
   const router = useRouter();
@@ -409,8 +411,13 @@ const ContractBookingOffline = () => {
     if (!contractUrl) {
       return (
         <View style={styles.noContractContainer}>
-          <Ionicons name="document-outline" size={60} color="#666" />
-          <Text style={styles.noContractText}>Không tìm thấy hợp đồng</Text>
+          <View style={styles.noContractIconContainer}>
+            <Ionicons name="document-outline" size={64} color="#8B0000" />
+          </View>
+          <Text style={styles.noContractTitle}>Không tìm thấy hợp đồng</Text>
+          <Text style={styles.noContractSubtitle}>
+            Vui lòng thử lại sau hoặc liên hệ với chúng tôi để được hỗ trợ
+          </Text>
         </View>
       );
     }
@@ -507,9 +514,9 @@ const ContractBookingOffline = () => {
         style={styles.webView}
         containerStyle={styles.webViewContainer}
         renderLoading={() => (
-          <View style={styles.webViewLoadingContainer}>
+          <View style={styles.webViewLoading}>
             <ActivityIndicator size="large" color="#8B0000" />
-            <Text style={styles.loadingText}>Đang tải hợp đồng PDF...</Text>
+            <Text style={styles.loadingText}>Đang tải tài liệu...</Text>
           </View>
         )}
         startInLoadingState={true}
@@ -626,32 +633,36 @@ const ContractBookingOffline = () => {
     <Modal
       visible={otpModalVisible}
       transparent={true}
-      animationType="slide"
-      onRequestClose={() => {
-        // Luôn cho phép đóng modal bằng nút back
-        setOtpModalVisible(false);
-        setOtp('');
-        setOtpError('');
-      }}
+      animationType="fade"
+      onRequestClose={() => setOtpModalVisible(false)}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.otpModalContent}>
-          <Text style={styles.otpModalTitle}>Xác nhận ký hợp đồng</Text>
-          <Text style={styles.otpModalSubtitle}>Nhập mã OTP</Text>
+          <View style={styles.otpModalHeader}>
+            <Text style={styles.otpModalTitle}>Xác thực OTP</Text>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setOtpModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          
+          <Text style={styles.otpModalSubtitle}>
+            Vui lòng nhập mã OTP đã được gửi đến email của bạn
+          </Text>
           
           <TextInput
-            style={[
-              styles.otpInput,
-              otpError ? styles.otpInputError : null
-            ]}
+            style={[styles.otpInput, otpError && styles.otpInputError]}
             value={otp}
-            onChangeText={(text) => {
+            onChangeText={text => {
               setOtp(text);
               setOtpError('');
             }}
             keyboardType="number-pad"
             maxLength={6}
             placeholder="Nhập mã OTP"
+            placeholderTextColor="#999"
           />
           
           {otpError ? (
@@ -667,19 +678,14 @@ const ContractBookingOffline = () => {
 
           <View style={styles.otpButtonRow}>
             <TouchableOpacity
-              style={[styles.otpButton, styles.cancelButton]}
-              onPress={() => {
-                // Luôn đóng modal và reset state
-                setOtpModalVisible(false);
-                setOtp('');
-                setOtpError('');
-              }}
+              style={[styles.otpButton, styles.otpCancelButton]}
+              onPress={() => setOtpModalVisible(false)}
             >
-              <Text style={styles.otpButtonText}>Hủy</Text>
+              <Text style={styles.otpButtonText}>Hủy bỏ</Text>
             </TouchableOpacity>
-
+            
             <TouchableOpacity
-              style={[styles.otpButton, styles.confirmButton]}
+              style={[styles.otpButton, styles.otpConfirmButton]}
               onPress={handleConfirmOTP}
             >
               <Text style={styles.otpButtonText}>Xác nhận</Text>
@@ -698,39 +704,121 @@ const ContractBookingOffline = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ImageBackground
-        source={require('../../assets/images/feng shui.png')} 
-        style={styles.backgroundImage}
-        resizeMode="cover"
+      <StatusBar barStyle="light-content" backgroundColor="#590000" />
+      
+      {/* Enhanced Gradient Header */}
+      <LinearGradient
+        colors={['#590000', '#8B0000', '#AA1E23']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)/your_booking')}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
-            <Text style={styles.backButtonText}>Quay lại</Text>
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView style={styles.safeAreaHeader}>
+          <View style={styles.headerContainer}>
+            <View style={styles.headerContent}>
+              <TouchableOpacity 
+                style={styles.backButtonContainer}
+                onPress={() => router.push('/(tabs)/your_booking')}
+              >
+                <View style={styles.backButtonInner}>
+                  <Ionicons name="chevron-back" size={24} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+              
+              <View style={styles.titleContainer}>
+                <Text style={styles.headerTitle}>Hợp đồng tư vấn</Text>
+                <Text style={styles.headerSubtitle}>Xem và ký hợp đồng</Text>
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
-        {/* Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={styles.pageTitle}>Hợp đồng</Text>
-        </View>
-
-        {/* Contract Display Section */}
-        <View style={styles.contractContainer}>
+      {/* Main Content */}
+      <View style={styles.mainContent}>
+        {/* Contract Display */}
+        <View style={styles.contractWrapper}>
           {renderContract()}
         </View>
 
         {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          {renderActionButtons()}
-        </View>
+        {renderActionButtons() && (
+          <View style={styles.actionContainer}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.9)', '#fff']}
+              style={styles.actionGradient}
+            >
+              {renderActionButtons()}
+            </LinearGradient>
+          </View>
+        )}
+      </View>
 
-        {renderOTPModal()}
-      </ImageBackground>
+      {/* OTP Modal with enhanced design */}
+      <Modal
+        visible={otpModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setOtpModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.otpModalContent}>
+            <View style={styles.otpModalHeader}>
+              <Text style={styles.otpModalTitle}>Xác thực OTP</Text>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setOtpModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.otpModalSubtitle}>
+              Vui lòng nhập mã OTP đã được gửi đến email của bạn
+            </Text>
+            
+            <TextInput
+              style={[styles.otpInput, otpError && styles.otpInputError]}
+              value={otp}
+              onChangeText={text => {
+                setOtp(text);
+                setOtpError('');
+              }}
+              keyboardType="number-pad"
+              maxLength={6}
+              placeholder="Nhập mã OTP"
+              placeholderTextColor="#999"
+            />
+            
+            {otpError ? (
+              <Text style={styles.errorText}>{otpError}</Text>
+            ) : null}
+
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={handleResendOTP}
+            >
+              <Text style={styles.resendButtonText}>Gửi lại mã OTP</Text>
+            </TouchableOpacity>
+
+            <View style={styles.otpButtonRow}>
+              <TouchableOpacity
+                style={[styles.otpButton, styles.otpCancelButton]}
+                onPress={() => setOtpModalVisible(false)}
+              >
+                <Text style={styles.otpButtonText}>Hủy bỏ</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.otpButton, styles.otpConfirmButton]}
+                onPress={handleConfirmOTP}
+              >
+                <Text style={styles.otpButtonText}>Xác nhận</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -738,135 +826,181 @@ const ContractBookingOffline = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
   },
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-    backgroundColor: 'rgba(139, 0, 0, 0.3)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 8,
-    borderRadius: 20,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#FFF',
-    marginLeft: 5,
-  },
-  titleSection: {
-    padding: 20,
-    backgroundColor: 'rgba(139, 0, 0, 0.3)',
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  contractContainer: {
-    flex: 1,
-    margin: 0,
-    padding: 0,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    overflow: 'hidden',
+  headerGradient: {
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 8,
   },
-  imageContainer: {
-    padding: 10,
+  safeAreaHeader: {
+    backgroundColor: 'transparent',
+  },
+  headerContainer: {
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+  },
+  headerContent: {
+    height: Platform.OS === 'ios' ? 88 : 72,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 15,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  backButtonContainer: {
+    marginRight: 12,
+    borderRadius: 12,
     overflow: 'hidden',
   },
-  contractImage: {
-    width: windowWidth - 60,
-    height: windowHeight * 0.6,
-    borderRadius: 10,
+  backButtonInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  imageHint: {
-    textAlign: 'center',
-    color: '#666',
+  titleContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,
-    marginTop: 10,
-    marginBottom: 10,
-    fontStyle: 'italic',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  mainContent: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  contractWrapper: {
+    flex: 1,
+    margin: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  webViewContainer: {
+    flex: 1,
+    backgroundColor: '#FFF',
+  },
+  webView: {
+    flex: 1,
+  },
+  webViewLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 20,
   },
   loadingText: {
-    marginTop: 15,
+    marginTop: 12,
     fontSize: 16,
-    color: '#8B0000',
-    fontWeight: '600',
+    color: '#666',
+    textAlign: 'center',
   },
   noContractContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 20,
   },
-  noContractText: {
+  noContractIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  noContractTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  noContractSubtitle: {
     fontSize: 16,
-    color: '#8B0000',
-    marginTop: 10,
-    fontWeight: '600',
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
   },
-  buttonContainer: {
-    padding: 15,
-    backgroundColor: 'rgba(139, 0, 0, 0.3)',
-    backdropFilter: 'blur(10px)',
+  actionContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  actionGradient: {
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 15,
+    gap: 12,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 15,
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  rejectButton: {
-    backgroundColor: '#8B0000',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   approveButton: {
-    backgroundColor: '#006400',
+    backgroundColor: '#059669',
+  },
+  rejectButton: {
+    backgroundColor: '#DC2626',
   },
   signButton: {
-    backgroundColor: '#191970',
+    backgroundColor: '#1D4ED8',
   },
   buttonIcon: {
     marginRight: 8,
@@ -875,135 +1009,118 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  webView: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    margin: 0,
-    padding: 0,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  webViewContainer: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    margin: 0,
-    padding: 0,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  webViewLoadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   otpModalContent: {
-    backgroundColor: 'rgba(40, 40, 40, 0.95)',
-    borderRadius: 20,
-    padding: 25,
-    width: '90%',
+    width: SCREEN_WIDTH * 0.9,
     maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  otpModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   otpModalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFF',
-    textAlign: 'center',
-    marginBottom: 15,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    color: '#1F2937',
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
   },
   otpModalSubtitle: {
     fontSize: 16,
-    color: '#CCC',
-    textAlign: 'center',
-    marginBottom: 25,
+    color: '#666',
+    marginBottom: 24,
+    lineHeight: 24,
   },
   otpInput: {
     borderWidth: 2,
     borderColor: '#8B0000',
     borderRadius: 12,
-    padding: 15,
-    fontSize: 18,
-    marginBottom: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 16,
+    fontSize: 24,
     textAlign: 'center',
-    letterSpacing: 5,
-    color: '#FFF',
+    letterSpacing: 8,
+    backgroundColor: '#F9FAFB',
+    color: '#1F2937',
+    marginBottom: 16,
   },
   otpInputError: {
-    borderColor: '#FF3B30',
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
   },
   errorText: {
-    color: '#FF3B30',
+    color: '#DC2626',
     fontSize: 14,
-    marginBottom: 15,
     textAlign: 'center',
+    marginBottom: 16,
   },
   resendButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     alignSelf: 'center',
-    padding: 10,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   resendButtonText: {
-    color: '#CCC',
+    color: '#8B0000',
     fontSize: 16,
     fontWeight: '600',
   },
   otpButtonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 15,
+    gap: 12,
   },
   otpButton: {
     flex: 1,
-    padding: 15,
-    borderRadius: 25,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  cancelButton: {
-    backgroundColor: '#8B0000',
+  otpCancelButton: {
+    backgroundColor: '#EF4444',
   },
-  confirmButton: {
-    backgroundColor: '#006400',
+  otpConfirmButton: {
+    backgroundColor: '#059669',
   },
   otpButtonText: {
-    color: 'white',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
   },
 });
 

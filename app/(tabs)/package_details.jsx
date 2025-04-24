@@ -9,15 +9,19 @@ import {
   SafeAreaView,
   Dimensions,
   ActivityIndicator,
-  Alert
+  Alert,
+  Platform,
+  StatusBar,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function PackageDetailsScreen() {
   const router = useRouter();
@@ -123,265 +127,403 @@ export default function PackageDetailsScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#8B0000" />
+        <ImageBackground 
+          source={require('../../assets/images/feng shui.png')} 
+          style={styles.fullBackgroundImage}
+          imageStyle={{opacity: 0.15}}
+        >
+          <ActivityIndicator size="large" color="#8B0000" />
+        </ImageBackground>
       </View>
     );
   }
 
   return (
-    <ImageBackground 
-      source={require('../../assets/images/feng shui.png')}
-      style={styles.container}
-      imageStyle={styles.backgroundImage}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)/offline_package')}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#0C0000" />
+      <ImageBackground 
+        source={require('../../assets/images/feng shui.png')} 
+        style={styles.fullBackgroundImage}
+        imageStyle={{opacity: 0.12}}
+      >
+        <LinearGradient
+          colors={['rgba(26, 0, 0, 0.9)', 'rgba(36, 0, 0, 0.95)', 'rgba(12, 0, 0, 0.98)']}
+          style={styles.overlay}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.push('/(tabs)/offline_package')}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Chi tiết gói tư vấn</Text>
+          </View>
+
+          {packageDetails ? (
+            <ScrollView 
+              style={styles.scrollView}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <View style={styles.heroSection}>
+                <View style={styles.packageLabelContainer}>
+                  <Text style={styles.packageLabel}>Gói tư vấn phong thủy</Text>
+                </View>
+                <Text style={styles.packageTitle}>{packageDetails.title}</Text>
+                <View style={styles.decorativeLine} />
+                <Text style={styles.packageDescription}>
+                  {packageDetails.description}
+                </Text>
+              </View>
+
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardHeaderText}>Thông tin chi tiết</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.iconContainer}>
+                    <Ionicons name="people" size={22} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.infoTextContainer}>
+                    <Text style={styles.infoTitle}>Đối tượng</Text>
+                    <Text style={styles.infoContent}>{packageDetails.suitableFor}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.infoRow}>
+                  <View style={styles.iconContainer}>
+                    <Ionicons name="document-text" size={22} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.infoTextContainer}>
+                    <Text style={styles.infoTitle}>Thông tin cần cung cấp</Text>
+                    <Text style={styles.infoContent}>{packageDetails.requiredInfo}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.infoRow}>
+                  <View style={styles.iconContainer}>
+                    <Ionicons name="cash" size={22} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.infoTextContainer}>
+                    <Text style={styles.infoTitle}>Chi tiết giá</Text>
+                    <Text style={styles.infoContent}>{packageDetails.pricingDetails}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardHeaderText}>Lựa chọn chi phí</Text>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[
+                    styles.priceOption,
+                    selectedPrice === packageDetails.price && styles.priceOptionSelected
+                  ]}
+                  onPress={() => setSelectedPrice(packageDetails.price)}
+                >
+                  <View style={styles.radioContainer}>
+                    <View style={styles.radioButton}>
+                      {selectedPrice === packageDetails.price && 
+                        <View style={styles.radioButtonSelected} />
+                      }
+                    </View>
+                  </View>
+                  <View style={styles.priceOptionContent}>
+                    <Text style={styles.priceOptionValue}>{packageDetails.price?.toLocaleString()} VNĐ</Text>
+                    <Text style={styles.priceOptionLabel}>Mức cơ bản</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[
+                    styles.priceOption,
+                    selectedPrice === packageDetails.maxPrice && styles.priceOptionSelected
+                  ]}
+                  onPress={() => setSelectedPrice(packageDetails.maxPrice)}
+                >
+                  <View style={styles.radioContainer}>
+                    <View style={styles.radioButton}>
+                      {selectedPrice === packageDetails.maxPrice && 
+                        <View style={styles.radioButtonSelected} />
+                      }
+                    </View>
+                  </View>
+                  <View style={styles.priceOptionContent}>
+                    <Text style={styles.priceOptionValue}>{packageDetails.maxPrice?.toLocaleString()} VNĐ</Text>
+                    <Text style={styles.priceOptionLabel}>Mức cao cấp</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          ) : (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={50} color="#FFFFFF" />
+              <Text style={styles.errorText}>Không có thông tin gói tư vấn</Text>
+            </View>
+          )}
+          
+          <LinearGradient
+            colors={['rgba(12, 0, 0, 0)', 'rgba(12, 0, 0, 0.9)', '#0C0000']}
+            style={styles.buttonContainer}
           >
-            <Ionicons name="chevron-back-circle" size={32} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Offline Booking{'\n'}Confirmation</Text>
-        </View>
-
-        {packageDetails ? (
-          <ScrollView 
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.packageHeader}>
-              <Text style={styles.packageLabel}>Gói tư vấn</Text>
-              <Text style={styles.packageTitle}>{packageDetails.title}</Text>
-              <Text style={styles.packageDescription}>
-                {packageDetails.description}
-              </Text>
-            </View>
-
-            <View style={styles.infoSection}>
-              <View style={styles.infoRow}>
-                <Ionicons name="people-outline" size={24} color="#FFFFFF" />
-                <View style={styles.infoTextContainer}>
-                  <Text style={styles.infoTitle}>Đối tượng</Text>
-                  <Text style={styles.infoContent}>{packageDetails.suitableFor}</Text>
-                </View>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Ionicons name="document-text-outline" size={24} color="#FFFFFF" />
-                <View style={styles.infoTextContainer}>
-                  <Text style={styles.infoTitle}>Thông tin cần cung cấp</Text>
-                  <Text style={styles.infoContent}>{packageDetails.requiredInfo}</Text>
-                </View>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Ionicons name="cash-outline" size={24} color="#FFFFFF" />
-                <View style={styles.infoTextContainer}>
-                  <Text style={styles.infoTitle}>Chi tiết giá</Text>
-                  <Text style={styles.infoContent}>{packageDetails.pricingDetails}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.priceSection}>
-              <Text style={styles.priceLabel}>CHI PHÍ</Text>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.priceOption,
-                  selectedPrice === packageDetails.price && styles.priceOptionSelected
-                ]}
-                onPress={() => setSelectedPrice(packageDetails.price)}
-              >
-                <View style={styles.radioButton}>
-                  {selectedPrice === packageDetails.price && <View style={styles.radioButtonSelected} />}
-                </View>
-                <View style={styles.priceOptionContent}>
-                  <Text style={styles.priceOptionValue}>{packageDetails.price?.toLocaleString()} VNĐ</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[
-                  styles.priceOption,
-                  selectedPrice === packageDetails.maxPrice && styles.priceOptionSelected
-                ]}
-                onPress={() => setSelectedPrice(packageDetails.maxPrice)}
-              >
-                <View style={styles.radioButton}>
-                  {selectedPrice === packageDetails.maxPrice && <View style={styles.radioButtonSelected} />}
-                </View>
-                <View style={styles.priceOptionContent}>
-                  <Text style={styles.priceOptionValue}>{packageDetails.maxPrice?.toLocaleString()} VNĐ</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
             <TouchableOpacity 
               style={styles.bookingButton}
               onPress={handleBooking}
             >
-              <Text style={styles.bookingButtonText}>Xác nhận</Text>
+              <LinearGradient
+                colors={['#8B0000', '#A52A2A']}
+                style={styles.bookingButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.bookingButtonText}>Xác nhận đặt tư vấn</Text>
+                <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
+              </LinearGradient>
             </TouchableOpacity>
-          </ScrollView>
-        ) : (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Không có thông tin gói tư vấn</Text>
-          </View>
-        )}
-      </SafeAreaView>
-    </ImageBackground>
+          </LinearGradient>
+        </LinearGradient>
+      </ImageBackground>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1A0000',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#1A0000',
-  },
-  backgroundImage: {
-    opacity: 0.3,
-  },
   safeArea: {
     flex: 1,
+    backgroundColor: '#0C0000',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0C0000',
+  },
+  fullBackgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlay: {
+    flex: 1,
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 40,
+    paddingHorizontal: width * 0.05,
+    paddingVertical: height * 0.02,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   backButton: {
-    marginRight: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(139, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: width * 0.05,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginLeft: 15,
+    marginLeft: width * 0.03,
+    letterSpacing: 0.5,
   },
   scrollView: {
     flex: 1,
-    padding: 20,
   },
-  packageHeader: {
-    padding: 20,
+  scrollContent: {
+    paddingHorizontal: width * 0.05,
+    paddingBottom: height * 0.12,
+  },
+  heroSection: {
+    marginTop: height * 0.03,
+    marginBottom: height * 0.02,
+  },
+  packageLabelContainer: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: width * 0.03,
+    paddingVertical: height * 0.005,
+    backgroundColor: 'rgba(139, 0, 0, 0.25)',
+    borderRadius: 12,
+    marginBottom: height * 0.01,
   },
   packageLabel: {
-    fontSize: 16,
+    fontSize: width * 0.035,
     color: '#FFFFFF',
-    opacity: 0.8,
+    fontWeight: '600',
   },
   packageTitle: {
-    fontSize: 32,
+    fontSize: width * 0.075,
     fontWeight: 'bold',
-    color: '#FF4B2B',
-    marginVertical: 10,
+    color: '#FFFFFF',
+    marginBottom: height * 0.02,
+    letterSpacing: 0.5,
+  },
+  decorativeLine: {
+    width: width * 0.2,
+    height: 3,
+    backgroundColor: '#8B0000',
+    marginBottom: height * 0.02,
+    borderRadius: 2,
   },
   packageDescription: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    lineHeight: 24,
+    fontSize: width * 0.04,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: width * 0.06,
   },
-  infoSection: {
-    padding: 20,
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    marginTop: height * 0.025,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    paddingHorizontal: width * 0.05,
+    paddingVertical: height * 0.02,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(139, 0, 0, 0.25)',
+  },
+  cardHeaderText: {
+    fontSize: width * 0.045,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    paddingHorizontal: width * 0.05,
+    paddingVertical: height * 0.02,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(139, 0, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: width * 0.03,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 0, 0, 0.4)',
   },
   infoTextContainer: {
-    marginLeft: 15,
     flex: 1,
   },
   infoTitle: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 5,
+    marginBottom: height * 0.008,
   },
   infoContent: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    lineHeight: 24,
+    fontSize: width * 0.038,
+    color: 'rgba(255, 255, 255, 0.75)',
+    lineHeight: width * 0.058,
   },
-  priceSection: {
-    padding: 20,
-  },
-  priceLabel: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 10,
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginHorizontal: width * 0.05,
   },
   priceOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    padding: width * 0.05,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   priceOptionSelected: {
-    borderColor: '#FF4B2B',
-    backgroundColor: 'rgba(255, 75, 43, 0.1)',
+    backgroundColor: 'rgba(139, 0, 0, 0.2)',
+  },
+  radioContainer: {
+    marginRight: width * 0.04,
   },
   radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: width * 0.06,
+    height: width * 0.06,
+    borderRadius: width * 0.03,
     borderWidth: 2,
-    borderColor: '#FF4B2B',
+    borderColor: '#8B0000',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
   },
   radioButtonSelected: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#FF4B2B',
+    width: width * 0.04,
+    height: width * 0.04,
+    borderRadius: width * 0.02,
+    backgroundColor: '#8B0000',
   },
   priceOptionContent: {
     flex: 1,
   },
   priceOptionValue: {
-    fontSize: 20,
+    fontSize: width * 0.05,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 5,
+    marginBottom: 4,
+  },
+  priceOptionLabel: {
+    fontSize: width * 0.035,
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: width * 0.05,
+    paddingBottom: Platform.OS === 'ios' ? height * 0.04 : height * 0.02,
+    paddingTop: height * 0.05,
   },
   bookingButton: {
-    backgroundColor: '#FF4B2B',
-    margin: 20,
-    padding: 15,
-    borderRadius: 25,
+    borderRadius: 30,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  bookingButtonGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: height * 0.02,
   },
   bookingButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
+    marginRight: width * 0.02,
+    letterSpacing: 0.5,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: width * 0.05,
   },
   errorText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: width * 0.045,
     textAlign: 'center',
+    marginTop: height * 0.02,
   },
 }); 

@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, ImageBackground, ActivityIndicator, Alert } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Image, 
+  TouchableOpacity, 
+  ScrollView, 
+  SafeAreaView, 
+  ImageBackground, 
+  ActivityIndicator, 
+  Alert,
+  Dimensions,
+  StatusBar,
+  Platform
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { API_CONFIG } from '../../constants/config';
+
+const { width, height } = Dimensions.get('window');
 
 export default function ConsultantDetailsScreen() {
   const router = useRouter();
@@ -37,9 +53,13 @@ export default function ConsultantDetailsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#8B0000" />
-      </View>
+      <SafeAreaView style={styles.safeContainer}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B0000" />
+          <Text style={styles.loadingText}>Đang tải thông tin...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -58,6 +78,7 @@ export default function ConsultantDetailsScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <ImageBackground 
         source={consultant.imageUrl ? { uri: consultant.imageUrl } : require('../../assets/images/consultant1.jpg')}
         style={styles.backgroundImage}
@@ -72,7 +93,7 @@ export default function ConsultantDetailsScreen() {
               style={styles.backButton}
               onPress={() => router.push('/consulting')}
             >
-              <Ionicons name="chevron-back-circle" size={32} color="#FFF" />
+              <Ionicons name="chevron-back" size={24} color="#FFF" />
             </TouchableOpacity>
           </View>
 
@@ -86,14 +107,14 @@ export default function ConsultantDetailsScreen() {
                   />
                   <View style={styles.ratingBadge}>
                     <Ionicons name="star" size={16} color="#FFD700" />
-                    <Text style={styles.ratingText}>{consultant.rating}/5.0</Text>
+                    <Text style={styles.ratingText}>{consultant.rating || 0}/5.0</Text>
                   </View>
                 </View>
                 
                 <View style={styles.nameSection}>
-                  <Text style={styles.name}>{consultant.masterName}</Text>
+                  <Text style={styles.name}>{consultant.masterName || 'Chưa có tên'}</Text>
                   <View style={styles.titleContainer}>
-                    <Text style={styles.specialty}>{consultant.title}</Text>
+                    <Text style={styles.specialty}>{consultant.title || 'Chuyên gia'}</Text>
                   </View>
                 </View>
               </View>
@@ -102,7 +123,7 @@ export default function ConsultantDetailsScreen() {
               
               <View style={styles.bioSection}>
                 <Text style={styles.sectionTitle}>Giới thiệu</Text>
-                <Text style={styles.bio}>{consultant.biography}</Text>
+                <Text style={styles.bio}>{consultant.biography || 'Chưa cập nhật thông tin giới thiệu.'}</Text>
               </View>
               
               <View style={styles.infoSection}>
@@ -114,7 +135,7 @@ export default function ConsultantDetailsScreen() {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>Chuyên môn</Text>
-                      <Text style={styles.infoValue}>{consultant.expertise}</Text>
+                      <Text style={styles.infoValue}>{consultant.expertise || 'Chưa cập nhật'}</Text>
                     </View>
                   </View>
                   
@@ -124,7 +145,7 @@ export default function ConsultantDetailsScreen() {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>Kinh nghiệm</Text>
-                      <Text style={styles.infoValue}>{consultant.experience}</Text>
+                      <Text style={styles.infoValue}>{consultant.experience || 'Chưa cập nhật'}</Text>
                     </View>
                   </View>
                 </View>
@@ -162,9 +183,23 @@ export default function ConsultantDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
+  safeContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#8B0000',
+    marginTop: 12,
+    fontSize: 16,
   },
   backgroundImage: {
     flex: 1,
@@ -177,14 +212,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingHorizontal: width * 0.05,
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
     zIndex: 1,
   },
   backButton: {
-    padding: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -193,25 +232,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    marginTop: 200,
+    marginTop: height * 0.22,
     paddingTop: 20,
     minHeight: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
   },
   profileSection: {
     marginTop: -80,
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: width * 0.05,
   },
   profileImageContainer: {
     position: 'relative',
     marginBottom: 15,
   },
   profileImage: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: width * 0.35,
+    height: width * 0.35,
+    borderRadius: width * 0.175,
     borderWidth: 4,
     borderColor: '#FFF',
+    backgroundColor: '#e1e1e1',
   },
   ratingBadge: {
     position: 'absolute',
@@ -235,48 +280,50 @@ const styles = StyleSheet.create({
   nameSection: {
     alignItems: 'center',
     marginBottom: 20,
+    width: '100%',
   },
   name: {
-    fontSize: 24,
+    fontSize: width * 0.06,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
+    textAlign: 'center',
   },
   titleContainer: {
     backgroundColor: 'rgba(139, 0, 0, 0.1)',
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 20,
   },
   specialty: {
     color: '#8B0000',
-    fontSize: 16,
+    fontSize: width * 0.04,
     fontWeight: '600',
   },
   divider: {
     height: 1,
     backgroundColor: 'rgba(0,0,0,0.1)',
     marginVertical: 20,
-    marginHorizontal: 20,
+    marginHorizontal: width * 0.05,
   },
   bioSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: width * 0.05,
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 12,
   },
   bio: {
-    fontSize: 15,
+    fontSize: width * 0.038,
     color: '#666',
-    lineHeight: 24,
+    lineHeight: width * 0.06,
     textAlign: 'justify',
   },
   infoSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: width * 0.05,
     marginBottom: 100,
   },
   infoCard: {
@@ -296,35 +343,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    paddingVertical: 4,
   },
   infoIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(139, 0, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   infoContent: {
     flex: 1,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: width * 0.035,
     color: '#666',
     marginBottom: 4,
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: width * 0.04,
     color: '#333',
     fontWeight: '500',
   },
   bookingContainer: {
     position: 'absolute',
-    bottom: 30,
+    bottom: Platform.OS === 'ios' ? 30 : 20,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: width * 0.05,
   },
   bookingButton: {
     borderRadius: 25,
@@ -342,11 +390,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: Platform.OS === 'ios' ? 16 : 14,
   },
   bookingButtonText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
     marginRight: 8,
   },

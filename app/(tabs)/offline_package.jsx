@@ -8,7 +8,10 @@ import {
   ImageBackground, 
   SafeAreaView,
   ActivityIndicator,
-  Alert
+  Alert,
+  StatusBar,
+  Platform,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -16,6 +19,27 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
+
+// Refined color palette for elegance
+const COLORS = {
+  primary: '#8B0000', // Deep wine red
+  primaryLight: '#C1272D', // Lighter wine red for accents
+  primaryDark: '#4D0003', // Very dark red for depth
+  accent: '#D4AF37', // Gold accent color
+  white: '#FFFFFF',
+  cream: '#FFF8E1', // Warm cream for text on dark backgrounds
+  black: '#1A1A1A',
+  darkGray: '#333333',
+  mediumGray: '#888888',
+  lightGray: '#CCCCCC',
+  background: '#0E0000', // Very dark background
+  transparentDark: 'rgba(14, 0, 0, 0.92)',
+  overlay: 'rgba(14, 0, 0, 0.75)',
+  cardOverlay: 'rgba(14, 0, 0, 0.4)',
+};
 
 export default function OfflinePackageScreen() {
   const router = useRouter();
@@ -42,7 +66,6 @@ export default function OfflinePackageScreen() {
         return await fn();
       } catch (error) {
         if (i === maxRetries - 1) throw error;
-        // Tăng thời gian chờ giữa các lần retry
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
       }
     }
@@ -63,8 +86,6 @@ export default function OfflinePackageScreen() {
       }
 
       const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllConsultationPackages}`;
-
-      // Thêm delay trước khi gọi API để tránh race condition
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const makeRequest = async () => {
@@ -73,7 +94,7 @@ export default function OfflinePackageScreen() {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          timeout: 10000 // Giảm timeout xuống 10s
+          timeout: 10000
         });
       };
 
@@ -100,7 +121,19 @@ export default function OfflinePackageScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#8B0000" />
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.loadingGradient}
+        >
+          <View style={styles.logoContainer}>
+            <Ionicons name="calendar" size={width * 0.12} color={COLORS.accent} />
+            <ActivityIndicator size="large" color={COLORS.accent} style={{marginTop: height * 0.03}} />
+          </View>
+          <Text style={styles.loadingText}>Đang tải gói tư vấn...</Text>
+        </LinearGradient>
       </View>
     );
   }
@@ -111,50 +144,96 @@ export default function OfflinePackageScreen() {
       style={styles.container}
       imageStyle={styles.backgroundImage}
     >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.fixedHeader}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)/offline_booking')}
-          >
-            <Ionicons name="chevron-back-circle" size={32} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Đặt lịch tư vấn{'\n'}trực tiếp</Text>
-        </View>
-
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.sectionTitle}>Các gói tư vấn phong thủy</Text>
-
-          {consultingPackages.map((pkg) => (
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <LinearGradient
+        colors={['rgba(14, 0, 0, 0.85)', 'rgba(14, 0, 0, 0.7)', 'rgba(14, 0, 0, 0.6)']}
+        style={styles.overlay}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.headerContainer}>
             <TouchableOpacity 
-              key={pkg.consultationPackageId}
-              style={styles.packageCard}
-              onPress={() => router.push({
-                pathname: '/(tabs)/package_details',
-                params: { 
-                  packageId: pkg.consultationPackageId,
-                  packageTitle: pkg.packageName
-                }
-              })}
+              style={styles.backButton}
+              onPress={() => router.push('/(tabs)/offline_booking')}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
-              <ImageBackground
-                source={require('../../assets/images/koi_image.jpg')}
-                style={styles.packageImage}
-                imageStyle={styles.packageImageStyle}
+              <LinearGradient
+                colors={[COLORS.primary, COLORS.primaryDark]}
+                style={styles.backButtonGradient}
               >
-                <View style={styles.packageContent}>
-                  <Text style={styles.packageLabel}>Gói tư vấn</Text>
-                  <Text style={styles.packageTitle}>{pkg.packageName}</Text>
-                </View>
-              </ImageBackground>
+                <Ionicons name="arrow-back" size={width * 0.055} color={COLORS.white} />
+              </LinearGradient>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </SafeAreaView>
+            
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Đặt lịch tư vấn trực tiếp</Text>
+              <View style={styles.headerDivider} />
+            </View>
+          </View>
+
+          <ScrollView 
+            style={styles.scrollView}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.titleDecoration} />
+              <Text style={styles.sectionTitle}>Các gói tư vấn phong thủy</Text>
+            </View>
+
+            <View style={styles.packageGrid}>
+              {consultingPackages.map((pkg, index) => (
+                <TouchableOpacity 
+                  key={pkg.consultationPackageId}
+                  style={styles.packageCard}
+                  onPress={() => router.push({
+                    pathname: '/(tabs)/package_details',
+                    params: { 
+                      packageId: pkg.consultationPackageId,
+                      packageTitle: pkg.packageName
+                    }
+                  })}
+                  activeOpacity={0.92}
+                >
+                  <ImageBackground
+                    source={require('../../assets/images/koi_image.jpg')}
+                    style={styles.packageImage}
+                    imageStyle={styles.packageImageStyle}
+                  >
+                    <LinearGradient
+                      colors={['rgba(14, 0, 0, 0)', 'rgba(14, 0, 0, 0.7)', 'rgba(14, 0, 0, 0.9)']}
+                      style={styles.packageOverlay}
+                    >
+                      <View style={styles.packageHeader}>
+                        <View style={styles.packageTagContainer}>
+                          <Text style={styles.packageTag}>Phong thủy</Text>
+                        </View>
+                        
+                        <View style={styles.detailsButtonContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryLight]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.detailsButton}
+                          >
+                            <Text style={styles.detailsButtonText}>Xem chi tiết</Text>
+                            <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
+                          </LinearGradient>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.packageContent}>
+                        <View style={styles.packageTitleContainer}>
+                          <Text style={styles.packageTitle}>{pkg.packageName}</Text>
+                        </View>
+                      </View>
+                    </LinearGradient>
+                  </ImageBackground>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
     </ImageBackground>
   );
 }
@@ -162,103 +241,173 @@ export default function OfflinePackageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A0000',
+    backgroundColor: COLORS.background,
   },
   backgroundImage: {
-    opacity: 0.3,
+    opacity: 0.4,
+  },
+  overlay: {
+    flex: 1,
   },
   safeArea: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  headerContainer: {
+    paddingTop: Platform.OS === 'ios' ? height * 0.05 : height * 0.03,
+    paddingBottom: height * 0.02,
+    paddingHorizontal: width * 0.05,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: width * 0.03,
+  },
+  backButtonGradient: {
+    width: width * 0.11,
+    height: width * 0.11,
+    borderRadius: width * 0.055,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: width * 0.055,
+    color: COLORS.cream,
+    fontWeight: '600',
+  },
+  headerDivider: {
+    width: width * 0.3,
+    height: 2,
+    backgroundColor: COLORS.accent,
+    marginTop: height * 0.01,
   },
   scrollView: {
     flex: 1,
-    marginTop: 120,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingHorizontal: width * 0.05,
+    paddingTop: height * 0.02,
+    paddingBottom: height * 0.08,
   },
-  fixedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
+  sectionTitleContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 70,
-    paddingBottom: 30,
-    backgroundColor: 'rgba(26, 0, 0, 0.8)',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: height * 0.025,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: 10,
-    lineHeight: 32,
+  titleDecoration: {
+    width: 4,
+    height: height * 0.03,
+    backgroundColor: COLORS.accent,
+    marginRight: width * 0.02,
+    borderRadius: 2,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 20,
+    fontSize: width * 0.05,
+    fontWeight: '600',
+    color: COLORS.white,
+    letterSpacing: 0.5,
+  },
+  packageGrid: {
+    width: '100%',
   },
   packageCard: {
     width: '100%',
-    aspectRatio: 1,
-    marginBottom: 20,
-    borderRadius: 10,
+    height: height * 0.4,
+    marginBottom: height * 0.03,
+    borderRadius: width * 0.04,
     overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    elevation: 6,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
   packageImage: {
     width: '100%',
     height: '100%',
   },
   packageImageStyle: {
-    borderRadius: 10,
+    borderRadius: width * 0.04,
+  },
+  packageOverlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: width * 0.04,
+  },
+  packageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  packageTagContainer: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(212, 175, 55, 0.8)',
+    paddingVertical: height * 0.006,
+    paddingHorizontal: width * 0.025,
+    borderRadius: width * 0.03,
+  },
+  packageTag: {
+    color: COLORS.black,
+    fontSize: width * 0.032,
+    fontWeight: '600',
   },
   packageContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    paddingBottom: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    width: '100%',
   },
-  packageLabel: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    opacity: 0.8,
-    marginBottom: 4,
+  packageTitleContainer: {
+    marginBottom: height * 0.01,
   },
   packageTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
+    color: COLORS.white,
+    fontSize: width * 0.1,
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
+  },
+  detailsButtonContainer: {
+    alignSelf: 'flex-start',
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: height * 0.008,
+    paddingHorizontal: width * 0.035,
+    borderRadius: width * 0.06,
+  },
+  detailsButtonText: {
+    color: COLORS.white,
+    fontSize: width * 0.032,
+    fontWeight: '600',
+    marginRight: width * 0.01,
   },
   loadingContainer: {
     flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  loadingGradient: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1A0000',
+    padding: width * 0.05,
+  },
+  logoContainer: {
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: COLORS.cream,
+    fontSize: width * 0.045,
+    marginTop: height * 0.03,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
