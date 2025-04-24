@@ -34,8 +34,8 @@ const isIOS = Platform.OS === 'ios';
 
 // Define this constant with your other constants 
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 
-  (Platform.isPad ? 20 : RNStatusBar.currentHeight || 44) : 
-  RNStatusBar.currentHeight || 0;
+  (Platform.isPad ? 20 : 44) : 
+  StatusBar.currentHeight || 0;
 
 // Thêm các mã thông báo API response
 const API_RESPONSE_MESSAGES = {
@@ -116,126 +116,132 @@ const VideoPlayer = ({ videoUrl, onComplete }) => {
   const retryCount = useRef(0);
   const maxRetries = 3;
 
-  const videoProps = Platform.select({
-    ios: {
-      useNativeControls: true,
-      resizeMode: ResizeMode.CONTAIN,
-      shouldPlay: false,
-      isLooping: false,
-      isMuted: false,
-      volume: 1.0,
-      playsInSilentModeIOS: true, // Quan trọng cho iOS
-      progressUpdateIntervalMillis: 1000,
-      positionMillis: 0,
-      ignoreSilentSwitch: "ignore" // Cho phép video chạy ngay cả khi ở chế độ im lặng
-    },
-    android: {
-      useNativeControls: true,
-      resizeMode: ResizeMode.CONTAIN,
-      shouldPlay: false,
-      isLooping: false,
-      isMuted: false,
-      volume: 1.0,
-      progressUpdateIntervalMillis: 1000,
-      positionMillis: 0,
+  // Clean and normalize the URL
+  const processedVideoUrl = useMemo(() => {
+    if (!videoUrl) return null;
+    
+    // Clean and normalize the URL
+    let url = videoUrl.trim();
+    
+    // Ensure HTTPS
+    if (url.startsWith('http:')) {
+      url = url.replace('http:', 'https:');
     }
-  });
-
-  // Xử lý URL video
-  const processedVideoUrl = useMemo(() => processVideoUrl(videoUrl), [videoUrl]);
-
-  // Xử lý khi video kết thúc
-  const handlePlaybackStatusUpdate = (status) => {
-    setVideoStatus(status);
-    if (status.isLoaded) {
-      setLoading(false);
-      setError(false);
-      
-      if (status.didJustFinish && !hasShownCompletionAlert.current) {
-        hasShownCompletionAlert.current = true;
-        Alert.alert(
-          "Hoàn thành bài học",
-          "Bạn đã hoàn thành bài học này. Xác nhận để lưu tiến độ?",
-          [
-            {
-              text: "Xác nhận",
-              onPress: () => onComplete && onComplete()
-            },
-            {
-              text: "Hủy",
-              style: "cancel",
-              onPress: () => {
-                hasShownCompletionAlert.current = false;
-              }
-            }
-          ]
-        );
+    
+    // For Cloudinary URLs, optimize for mobile playback
+    if (url.includes('cloudinary.com')) {
+      // Extract the base URL and file path
+      const urlParts = url.split('/upload/');
+      if (urlParts.length === 2) {
+        // Add optimization parameters for Cloudinary
+        url = `${urlParts[0]}/upload/q_auto,f_auto,fl_progressive/` + urlParts[1];
       }
     }
-  };
+    
+    // Add cache buster
+    const cacheBuster = `_cb=${Date.now()}`;
+    url = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
+    
+    console.log('Optimized video URL:', url);
+    return url;
+  }, [videoUrl]);
 
-  // Reset các state khi URL thay đổi
+  // Reset when URL changes
   useEffect(() => {
     hasShownCompletionAlert.current = false;
     retryCount.current = 0;
     setError(false);
     setLoading(true);
     
+    console.log('Video URL changed to:', videoUrl);
+    
+    // Add a slight delay before loading to avoid race conditions
+    const loadTimer = setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.loadAsync(
+          { uri: processedVideoUrl },
+          { shouldPlay: true },
+          false
+        ).catch(err => {
+          console.error('Error in initial video load:', err);
+        });
+      }
+    }, 1000);
+    
     return () => {
+      clearTimeout(loadTimer);
       if (videoRef.current) {
         videoRef.current.unloadAsync();
       }
     };
-  }, [videoUrl]);
+  }, [videoUrl, processedVideoUrl]);
 
-  // Xử lý retry khi video lỗi
+  // Handle playback status updates
+  const handlePlaybackStatusUpdate = (status) => {
+    setVideoStatus(status);
+    
+    // Log detailed status for debugging
+    if (!status.isLoaded && !loading) {
+      console.log('Video failed to load:', status);
+    }
+    
+    if (status.isLoaded) {
+      if (loading) {
+        console.log('Video loaded successfully');
+        setLoading(false);
+        setError(false);
+      }
+      
+      // Handle video completion
+      if (status.didJustFinish && !hasShownCompletionAlert.current) {
+        hasShownCompletionAlert.current = true;
+        onComplete && onComplete();
+      }
+    } else if (status.error) {
+      console.error('Video playback error:', status.error);
+      setError(true);
+      setLoading(false);
+      setErrorMessage(`Error: ${status.error}`);
+    }
+  };
+
+  // Function to retry loading the video
   const handleRetry = async () => {
     if (retryCount.current >= maxRetries) {
       setError(true);
-      setErrorMessage('Đã thử lại nhiều lần không thành công. Vui lòng kiểm tra kết nối mạng và thử lại sau.');
+      setErrorMessage('Maximum retry attempts reached. Please check your internet connection or try again later.');
       return;
     }
 
+    retryCount.current += 1;
+    console.log(`Retrying video playback (${retryCount.current}/${maxRetries})...`);
+    
+    setError(false);
+    setLoading(true);
+    
     if (videoRef.current) {
-      retryCount.current += 1;
-      setError(false);
-      setLoading(true);
-      
       try {
         await videoRef.current.unloadAsync();
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Đợi 1 giây
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Add a new cache buster on each retry
+        const retryCacheBuster = `_retry=${Date.now()}`;
+        const retryUrl = processedVideoUrl.includes('?') 
+          ? `${processedVideoUrl}&${retryCacheBuster}` 
+          : `${processedVideoUrl}?${retryCacheBuster}`;
+        
+        console.log('Retrying with URL:', retryUrl);
         
         await videoRef.current.loadAsync(
-          {
-            uri: processedVideoUrl,
-            headers: {
-              'Accept': '*/*',
-              'Accept-Encoding': 'gzip, deflate, br',
-              'Accept-Language': 'en-US,en;q=0.9',
-              'Origin': 'https://iframe.mediadelivery.net',
-              'Referer': 'https://iframe.mediadelivery.net/',
-              'User-Agent': Platform.select({
-                ios: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
-                android: 'Mozilla/5.0 (Linux; Android 10; SM-A505F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.105 Mobile Safari/537.36'
-              }),
-              'Connection': 'keep-alive',
-              'Range': 'bytes=0-'
-            }
-          },
-          {
-            shouldPlay: false,
-            isLooping: false,
-            isMuted: false,
-            volume: 1.0,
-            progressUpdateIntervalMillis: 1000,
-            positionMillis: 0,
-          },
+          { uri: retryUrl },
+          { shouldPlay: true },
           false
         );
-      } catch (error) {
-        console.error('Lỗi khi tải lại video:', error);
+      } catch (err) {
+        console.error('Error reloading video:', err);
         setError(true);
-        setErrorMessage(`Không thể tải video (Lần thử ${retryCount.current}/${maxRetries}). ${error.message}`);
+        setLoading(false);
+        setErrorMessage(`Failed to reload video: ${err.message}`);
       }
     }
   };
@@ -245,7 +251,7 @@ const VideoPlayer = ({ videoUrl, onComplete }) => {
       <View style={styles.videoWrapper}>
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Đang tải video...</Text>
+          <Text style={styles.loadingText}>Waiting for video source...</Text>
         </View>
       </View>
     );
@@ -260,40 +266,35 @@ const VideoPlayer = ({ videoUrl, onComplete }) => {
           uri: processedVideoUrl,
           headers: {
             'Accept': '*/*',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Origin': 'https://iframe.mediadelivery.net',
-            'Referer': 'https://iframe.mediadelivery.net/',
             'User-Agent': Platform.select({
-              ios: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',  // Cập nhật lên iOS 15.0
-              android: 'Mozilla/5.0 (Linux; Android 10; SM-A505F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.105 Mobile Safari/537.36'
-            }),
-            'Connection': 'keep-alive',
-            'Range': 'bytes=0-'
+              ios: 'AppleCoreMedia/1.0.0',
+              android: 'ExoPlayer'
+            })
           }
         }}
-        useNativeControls
+        useNativeControls={true}
         resizeMode={ResizeMode.CONTAIN}
-        shouldPlay={false}
-        isLooping={false}
-        isMuted={false}
+        shouldPlay={true}
+        posterSource={{ uri: 'https://via.placeholder.com/640x360/000000/FFFFFF?text=Loading+Video' }}
+        usePoster={true}
         volume={1.0}
+        rate={1.0}
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
         onLoadStart={() => {
-          console.log('Bắt đầu tải video:', processedVideoUrl);
+          console.log('Video load started');
           setLoading(true);
           setError(false);
         }}
         onLoad={() => {
-          console.log('Video đã tải xong');
+          console.log('Video loaded');
           setLoading(false);
           setError(false);
         }}
         onError={(error) => {
-          console.error('Lỗi khi tải video:', error);
+          console.error('Video loading error:', error);
           setError(true);
           setLoading(false);
-          setErrorMessage(`Không thể tải video. ${error.message || 'Vui lòng thử lại sau.'}`);
+          setErrorMessage(`Unable to load video: ${error}`);
         }}
       />
 
@@ -301,11 +302,11 @@ const VideoPlayer = ({ videoUrl, onComplete }) => {
         <View style={[styles.overlay, styles.loadingOverlay]}>
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>
-            {error ? 'Đang thử lại...' : 'Đang tải video...'}
+            {error ? 'Retrying...' : 'Loading video...'}
           </Text>
           {retryCount.current > 0 && (
             <Text style={styles.retryText}>
-              Lần thử {retryCount.current}/{maxRetries}
+              Attempt {retryCount.current}/{maxRetries}
             </Text>
           )}
         </View>
@@ -320,7 +321,7 @@ const VideoPlayer = ({ videoUrl, onComplete }) => {
               onPress={handleRetry}
             >
               <Text style={styles.retryText}>
-                Thử lại ({retryCount.current}/{maxRetries})
+                Retry ({retryCount.current}/{maxRetries})
               </Text>
             </TouchableOpacity>
           )}
@@ -869,91 +870,71 @@ export default function CourseVideoScreen() {
 
   // Handle video progress update
   const updateProgress = async () => {
-    // Kiểm tra nếu chapter đã hoàn thành thì không hiển thị alert
+    // Only show alert if not already completed
     if (params.status === "Done" || isCompleted) {
-      console.log('Chapter đã hoàn thành, không cần cập nhật tiến độ');
+      console.log('Chapter already completed, no need to update progress');
       return;
     }
 
-    Alert.alert(
-      "Hoàn thành bài học",
-      "Bạn đã hoàn thành bài học này. Xác nhận để lưu tiến độ?",
-      [
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert("Error", "Please login again");
+        return;
+      }
+
+      console.log('Sending progress update request...');
+      const response = await axios.put(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', chapterId)}`,
+        {},
         {
-          text: "Xác nhận",
-          onPress: async () => {
-            try {
-              const token = await AsyncStorage.getItem('accessToken');
-              if (!token) {
-                Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
-                return;
-              }
-
-              console.log('Đang gửi request cập nhật tiến độ...');
-              const response = await axios.put(
-                `${API_CONFIG.baseURL}${API_CONFIG.endpoints.updateProccessCourse.replace('{chapterId}', chapterId)}`,
-                {},
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                }
-              );
-
-              console.log('Kết quả từ API:', response.data);
-
-              if (response.data?.isSuccess) {
-                setChapterStatus("Done");
-                // Hiển thị thông báo thành công và chuyển hướng
-                Alert.alert(
-                  "Thành công",
-                  "Đã cập nhật tiến độ học tập",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => {
-                        console.log('Đang chuyển về màn hình chapter...');
-                        // Chuyển về màn hình chapter
-                        router.replace({
-                          pathname: '/(tabs)/course_chapter',
-                          params: { 
-                            courseId: courseId,
-                            shouldRefresh: Date.now()
-                          }
-                        });
-                      }
-                    }
-                  ],
-                  { cancelable: false }
-                );
-              } else {
-                Alert.alert(
-                  "Lỗi",
-                  response.data?.message || "Không thể cập nhật tiến độ",
-                  [{ text: "OK" }]
-                );
-              }
-            } catch (error) {
-              console.error('Lỗi khi cập nhật tiến độ:', error);
-              Alert.alert(
-                "Lỗi",
-                "Không thể cập nhật tiến độ. Vui lòng thử lại sau.",
-                [{ text: "OK" }]
-              );
-            }
-          }
-        },
-        {
-          text: "Hủy",
-          style: "cancel",
-          onPress: () => {
-            // Reset biến hasShownCompletionAlert khi người dùng hủy
-            hasShownCompletionAlert.current = false;
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
         }
-      ]
-    );
+      );
+
+      console.log('API response:', response.data);
+
+      if (response.data?.isSuccess) {
+        setChapterStatus("Done");
+        // Show success message and navigate
+        Alert.alert(
+          "Success",
+          "Your progress has been updated",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                console.log('Navigating back to chapter screen...');
+                router.replace({
+                  pathname: '/(tabs)/course_chapter',
+                  params: { 
+                    courseId: courseId,
+                    shouldRefresh: Date.now()
+                  }
+                });
+              }
+            }
+          ],
+          { cancelable: false }
+        );
+      } else {
+        Alert.alert(
+          "Error",
+          response.data?.message || "Unable to update progress",
+          [{ text: "OK" }]
+        );
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      Alert.alert(
+        "Error",
+        "Unable to update progress. Please try again later.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   const handleBack = () => {
@@ -1005,6 +986,15 @@ export default function CourseVideoScreen() {
 
   // Function to render the video player or error message
   const renderVideoComponent = (videoUrl) => {
+    if (!videoUrl) {
+      return (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.loadingText}>No video URL available</Text>
+        </View>
+      );
+    }
+    
     return (
       <VideoPlayer 
         videoUrl={videoUrl} 
@@ -1269,14 +1259,11 @@ export default function CourseVideoScreen() {
         {/* Video Player Container */}
         <View style={styles.videoContainer}>
           {chapterData?.video ? (
-            <VideoPlayer 
-              videoUrl={chapterData.video} 
-              onComplete={handleVideoComplete}
-            />
+            renderVideoComponent(chapterData.video)
           ) : (
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.loadingText}>Đang tải video...</Text>
+              <Text style={styles.loadingText}>Loading video information...</Text>
             </View>
           )}
         </View>
@@ -1446,6 +1433,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: '#000',
+    overflow: 'hidden',
   },
   playerWrapper: {
     width: '100%',
@@ -1663,5 +1651,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     position: 'relative',
     overflow: 'hidden',
+  },
+  video: {
+    flex: 1,
+    backgroundColor: '#000',
+    width: '100%',
+    height: '100%',
   },
 });
