@@ -9,11 +9,16 @@ import {
   Image,
   ActivityIndicator,
   StatusBar,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { images } from '../../constants/images';
 import { certificateService } from '../../services/certificateService';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+
+const { width, height } = Dimensions.get('window');
 
 export default function CertificateDetailsScreen() {
   const router = useRouter();
@@ -24,7 +29,14 @@ export default function CertificateDetailsScreen() {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [learningItems, setLearningItems] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
 
+  // Animated values for zoom
+  const scale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  
   useEffect(() => {
     fetchCertificateDetails();
   }, [id]);
@@ -58,6 +70,59 @@ export default function CertificateDetailsScreen() {
   const handleImageError = () => {
     setImageLoading(false);
     setImageError(true);
+  };
+
+  const toggleZoom = (event) => {
+    // Lấy tọa độ nhấn trên màn hình
+    const { locationX, locationY } = event.nativeEvent;
+    
+    // Tính toán vị trí trung tâm của vùng hiển thị
+    const centerX = width / 2;
+    const centerY = height * 0.35; // Điều chỉnh để phù hợp với vị trí của ảnh
+
+    if (!isZoomed) {
+      // Tính toán vị trí dịch chuyển để điểm nhấn trở thành trung tâm khi zoom
+      const newTranslateX = (centerX - locationX) * 1.5;
+      const newTranslateY = (centerY - locationY) * 1.5;
+      
+      translateX.value = withTiming(newTranslateX, { duration: 300 });
+      translateY.value = withTiming(newTranslateY, { duration: 300 });
+      scale.value = withTiming(2.5, { duration: 300 });
+    } else {
+      // Trở về vị trí ban đầu
+      translateX.value = withTiming(0, { duration: 300 });
+      translateY.value = withTiming(0, { duration: 300 });
+      scale.value = withTiming(1, { duration: 300 });
+    }
+    
+    setIsZoomed(!isZoomed);
+  };
+
+  const rStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { scale: scale.value },
+      ],
+    };
+  });
+
+  const handleOpenModal = () => {
+    setModalVisible(true);
+    setIsZoomed(false);
+    scale.value = 1;
+    translateX.value = 0;
+    translateY.value = 0;
+  };
+
+  const formatPoint = (point) => {
+    // Nếu điểm là 100 hoặc bằng 100 (có thể có dạng 100.00, 100.0)
+    if (Math.floor(point) === 100) {
+      return "100/100";
+    }
+    // Ngược lại, giữ nguyên giá trị
+    return `${point}/100`;
   };
 
   if (loading) {
@@ -105,7 +170,11 @@ export default function CertificateDetailsScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        <View style={styles.certificateContainer}>
+        <TouchableOpacity 
+          style={styles.certificateContainer}
+          onPress={handleOpenModal}
+          activeOpacity={0.9}
+        >
           {imageLoading && (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#8B0000" />
@@ -121,10 +190,12 @@ export default function CertificateDetailsScreen() {
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
-          {imageError && (
+          {imageError ? (
             <Text style={styles.errorText}>Không thể tải hình ảnh chứng chỉ</Text>
+          ) : (
+            <Text style={styles.zoomHint}>Nhấn vào ảnh để xem</Text>
           )}
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.detailsContainer}>
           <Text style={styles.title}>{certificate.courseName}</Text>
@@ -141,14 +212,14 @@ export default function CertificateDetailsScreen() {
 
           <View style={styles.infoRow}>
             <Ionicons name="trophy" size={20} color="#666" />
-            <Text style={styles.infoText}>Điểm số: {certificate.point}/10</Text>
+            <Text style={styles.infoText}>Điểm số: {formatPoint(certificate.point)}</Text>
           </View>
 
           <Text style={styles.sectionTitle}>Mô tả khóa học</Text>
           <Text style={styles.description}>{certificate.description}</Text>
 
           <Text style={styles.sectionTitle}>Bạn đã học được</Text>
-          <View style={styles.section}>
+          <View style={styles.learningSection}>
             {learningItems.length > 0 ? (
               learningItems.map((item, index) => (
                 <View key={index} style={styles.learningItem}>
@@ -169,6 +240,36 @@ export default function CertificateDetailsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => setModalVisible(false)}
+          >
+            <Ionicons name="close-circle" size={40} color="#FFF" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            activeOpacity={0.9}
+            style={styles.modalImageWrapper}
+            onPress={toggleZoom}
+          >
+            <Animated.View style={[styles.modalImageContainer, rStyle]}>
+              <Image
+                source={certificate.certificateImageUrl ? { uri: certificate.certificateImageUrl } : images['buddha.png']}
+                style={styles.modalImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -229,6 +330,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  zoomHint: {
+    color: '#8B0000',
+    marginTop: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    fontSize: 14,
+  },
   detailsContainer: {
     padding: 16,
     backgroundColor: '#fff',
@@ -286,24 +394,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
   },
-  section: {
-    padding: 16,
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+  learningSection: {
+    paddingTop: 10,
+    gap: 10,
   },
   learningItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
     backgroundColor: '#FFF',
     padding: 10,
     borderRadius: 8,
@@ -324,5 +421,34 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
     lineHeight: 24,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 2,
+  },
+  modalImageWrapper: {
+    width: width,
+    height: height * 0.8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  modalImageContainer: {
+    width: width,
+    height: height * 0.7,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalImage: {
+    width: '90%',
+    height: '90%',
   },
 }); 
