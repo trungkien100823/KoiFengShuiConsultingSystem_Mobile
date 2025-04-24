@@ -12,18 +12,20 @@ import {
   Alert,
   ActivityIndicator,
   Image,
-  Platform
+  Platform,
+  Modal
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { authAPI } from '../../constants/auth';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { navigate } from 'expo-router/build/global-state/routing';
 
 // Add this function to reset all form fields to their initial state
 const getInitialState = () => ({
@@ -77,8 +79,8 @@ export default function RegisterScreen() {
   };
 
   const handleLogin = () => {
-    router.push('/login');
-  };
+    router.push('/(tabs)/Login');
+    };
 
   const checkInputType = (text) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -403,30 +405,67 @@ export default function RegisterScreen() {
                   <Ionicons name="calendar-outline" size={22} color="#8B0000" />
                 </TouchableOpacity>
                 
-                {showDatePicker && Platform.OS === 'ios' && (
-                  <DateTimePicker
-                    value={dob}
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                    maximumDate={new Date()}
-                  />
-                )}
-
-                {showDatePicker && Platform.OS === 'android' && (
-                  <DateTimePicker
-                    testID="dateTimePicker"
-                    value={dob}
-                    mode="date"
-                    display="default"
-                    onChange={(event, selectedDate) => {
-                      updateFormState('showDatePicker', false);
-                      if (selectedDate) {
-                        updateFormState('dob', selectedDate);
-                      }
-                    }}
-                    maximumDate={new Date()}
-                  />
+                {showDatePicker && (
+                  Platform.OS === 'android' ? (
+                    <DateTimePicker
+                      testID="dateTimePicker"
+                      value={dob}
+                      mode="date"
+                      is24Hour={true}
+                      display="default"
+                      onChange={(event, selectedDate) => {
+                        updateFormState('showDatePicker', false);
+                        if (selectedDate) {
+                          updateFormState('dob', selectedDate);
+                        }
+                      }}
+                      maximumDate={new Date()}
+                    />
+                  ) : (
+                    <View style={{
+                      backgroundColor: 'white', 
+                      padding: 10,
+                      marginTop: 10,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: '#ddd'
+                    }}>
+                      <DateTimePicker
+                        testID="dateTimePicker"
+                        value={dob}
+                        mode="date"
+                        is24Hour={true}
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                          if (selectedDate) {
+                            updateFormState('dob', selectedDate);
+                          }
+                        }}
+                        maximumDate={new Date()}
+                        textColor="#333" 
+                        style={{height: 200}}
+                      />
+                      <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'flex-end',
+                        borderTopWidth: 1,
+                        borderTopColor: '#ddd',
+                        paddingTop: 8
+                      }}>
+                        <TouchableOpacity 
+                          onPress={() => updateFormState('showDatePicker', false)}
+                          style={{
+                            paddingVertical: 8,
+                            paddingHorizontal: 15,
+                            backgroundColor: '#8B0000',
+                            borderRadius: 6
+                          }}
+                        >
+                          <Text style={{color: 'white', fontWeight: 'bold'}}>Đồng ý</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )
                 )}
               </View>
 
@@ -530,14 +569,14 @@ export default function RegisterScreen() {
               </TouchableOpacity>
 
               <View style={styles.signInContainer}>
-                <TouchableOpacity onPress={handleLogin}>
-                  <Text style={styles.signInText}>
-                    Đã có tài khoản?{' '}
+                <Text style={styles.signInText}>
+                  Đã có tài khoản?{' '}
+                  <TouchableOpacity onPress={handleLogin}>
                     <Text style={styles.signInLink}>
                       Đăng nhập
                     </Text>
-                  </Text>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </Text>
               </View>
             </View>
           </ScrollView>

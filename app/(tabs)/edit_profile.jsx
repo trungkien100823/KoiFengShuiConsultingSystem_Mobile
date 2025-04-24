@@ -22,13 +22,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { getAuthToken } from '../../services/authService';
 import { API_CONFIG } from '../../constants/config';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 // Ngũ hành colors
 const elementColors = {
@@ -1655,48 +1655,66 @@ export default function EditProfileScreen() {
                 </TouchableOpacity>
                 
                 {showDatePicker && (
-                  <View>
-                    {Platform.OS === 'ios' ? (
-                      <Modal
-                        transparent={true}
-                        visible={showDatePicker}
-                        animationType="slide"
-                      >
-                        <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
-                          <View style={{flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)'}}>
-                            <TouchableWithoutFeedback>
-                              <View style={{backgroundColor: 'white', borderTopLeftRadius: 15, borderTopRightRadius: 15, padding: 15}}>
-                                <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10}}>
-                                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                                    <Text style={{color: '#8B0000', fontSize: 16}}>Đóng</Text>
-                                  </TouchableOpacity>
-                                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                                    <Text style={{color: '#8B0000', fontSize: 16, fontWeight: 'bold'}}>Xong</Text>
-                                  </TouchableOpacity>
-                                </View>
-                                <Text style={{textAlign: 'center', marginTop: 10, marginBottom: 15}}>
-                                  Chọn ngày sinh: {dob.toLocaleDateString('vi-VN')}
-                                </Text>
-                              </View>
-                            </TouchableWithoutFeedback>
-                          </View>
-                        </TouchableWithoutFeedback>
-                      </Modal>
-                    ) : (
-                      // For Android, we'll render a simplified date picker screen
-                      <View style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999}}>
-                        <View style={{margin: 20, backgroundColor: 'white', borderRadius: 10, padding: 20}}>
-                          <Text style={{fontSize: 18, textAlign: 'center', marginBottom: 20}}>Chọn ngày sinh</Text>
-                          <TouchableOpacity 
-                            style={{backgroundColor: '#8B0000', padding: 10, borderRadius: 5, alignItems: 'center'}}
-                            onPress={() => setShowDatePicker(false)}
-                          >
-                            <Text style={{color: 'white'}}>Đóng</Text>
-                          </TouchableOpacity>
-                        </View>
+                  Platform.OS === 'android' ? (
+                    <DateTimePicker
+                      testID="dateTimePicker"
+                      value={dob}
+                      mode="date"
+                      is24Hour={true}
+                      display="default"
+                      onChange={(event, selectedDate) => {
+                        setShowDatePicker(false);
+                        if (selectedDate) {
+                          setDob(selectedDate);
+                        }
+                      }}
+                      maximumDate={new Date()}
+                    />
+                  ) : (
+                    <View style={{
+                      backgroundColor: 'white', 
+                      padding: 10,
+                      marginTop: 10,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: '#ddd'
+                    }}>
+                      <DateTimePicker
+                        testID="dateTimePicker"
+                        value={dob}
+                        mode="date"
+                        is24Hour={true}
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                          if (selectedDate) {
+                            setDob(selectedDate);
+                          }
+                        }}
+                        maximumDate={new Date()}
+                        textColor="#333" 
+                        style={{height: 200}}
+                      />
+                      <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'flex-end',
+                        borderTopWidth: 1,
+                        borderTopColor: '#ddd',
+                        paddingTop: 8
+                      }}>
+                        <TouchableOpacity 
+                          onPress={() => setShowDatePicker(false)}
+                          style={{
+                            paddingVertical: 8,
+                            paddingHorizontal: 15,
+                            backgroundColor: '#8B0000',
+                            borderRadius: 6
+                          }}
+                        >
+                          <Text style={{color: 'white', fontWeight: 'bold'}}>Đồng ý</Text>
+                        </TouchableOpacity>
                       </View>
-                    )}
-                  </View>
+                    </View>
+                  )
                 )}
               </View>
               
