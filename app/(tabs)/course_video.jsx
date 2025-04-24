@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
-import { Video, Audio, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
@@ -33,145 +33,169 @@ const API_RESPONSE_MESSAGES = {
   CHAPTER_UPDATED_PROGRESS_SUCCESS: "CHAPTER_UPDATED_PROGRESS_SUCCESS"
 };
 
-// Replace the optimizeCloudinaryUrlForIOS function with this more comprehensive version
-const optimizeCloudinaryUrlForIOS = (url) => {
+const isValidVideoUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const trimmedUrl = url.trim();
+  return trimmedUrl.startsWith('https://') && 
+    trimmedUrl.includes('mediadelivery.net/play/');
+};
+
+const getDirectVideoUrl = async (url) => {
   try {
+    // Lấy libraryId và guid từ URL
+    const parts = url.split('/play/');
+    if (parts.length === 2) {
+      const [libraryId, guid] = parts[1].split('/');
+      // Tạo URL video trực tiếp theo định dạng của BunnyCDN
+      const directUrl = `https://iframe.mediadelivery.net/play/${libraryId}/${guid}`;
+      console.log('Direct video URL:', directUrl);
+      return directUrl;
+    }
+    return url;
+  } catch (error) {
+    console.error('Error getting direct video URL:', error);
+    return url;
+  }
+};
+
+const optimizeVideoUrl = (url) => {
+  try {
+    // Lấy URL video trực tiếp
+    let cleanUrl = getDirectVideoUrl(url);
+    
     // Đảm bảo URL là HTTPS
-    let cleanUrl = url.replace('http://', 'https://');
+    cleanUrl = cleanUrl.replace('http://', 'https://');
     
     // Xử lý khoảng trắng và ký tự đặc biệt
     cleanUrl = cleanUrl.replace(/\s+/g, '%20');
     
-    // Thêm các tham số tối ưu hóa cho iOS
-    if (cleanUrl.includes('cloudinary.com')) {
-      const urlObj = new URL(cleanUrl);
-      const pathParts = urlObj.pathname.split('/');
-      const uploadIndex = pathParts.indexOf('upload');
-      
-      if (uploadIndex !== -1) {
-        // Thêm các tham số tối ưu hóa
-        pathParts.splice(uploadIndex + 1, 0, 'f_mp4,vc_h264,q_auto');
-        urlObj.pathname = pathParts.join('/');
-        cleanUrl = urlObj.toString();
-      }
-    }
+    // Thêm cache buster
+    const separator = cleanUrl.includes('?') ? '&' : '?';
+    cleanUrl = `${cleanUrl}${separator}cb=${Date.now()}`;
     
-    console.log('iOS-optimized Cloudinary URL:', cleanUrl);
+    console.log('Optimized video URL:', cleanUrl);
     return cleanUrl;
   } catch (error) {
-    console.error('Error optimizing Cloudinary URL:', error);
+    console.error('Error optimizing video URL:', error);
     return url;
   }
 };
 
 // Add this function if it doesn't exist
-const isValidVideoUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const trimmedUrl = url.trim();
-  return trimmedUrl.startsWith('http') && 
-    (trimmedUrl.endsWith('.mp4') || 
-     trimmedUrl.endsWith('.mov') || 
-     trimmedUrl.endsWith('.m4v') ||
-     trimmedUrl.includes('cloudinary.com'));
-};
-
-// And this function for cache busting
 const addCacheBuster = (url) => {
   if (!url) return url;
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}cb=${Date.now()}`;
 };
 
-// Update the VideoWithFallback component to properly forward refs
-const VideoWithFallback = React.forwardRef(({ source, ...props }, ref) => {
-  if (Platform.OS === 'ios') {
-    console.log('Using iOS-optimized video player');
-    return (
-      <View style={{flex: 1, backgroundColor: '#000'}}>
-        <Video
-          ref={ref}
-          {...props}
-          source={{
-            uri: source.uri.replace('/upload/', '/upload/f_mp4,vc_h264/'),
-            headers: source.headers,
-          }}
-        />
-      </View>
-    );
-  }
-  
-  return <Video ref={ref} {...props} source={source} />;
-});
-
-// First, create a separate VideoPlayer component outside of the main component
-// This will prevent re-renders from the parent component affecting the video
-
-const VideoPlayer = React.memo(({ videoUrl, onComplete }) => {
-  const videoRef = useRef(null);
+// Tạo component VideoPlayer riêng biệt
+const VideoPlayer = ({ videoUrl, onComplete }) => {
+  const [directVideoUrl, setDirectVideoUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const videoRef = useRef(null);
+  const [videoStatus, setVideoStatus] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
-  return (
-    <View style={styles.playerContainer}>
-      <Video
-        ref={videoRef}
-        style={styles.video}
-        source={{
-          uri: videoUrl,
-          headers: { 'Cache-Control': 'no-cache' }
-        }}
-        useNativeControls
-        resizeMode={ResizeMode.CONTAIN}
-        shouldPlay={true}
-        isLooping={false}
-        volume={1.0}
-        playsInSilentModeIOS={true}
-        ignoreSilentSwitch="ignore"
-        onPlaybackStatusUpdate={(status) => {
-          if (status.isLoaded) {
-            setLoading(false);
-            if (status.didJustFinish) {
-              onComplete && onComplete();
-            }
-          }
-        }}
-        onError={(error) => {
-          console.error('Video error:', error);
-          setLoading(false);
-          setError(true);
-        }}
-      />
-      
-      {loading && (
+  useEffect(() => {
+    const fetchDirectUrl = async () => {
+      if (isValidVideoUrl(videoUrl)) {
+        const url = await getDirectVideoUrl(videoUrl);
+        setDirectVideoUrl(url);
+      }
+    };
+    fetchDirectUrl();
+  }, [videoUrl]);
+
+  useEffect(() => {
+    if (videoStatus?.didJustFinish) {
+      console.log('Video đã kết thúc, gọi callback');
+      onComplete && onComplete();
+    }
+  }, [videoStatus, onComplete]);
+
+  if (!directVideoUrl) {
+    return (
+      <View style={styles.videoWrapper}>
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>Đang tải video...</Text>
         </View>
-      )}
-      
-      {error && (
-        <View style={styles.overlay}>
-          <Text style={styles.errorText}>Không thể tải video. Vui lòng thử lại sau.</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={() => {
-              setError(false);
-              setLoading(true);
-              if (videoRef.current) {
-                videoRef.current.loadAsync(
-                  { uri: videoUrl },
-                  { shouldPlay: true }
-                );
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.mainContainer}>
+      <View style={styles.videoWrapper}>
+        <Video
+          ref={videoRef}
+          style={styles.video}
+          source={{
+            uri: directVideoUrl,
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Accept': '*/*',
+              'User-Agent': 'BunnyCDN/Mobile',
+              'Origin': 'https://iframe.mediadelivery.net',
+              'Referer': 'https://iframe.mediadelivery.net/'
+            }
+          }}
+          useNativeControls
+          resizeMode={ResizeMode.CONTAIN}
+          shouldPlay={true}
+          isLooping={false}
+          volume={1.0}
+          playsInSilentModeIOS={true}
+          ignoreSilentSwitch="ignore"
+          onPlaybackStatusUpdate={status => {
+            setVideoStatus(status);
+            if (status.isLoaded) {
+              setLoading(false);
+              setCurrentTime(status.positionMillis);
+              setDuration(status.durationMillis);
+              if (status.error) {
+                console.error('Video error:', status.error);
+                setError(true);
+                setErrorMessage('Không thể tải video. Vui lòng thử lại sau.');
               }
-            }}
-          >
-            <Text style={styles.retryText}>Thử lại</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+            }
+          }}
+        />
+
+        {loading && (
+          <View style={styles.overlay}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.loadingText}>Đang tải video...</Text>
+          </View>
+        )}
+
+        {error && (
+          <View style={styles.overlay}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => {
+                setError(false);
+                setLoading(true);
+                if (videoRef.current) {
+                  videoRef.current.loadAsync(
+                    { uri: directVideoUrl },
+                    { shouldPlay: true }
+                  );
+                }
+              }}
+            >
+              <Text style={styles.retryText}>Thử lại</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
-});
+};
 
 // Cache dữ liệu để tránh tải lại quá nhiều lần
 const loadedUserIds = new Set();
@@ -883,67 +907,11 @@ export default function CourseVideoScreen() {
 
   // Function to render the video player or error message
   const renderVideoComponent = (videoUrl) => {
-    // Kiểm tra và xử lý URL video
-    let processedUrl = videoUrl;
-    if (Platform.OS === 'ios') {
-      processedUrl = optimizeCloudinaryUrlForIOS(videoUrl);
-    }
-    processedUrl = addCacheBuster(processedUrl);
-
     return (
-      <View style={styles.mainContainer}>
-        <View style={styles.videoWrapper}>
-          <Video
-            ref={videoRef}
-            style={styles.video}
-            source={{
-              uri: processedUrl,
-              headers: {
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache',
-                'Accept': '*/*'
-              }
-            }}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={true}
-            isLooping={false}
-            volume={1.0}
-            playsInSilentModeIOS={true}
-            ignoreSilentSwitch="ignore"
-            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-            onLoad={() => {
-              setLoading(false);
-              setVideoLoaded(true);
-            }}
-            onError={(error) => {
-              console.error('Video error:', error);
-              setLoading(false);
-              setVideoError(true);
-              setVideoErrorMessage('Không thể tải video. Vui lòng thử lại sau.');
-            }}
-          />
-
-          {loading && (
-            <View style={styles.overlay}>
-              <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.loadingText}>Đang tải video...</Text>
-            </View>
-          )}
-
-          {videoError && (
-            <View style={styles.overlay}>
-              <Text style={styles.errorText}>{videoErrorMessage}</Text>
-              <TouchableOpacity 
-                style={styles.retryButton}
-                onPress={retryVideo}
-              >
-                <Text style={styles.retryText}>Thử lại</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </View>
+      <VideoPlayer 
+        videoUrl={videoUrl} 
+        onComplete={updateProgress}
+      />
     );
   };
 
@@ -1239,9 +1207,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   video: {
-    flex: 1,
     width: '100%',
     height: '100%',
+    backgroundColor: '#000',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

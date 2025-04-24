@@ -37,6 +37,10 @@ export default function LoginScreen() {
   const [forgotPasswordErrors, setForgotPasswordErrors] = useState({});
   const [submittingForgotPassword, setSubmittingForgotPassword] = useState(false);
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpErrors, setOtpErrors] = useState({});
+  const [submittingOTP, setSubmittingOTP] = useState(false);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -146,10 +150,7 @@ export default function LoginScreen() {
     try {
       setSubmittingForgotPassword(true);
       
-      // Thêm delay nhỏ để tránh gọi API quá nhanh
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Gọi API quên mật khẩu sử dụng endpoint từ file config
+      // Gọi API quên mật khẩu
       const response = await axios.post(
         `${API_CONFIG.baseURL}${API_CONFIG.endpoints.forgotPassword}`,
         { email: forgotPasswordEmail },
@@ -161,7 +162,8 @@ export default function LoginScreen() {
       );
       
       if (response.data && response.data.isSuccess) {
-        setForgotPasswordSuccess(true);
+        setShowOTPModal(true);
+        setShowForgotPasswordModal(false);
       } else {
         setForgotPasswordErrors({
           general: response.data?.message || 'Đã xảy ra lỗi khi yêu cầu đặt lại mật khẩu'
@@ -181,6 +183,64 @@ export default function LoginScreen() {
       setForgotPasswordErrors({ general: errorMessage });
     } finally {
       setSubmittingForgotPassword(false);
+    }
+  };
+
+  // Hàm xử lý xác thực OTP
+  const handleVerifyOTP = async () => {
+    setOtpErrors({});
+    
+    if (!otp.trim()) {
+      setOtpErrors({ otp: 'OTP không được để trống' });
+      return;
+    }
+    
+    if (otp.length !== 6) {
+      setOtpErrors({ otp: 'OTP phải có 6 chữ số' });
+      return;
+    }
+    
+    try {
+      setSubmittingOTP(true);
+      
+      // Gọi API xác thực OTP
+      const response = await axios.post(
+        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.verifyOTP}`,
+        null,
+        {
+          params: {
+            email: forgotPasswordEmail,
+            otp: otp
+          },
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && response.data.isSuccess) {
+        setForgotPasswordSuccess(true);
+        setShowOTPModal(false);
+        setOtp('');
+      } else {
+        setOtpErrors({
+          general: response.data?.message || 'OTP không hợp lệ'
+        });
+      }
+    } catch (error) {
+      let errorMessage = 'Không thể xác thực OTP. Vui lòng thử lại.';
+      
+      if (error.response) {
+        if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else {
+          errorMessage = `Lỗi ${error.response.status}: ${error.message}`;
+        }
+      }
+      
+      setOtpErrors({ general: errorMessage });
+    } finally {
+      setSubmittingOTP(false);
     }
   };
 
@@ -268,83 +328,166 @@ export default function LoginScreen() {
           <View style={styles.passwordModalContainer}>
             <Text style={styles.passwordModalTitle}>Quên Mật Khẩu</Text>
             
-            {!forgotPasswordSuccess ? (
-              <>
-                {forgotPasswordErrors.general && (
-                  <Text style={[styles.passwordErrorText, { textAlign: 'center', marginBottom: 15 }]}>
-                    {forgotPasswordErrors.general}
-                  </Text>
-                )}
-                
-                <Text style={[styles.passwordInputLabel, { textAlign: 'center', marginBottom: 20 }]}>
-                  Nhập email của bạn để nhận mật khẩu mới
-                </Text>
-                
-                <View style={styles.passwordInputContainer}>
-                  <Text style={styles.passwordInputLabel}>Email</Text>
-                  <TextInput
-                    style={styles.passwordInput}
-                    value={forgotPasswordEmail}
-                    onChangeText={setForgotPasswordEmail}
-                    placeholder="Nhập email của bạn"
-                    placeholderTextColor="#999"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                  {forgotPasswordErrors.email && (
-                    <Text style={styles.passwordErrorText}>{forgotPasswordErrors.email}</Text>
-                  )}
-                </View>
-                
-                <View style={styles.passwordModalActions}>
-                  <TouchableOpacity
-                    style={[styles.passwordModalButton, styles.passwordCancelButton]}
-                    onPress={toggleForgotPasswordModal}
-                  >
-                    <Text style={styles.passwordButtonText}>Hủy bỏ</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={[
-                      styles.passwordModalButton,
-                      styles.passwordSubmitButton,
-                      submittingForgotPassword && { opacity: 0.7 }
-                    ]}
-                    onPress={handleForgotPassword}
-                    disabled={submittingForgotPassword}
-                  >
-                    {submittingForgotPassword ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <Text style={styles.passwordButtonText}>Gửi yêu cầu</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="checkmark-circle" size={60} color="#4BB543" style={{ marginBottom: 20 }} />
-                
-                <Text style={[styles.passwordInputLabel, { textAlign: 'center', marginBottom: 20 }]}>
-                  Mật khẩu mới đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư và đổi mật khẩu sau khi đăng nhập.
-                </Text>
-                
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={styles.closeButtonContainer}
-                  onPress={toggleForgotPasswordModal}
-                >
-                  <LinearGradient
-                    colors={['#8B0000', '#AC1F1F', '#D42626']}
-                    start={{x: 0, y: 0}}
-                    end={{x: 1, y: 0}}
-                    style={styles.closeButtonGradient}
-                  >
-                    <Text style={styles.closeButtonText}>Đóng</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
+            {forgotPasswordErrors.general && (
+              <Text style={[styles.passwordErrorText, { textAlign: 'center', marginBottom: 15 }]}>
+                {forgotPasswordErrors.general}
+              </Text>
             )}
+            
+            <Text style={[styles.passwordInputLabel, { textAlign: 'center', marginBottom: 20 }]}>
+              Nhập email của bạn để nhận mã OTP
+            </Text>
+            
+            <View style={styles.passwordInputContainer}>
+              <Text style={styles.passwordInputLabel}>Email</Text>
+              <TextInput
+                style={styles.passwordInput}
+                value={forgotPasswordEmail}
+                onChangeText={setForgotPasswordEmail}
+                placeholder="Nhập email của bạn"
+                placeholderTextColor="#999"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {forgotPasswordErrors.email && (
+                <Text style={styles.passwordErrorText}>{forgotPasswordErrors.email}</Text>
+              )}
+            </View>
+            
+            <View style={styles.passwordModalActions}>
+              <TouchableOpacity
+                style={[styles.passwordModalButton, styles.passwordCancelButton]}
+                onPress={toggleForgotPasswordModal}
+              >
+                <Text style={styles.passwordButtonText}>Hủy bỏ</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.passwordModalButton,
+                  styles.passwordSubmitButton,
+                  submittingForgotPassword && { opacity: 0.7 }
+                ]}
+                onPress={handleForgotPassword}
+                disabled={submittingForgotPassword}
+              >
+                {submittingForgotPassword ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.passwordButtonText}>Gửi yêu cầu</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal nhập OTP */}
+      <Modal
+        visible={showOTPModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowOTPModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.passwordModalContainer}>
+            <Text style={styles.passwordModalTitle}>Xác nhận OTP</Text>
+            
+            {otpErrors.general && (
+              <Text style={[styles.passwordErrorText, { textAlign: 'center', marginBottom: 15 }]}>
+                {otpErrors.general}
+              </Text>
+            )}
+            
+            <Text style={[styles.passwordInputLabel, { textAlign: 'center', marginBottom: 20 }]}>
+              Vui lòng nhập mã OTP đã được gửi đến email của bạn
+            </Text>
+            
+            <View style={styles.passwordInputContainer}>
+              <Text style={styles.passwordInputLabel}>Mã OTP</Text>
+              <TextInput
+                style={styles.passwordInput}
+                value={otp}
+                onChangeText={setOtp}
+                placeholder="Nhập mã OTP"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+                maxLength={6}
+              />
+              {otpErrors.otp && (
+                <Text style={styles.passwordErrorText}>{otpErrors.otp}</Text>
+              )}
+            </View>
+            
+            <View style={styles.passwordModalActions}>
+              <TouchableOpacity
+                style={[styles.passwordModalButton, styles.passwordCancelButton]}
+                onPress={() => {
+                  setShowOTPModal(false);
+                  setOtp('');
+                  setOtpErrors({});
+                }}
+              >
+                <Text style={styles.passwordButtonText}>Hủy bỏ</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.passwordModalButton,
+                  styles.passwordSubmitButton,
+                  submittingOTP && { opacity: 0.7 }
+                ]}
+                onPress={handleVerifyOTP}
+                disabled={submittingOTP}
+              >
+                {submittingOTP ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.passwordButtonText}>Xác nhận</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal thông báo thành công */}
+      <Modal
+        visible={forgotPasswordSuccess}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setForgotPasswordSuccess(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.passwordModalContainer}>
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="checkmark-circle" size={60} color="#4BB543" style={{ marginBottom: 20 }} />
+              
+              <Text style={[styles.passwordInputLabel, { textAlign: 'center', marginBottom: 20 }]}>
+                Mật khẩu mới đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư và đổi mật khẩu sau khi đăng nhập.
+              </Text>
+              
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.closeButtonContainer}
+                onPress={() => {
+                  setForgotPasswordSuccess(false);
+                  setForgotPasswordEmail('');
+                  setForgotPasswordErrors({});
+                }}
+              >
+                <LinearGradient
+                  colors={['#8B0000', '#AC1F1F', '#D42626']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 0}}
+                  style={styles.closeButtonGradient}
+                >
+                  <Text style={styles.closeButtonText}>Đóng</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

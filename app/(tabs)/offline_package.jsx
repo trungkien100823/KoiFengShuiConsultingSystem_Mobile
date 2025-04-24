@@ -80,6 +80,7 @@ export default function OfflinePackageScreen() {
       const response = await retryRequest(makeRequest);
 
       if (response.data && response.data.isSuccess) {
+        console.log('API Response:', response.data.data);
         setConsultingPackages(response.data.data);
       } else {
         throw new Error(response.data?.message || 'Không thể lấy danh sách gói tư vấn');
@@ -142,9 +143,10 @@ export default function OfflinePackageScreen() {
               })}
             >
               <ImageBackground
-                source={require('../../assets/images/koi_image.jpg')}
+                source={pkg.imageUrl ? { uri: pkg.imageUrl } : require('../../assets/images/koi_image.jpg')}
                 style={styles.packageImage}
                 imageStyle={styles.packageImageStyle}
+                resizeMode="cover"
               >
                 <View style={styles.packageContent}>
                   <Text style={styles.packageLabel}>Gói tư vấn</Text>
