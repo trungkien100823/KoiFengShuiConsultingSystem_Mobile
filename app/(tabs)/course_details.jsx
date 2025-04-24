@@ -12,15 +12,16 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import CustomTabBar from '../../components/ui/CustomTabBar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -204,40 +205,89 @@ export default function CourseDetailsScreen() {
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
         
-        {/* Fixed Header with back button, title and cart */}
+        {/* Premium Header Design */}
         <SafeAreaView style={styles.fixedHeader}>
-          <View style={styles.topRow}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={handleBack}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          
-          <Text style={styles.courseTitle}>{courseDetails.title}</Text>
-          <View style={styles.ratingContainer}>
-            <Text style={styles.ratingScore}>
-              {courseDetails.rating ? courseDetails.rating.toFixed(1) : '0.0'}
-            </Text>
-            <View style={styles.stars}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Ionicons
-                  key={star}
-                  name={
-                    star <= courseDetails.rating
-                      ? "star"
-                      : star - 0.5 <= courseDetails.rating
-                      ? "star-half"
-                      : "star-outline"
-                  }
-                  size={16}
-                  color="#FFD700"
-                />
-              ))}
+          <LinearGradient
+            colors={['#8B0000', '#4A0404']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerGradient}
+          >
+            {/* Top Navigation Bar */}
+            <View style={styles.topRow}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={handleBack}
+              >
+                <Ionicons name="chevron-back" size={24} color="#FFD700" />
+              </TouchableOpacity>
+              
+              <View style={styles.categoryContainer}>
+                <LinearGradient
+                  colors={['rgba(139, 0, 0, 0.9)', 'rgba(74, 4, 4, 0.9)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.categoryPill}
+                >
+                  <Ionicons name="bookmark" size={16} color="#FFD700" />
+                  <Text style={styles.categoryText}>{courseDetails.categoryName}</Text>
+                </LinearGradient>
+              </View>
             </View>
-            <Text style={styles.reviewCount}>• {courseDetails.enrolledStudents} người đăng ký</Text>
-          </View>
+
+            {/* Course Title Section */}
+            <View style={styles.titleSection}>
+              <Text style={styles.courseTitle} numberOfLines={2}>
+                {courseDetails.title}
+              </Text>
+
+              {/* Stats Row */}
+              <View style={styles.statsRow}>
+                {/* Rating Container */}
+                <View style={styles.ratingBox}>
+                  <View style={styles.ratingHeader}>
+                    <Ionicons name="star" size={18} color="#FFD700" />
+                    <Text style={styles.ratingValue}>
+                      {courseDetails.rating ? courseDetails.rating.toFixed(1) : '0.0'}
+                    </Text>
+                  </View>
+                  <View style={styles.stars}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Ionicons
+                        key={star}
+                        name={
+                          star <= courseDetails.rating
+                            ? "star"
+                            : star - 0.5 <= courseDetails.rating
+                            ? "star-half"
+                            : "star-outline"
+                        }
+                        size={12}
+                        color="#FFD700"
+                      />
+                    ))}
+                  </View>
+                </View>
+
+                {/* Divider */}
+                <View style={styles.statsDivider} />
+
+                {/* Enrollment Container */}
+                <View style={styles.enrollmentBox}>
+                  <View style={styles.enrollmentHeader}>
+                    <Ionicons name="people" size={18} color="#FFD700" />
+                    <Text style={styles.enrollmentValue}>
+                      {courseDetails.enrolledStudents}
+                    </Text>
+                  </View>
+                  <Text style={styles.enrollmentLabel}>Học viên</Text>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+          
+          {/* Curved Bottom Edge */}
+          <View style={styles.headerCurve} />
         </SafeAreaView>
         
         {/* Thumbnail Image */}
@@ -251,7 +301,7 @@ export default function CourseDetailsScreen() {
         />
           {/* Course Includes Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>This course includes:</Text>
+            <Text style={styles.sectionTitle}>Khóa học bao gồm:</Text>
             <View style={styles.includesContainer}>
               {courseDetails.includes.map((item, index) => (
                 <View key={index} style={styles.includeItem}>
@@ -292,47 +342,78 @@ export default function CourseDetailsScreen() {
               <>
                 {/* About Master Section - Only visible when expanded */}
                 <View style={styles.masterSection}>
-                  <Text style={styles.subSectionTitle}>Thông tin của thầy:</Text>
-                  <View style={styles.instructorContainer}>
-                    <Image source={masterInfo?.image} style={styles.instructorImage} />
-                    <View style={styles.instructorInfo}>
-                      <Text style={styles.instructorName}>{masterInfo?.name}</Text>
-                      <Text style={styles.instructorTitle}>{masterInfo?.title}</Text>
-                      <View style={styles.instructorRating}>
-                        <Text style={{color: '#fff', marginRight: 5}}>{masterInfo?.rating}</Text>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Ionicons
-                            key={star}
-                            name={
-                              star <= masterInfo?.rating
-                                ? "star"
-                                : star - 0.5 <= masterInfo?.rating
-                                ? "star-half"
-                                : "star-outline"
-                            }
-                            size={14}
-                            color="#FFD700"
-                          />
-                        ))}
-                      </View>
-                      <Text style={styles.instructorBio}>{masterInfo?.bio}</Text>
-                      <Text style={styles.instructorExpertise}>Chuyên môn: {masterInfo?.expertise}</Text>
+                  <LinearGradient
+                    colors={['rgba(139, 0, 0, 0.2)', 'rgba(139, 0, 0, 0.05)']}
+                    style={styles.masterGradient}
+                  >
+                    <View style={styles.masterHeader}>
+                      <Ionicons name="school" size={24} color="#FFD700" />
+                      <Text style={styles.masterHeaderTitle}>Thông tin giảng viên</Text>
                     </View>
-                  </View>
-                  
-                  {/* Instructor Achievements */}
-                  <View style={styles.achievementsContainer}>
-                    {masterInfo?.achievements.map((achievement, index) => (
-                      <View key={index} style={styles.achievementItem}>
-                        <Ionicons 
-                          name={index === 0 ? "videocam" : index === 1 ? "trophy" : "people"} 
-                          size={20} 
-                          color="#FFD700" 
-                        />
-                        <Text style={styles.achievementText}>{achievement}</Text>
+
+                    <View style={styles.instructorContainer}>
+                      <View style={styles.instructorImageContainer}>
+                        <Image source={masterInfo?.image} style={styles.instructorImage} />
+                        <View style={styles.instructorBadge}>
+                          <Ionicons name="shield-checkmark" size={16} color="#FFD700" />
+                        </View>
                       </View>
-                    ))}
-                  </View>
+
+                      <View style={styles.instructorInfo}>
+                        <Text style={styles.instructorName}>{masterInfo?.name}</Text>
+                        <View style={styles.titleContainer}>
+                          <Ionicons name="ribbon" size={16} color="#FFD700" />
+                          <Text style={styles.instructorTitle}>{masterInfo?.title}</Text>
+                        </View>
+
+                        <View style={styles.instructorRating}>
+                          <Text style={styles.ratingNumber}>{masterInfo?.rating}</Text>
+                          <View style={styles.starsContainer}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Ionicons
+                                key={star}
+                                name={
+                                  star <= masterInfo?.rating
+                                    ? "star"
+                                    : star - 0.5 <= masterInfo?.rating
+                                    ? "star-half"
+                                    : "star-outline"
+                                }
+                                size={14}
+                                color="#FFD700"
+                              />
+                            ))}
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.bioSection}>
+                      <Text style={styles.bioTitle}>Giới thiệu</Text>
+                      <Text style={styles.instructorBio}>{masterInfo?.bio}</Text>
+                    </View>
+
+                    <View style={styles.expertiseSection}>
+                      <Text style={styles.expertiseTitle}>Chuyên môn</Text>
+                      <Text style={styles.instructorExpertise}>{masterInfo?.expertise}</Text>
+                    </View>
+
+                    <View style={styles.achievementsContainer}>
+                      <Text style={styles.achievementsTitle}>Thành tựu</Text>
+                      {masterInfo?.achievements.map((achievement, index) => (
+                        <View key={index} style={styles.achievementItem}>
+                          <View style={styles.achievementIcon}>
+                            <Ionicons 
+                              name={index === 0 ? "time" : "trophy"} 
+                              size={20} 
+                              color="#FFD700" 
+                            />
+                          </View>
+                          <Text style={styles.achievementText}>{achievement}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </LinearGradient>
                 </View>
                 
                 {/* See Less Button */}
@@ -340,7 +421,7 @@ export default function CourseDetailsScreen() {
                   style={styles.seeMoreButton}
                   onPress={() => setShowFullDescription(false)}
                 >
-                  <Text style={styles.seeMoreText}>thu gọn</Text>
+                  <Text style={styles.seeMoreText}>Thu gọn</Text>
                   <Ionicons name="chevron-up" size={16} color="#FFD700" />
                 </TouchableOpacity>
               </>
@@ -350,7 +431,7 @@ export default function CourseDetailsScreen() {
                 style={styles.seeMoreButton}
                 onPress={() => setShowFullDescription(true)}
               >
-                <Text style={styles.seeMoreText}>xem thêm</Text>
+                <Text style={styles.seeMoreText}>Xem thêm</Text>
                 <Ionicons name="chevron-down" size={16} color="#FFD700" />
               </TouchableOpacity>
             )}
@@ -390,7 +471,6 @@ export default function CourseDetailsScreen() {
         </ScrollView>
         
         {/* Custom Tab Bar */}
-        <CustomTabBar />
       </View>
     </ImageBackground>
   ) : (
@@ -403,266 +483,563 @@ export default function CourseDetailsScreen() {
 const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
-    width: '100%',
-    height: '100%',
   },
   container: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.94)',
   },
   fixedHeader: {
     width: '100%',
-    height: '230',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    backgroundColor: 'transparent',
+  },
+  headerGradient: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 35,
+    borderBottomRightRadius: 35,
   },
   topRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 20,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 20
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
-  headerCartButton: {
-    width: 40,
-    height: 40,
+  categoryContainer: {
+    overflow: 'hidden',
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 20
   },
-  courseTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-    marginLeft: 25,
-    marginRight: 10
-
-  },
-  ratingContainer: {
+  categoryPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.4)',
   },
-  ratingScore: {
-    color: '#fff',
+  categoryText: {
+    color: '#FFD700',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+    letterSpacing: 0.7,
+  },
+  titleSection: {
+    paddingHorizontal: 20,
+  },
+  courseTitle: {
+    fontSize: Math.round(width * 0.065),
     fontWeight: 'bold',
-    marginLeft: 25,
-    marginRight: 4,
+    color: '#FFFFFF',
+    marginBottom: 20,
+    letterSpacing: 0.8,
+    lineHeight: Math.round(width * 0.085),
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 6,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    padding: 15,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  ratingBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  ratingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  ratingValue: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
   stars: {
     flexDirection: 'row',
-    marginRight: 8,
+    gap: 2,
   },
-  reviewCount: {
-    color: '#fff',
-    fontSize: 14,
+  statsDivider: {
+    width: 1,
+    height: '80%',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 15,
+  },
+  enrollmentBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  enrollmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  enrollmentValue: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  enrollmentLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    opacity: 0.9,
+  },
+  headerCurve: {
+    height: 24,
+    backgroundColor: '#4A0404',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    marginTop: -24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   scrollContent: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingTop: 15,
+  },
+  thumbnailImage: {
+    width: '92%',
+    height: Math.round(width * 0.6),
+    resizeMode: 'cover',
+    alignSelf: 'center',
+    borderRadius: 25,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   section: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    padding: '6%',
+    marginBottom: '4%',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 25,
+    margin: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: Math.round(width * 0.05),
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
+    color: '#FFFFFF',
+    marginBottom: '5%',
+    borderLeftWidth: 4,
+    borderLeftColor: '#8B0000',
+    paddingLeft: '4%',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   includesContainer: {
-    flexDirection: 'column',
+    width: '100%',
   },
   includeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    backgroundColor: 'rgba(139, 0, 0, 0.15)',
+    padding: '5%',
+    borderRadius: 18,
+    marginBottom: '4%',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 0, 0, 0.3)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   includeText: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontSize: Math.round(width * 0.038),
+    marginLeft: '3%',
+    flex: 1,
+    letterSpacing: 0.5,
   },
   learningItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12, 
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    padding: '5%',
+    borderRadius: 18,
+    marginBottom: '4%',
+    borderLeftWidth: 4,
+    borderLeftColor: '#8B0000',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   learningText: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontSize: Math.round(width * 0.038),
     flex: 1,
-    lineHeight: 20,
+    lineHeight: Math.round(width * 0.055),
+    letterSpacing: 0.5,
   },
   descriptionText: {
-    color: '#fff',
-    fontSize: 14,
-    lineHeight: 22,
-    marginBottom: 10,
+    color: '#FFFFFF',
+    fontSize: Math.round(width * 0.038),
+    lineHeight: Math.round(width * 0.058),
+    marginBottom: '4%',
+    letterSpacing: 0.3,
+    opacity: 0.9,
   },
-  buySection: {
-    padding: 16,
-  },
-  priceContainer: {
-    marginVertical: 10,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  priceLabel: {
-    fontSize: 18,
-    color: '#fff',
-  },
-  price: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#8B0000',
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  buyButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    flex: 0.48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buyButtonText: {
-    color: '#8B0000',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  addToCartButton: {
-    backgroundColor: '#8B0000',
-    borderColor: '#fff',
+  masterSection: {
+    marginTop: '6%',
+    borderRadius: 25,
+    overflow: 'hidden',
     borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    flex: 0.48,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: 'rgba(139, 0, 0, 0.3)',
   },
-  addToCartButtonText: {
-    color: '#fff',
-    fontSize: 16,
+  masterGradient: {
+    padding: '6%',
+  },
+  masterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    padding: 12,
+    borderRadius: 12,
+  },
+  masterHeaderTitle: {
+    fontSize: Math.round(width * 0.045),
     fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginLeft: 10,
+    letterSpacing: 0.5,
   },
   instructorContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  instructorImageContainer: {
+    position: 'relative',
   },
   instructorImage: {
-    width: 100,
-    height: 250,
-    borderRadius: 8,
-    marginRight: 16,
+    width: Math.round(width * 0.28),
+    height: Math.round(width * 0.28),
+    borderRadius: Math.round(width * 0.14),
+    borderWidth: 3,
+    borderColor: '#8B0000',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  instructorBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#8B0000',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
   },
   instructorInfo: {
     flex: 1,
+    marginLeft: 15,
+    justifyContent: 'center',
   },
   instructorName: {
-    fontSize: 16,
+    fontSize: Math.round(width * 0.045),
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+    color: '#FFFFFF',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   instructorTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: Math.round(width * 0.038),
     color: '#FFD700',
-    marginBottom: 4,
+    marginLeft: 6,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   instructorRating: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    padding: 8,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  ratingNumber: {
+    color: '#FFD700',
+    fontWeight: 'bold',
+    marginRight: 8,
+    fontSize: Math.round(width * 0.038),
+  },
+  starsContainer: {
+    flexDirection: 'row',
+  },
+  bioSection: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+  },
+  bioTitle: {
+    fontSize: Math.round(width * 0.04),
+    fontWeight: 'bold',
+    color: '#FFD700',
     marginBottom: 8,
+    letterSpacing: 0.5,
   },
   instructorBio: {
-    fontSize: 13,
-    color: '#fff',
-    lineHeight: 20,
+    color: '#FFFFFF',
+    fontSize: Math.round(width * 0.038),
+    lineHeight: Math.round(width * 0.055),
+    letterSpacing: 0.3,
+    opacity: 0.9,
   },
-  instructorExpertise: {
-    fontSize: 13,
-    color: '#fff',
-    lineHeight: 20,
+  expertiseSection: {
+    backgroundColor: 'rgba(139, 0, 0, 0.15)',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+  },
+  expertiseTitle: {
+    fontSize: Math.round(width * 0.04),
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   achievementsContainer: {
-    marginTop: 12,
+    marginTop: 15,
+  },
+  achievementsTitle: {
+    fontSize: Math.round(width * 0.04),
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   achievementItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 12,
+    borderRadius: 12,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 0, 0, 0.3)',
+  },
+  achievementIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(139, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   achievementText: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 14,
+    color: '#FFFFFF',
+    flex: 1,
+    fontSize: Math.round(width * 0.035),
+    letterSpacing: 0.5,
   },
-  thumbnailImage: {
+  buySection: {
+    padding: '6%',
+    backgroundColor: 'rgba(0, 0, 0, 0.97)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  priceContainer: {
+    marginBottom: '5%',
+    backgroundColor: 'rgba(139, 0, 0, 0.12)',
+    padding: '5%',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 0, 0, 0.25)',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  priceLabel: {
+    fontSize: Math.round(width * 0.042),
+    color: '#FFFFFF',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  price: {
+    fontSize: Math.round(width * 0.07),
+    fontWeight: 'bold',
+    color: '#FFD700',
+    letterSpacing: 1.2,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  buttonsContainer: {
     width: '100%',
-    height: 300, 
-    resizeMode: 'cover',
+  },
+  buyButton: {
+    backgroundColor: '#8B0000',
+    paddingVertical: Math.round(width * 0.045),
+    borderRadius: 20,
+    width: '100%',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  buyButtonText: {
+    color: '#FFFFFF',
+    fontSize: Math.round(width * 0.048),
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   seeMoreButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginTop: 15,
-    marginBottom: 5,
+    justifyContent: 'center',
+    paddingVertical: '4%',
+    marginTop: '3%',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 15,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   seeMoreText: {
     color: '#FFD700',
+    fontSize: Math.round(width * 0.035),
     fontWeight: 'bold',
-    marginRight: 5,
-  },
-  masterSection: {
-    marginTop: 20,
-  },
-  subSectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
+    marginRight: '2%',
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
   },
   errorText: {
-    color: '#8B0000',
-    fontSize: 16,
+    color: '#FFFFFF',
+    fontSize: Math.round(width * 0.04),
     textAlign: 'center',
-  }
+    letterSpacing: 0.5,
+  },
 });

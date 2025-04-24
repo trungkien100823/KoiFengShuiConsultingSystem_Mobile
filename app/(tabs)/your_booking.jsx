@@ -12,6 +12,7 @@ import {
   ScrollView,
   Linking,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import axios from 'axios';
@@ -20,6 +21,35 @@ import { getAuthToken } from '../../services/authService';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { paymentService } from '../../constants/paymentService';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const COLORS = {
+  primary: '#8B0000', // Wine red
+  primaryDark: '#590000',
+  primaryLight: '#AA1E23',
+  primaryGlow: '#D40000',
+  accent: '#D4AF37', // Gold accent
+  white: '#FFFFFF',
+  offWhite: '#F9F9F9',
+  background: '#F8F8F8',
+  card: '#FFFFFF',
+  text: {
+    primary: '#1A1A1A',
+    secondary: '#666666',
+    tertiary: '#999999',
+    light: '#FFFFFF',
+  },
+  status: {
+    pending: '#FFA726',
+    confirmed: '#2196F3',
+    paid: '#4CAF50',
+    canceled: '#F44336',
+    rejected: '#FF5252',
+    success: '#009688',
+  },
+  border: 'rgba(139, 0, 0, 0.1)',
+  shadow: 'rgba(0, 0, 0, 0.12)',
+};
 
 const YourBooking = () => {
   const router = useRouter();
@@ -505,103 +535,141 @@ const YourBooking = () => {
       (item.status.trim() === 'ContractRejectedByMaster' ||
        item.status.trim() === 'ContractRejectedByCustomer');
 
+    const getStatusText = (status) => {
+      // Translate status codes to Vietnamese
+      switch(status.trim().toLowerCase()) {
+        case 'pending': return 'Đang chờ';
+        case 'confirmed': return 'Đã xác nhận';
+        case 'completed': return 'Hoàn thành';
+        case 'canceled': return 'Đã hủy';
+        case 'verifiedotp': return 'Đã xác thực OTP';
+        case 'verifiedotpattachment': return 'Đã xác thực biên bản';
+        default: return status;
+      }
+    };
+
     return (
-      <TouchableOpacity 
-        style={styles.ticketItem}
-        onPress={() => handleViewBooking(item.id)}
-      >
-        <View style={styles.ticketHeader}>
-          <Text style={styles.workshopName}>
-            {item.type === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline'}
-          </Text>
-          <Text style={[
+      <View style={styles.bookingCard}>
+        {/* Enhanced Card Header with Type and Status */}
+        <LinearGradient
+          colors={[COLORS.primaryDark, COLORS.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.cardHeader}
+        >
+          <View style={styles.cardTypeContainer}>
+            <View style={styles.iconCircle}>
+              <Ionicons 
+                name={item.type === 'Online' ? "videocam" : "business"} 
+                size={16} 
+                color={COLORS.white}
+              />
+            </View>
+            <Text style={styles.cardType}>
+              {item.type === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline'}
+            </Text>
+          </View>
+          <View style={[
             styles.statusTag,
             { backgroundColor: getStatusColor(item.status) }
           ]}>
-            {item.status}
-          </Text>
-        </View>
-        
-        <View style={styles.ticketContent}>
-          <Text style={styles.ticketCount}>
-            Mã đặt lịch: {item.id}
-          </Text>
-          
-          <Text style={styles.bookingTime}>
-            Ngày: {formatDate(item.bookingDate)}
-          </Text>
-
-          <View style={styles.buttonContainer}>
-            {showContractButton && (
-              <TouchableOpacity 
-                style={styles.contractButton}
-                onPress={() => router.push({
-                  pathname: '/(tabs)/contract_bookingOffline',
-                  params: { id: item.id }
-                })}
-              >
-                <Ionicons name="document-text-outline" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Xem hợp đồng</Text>
-              </TouchableOpacity>
-            )}
-
-            {showDocumentButton && (
-              <TouchableOpacity 
-                style={styles.documentButton}
-                onPress={() => router.push({
-                  pathname: '/(tabs)/document_bookingOffline',
-                  params: { id: item.id }
-                })}
-              >
-                <Ionicons name="folder-outline" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Xem hồ sơ</Text>
-              </TouchableOpacity>
-            )}
-
-            {showAttachmentButton && (
-              <TouchableOpacity 
-                style={styles.attachmentButton}
-                onPress={() => router.push({
-                  pathname: '/(tabs)/attachment_bookingOffline',
-                  params: { id: item.id }
-                })}
-              >
-                <Ionicons name="clipboard-outline" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Xem biên bản</Text>
-              </TouchableOpacity>
-            )}
-
-            {showPaymentButton && (
-              <TouchableOpacity 
-                style={styles.paymentButton}
-                onPress={() => handlePayment(item)}
-              >
-                <Ionicons name="wallet-outline" size={20} color="#fff" />
-                <Text style={styles.paymentButtonText}>Tạo đơn thanh toán</Text>
-              </TouchableOpacity>
-            )}
-            
-            {showCancelButton && (
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={() => cancelBooking(item)}
-              >
-                <Ionicons name="close-circle-outline" size={20} color="#fff" />
-                <Text style={styles.cancelButtonText}>Hủy lịch</Text>
-              </TouchableOpacity>
-            )}
+            <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
           </View>
-
+        </LinearGradient>
+        
+        {/* Card Body with Details */}
+        <TouchableOpacity 
+          style={styles.cardBody}
+          onPress={() => handleViewBooking(item.id)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.infoRow}>
+            <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} style={styles.infoIcon} />
+            <Text style={styles.infoLabel}>Mã đặt lịch:</Text>
+            <Text style={styles.infoValue}>{item.id}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} style={styles.infoIcon} />
+            <Text style={styles.infoLabel}>Ngày đặt:</Text>
+            <Text style={styles.infoValue}>{formatDate(item.bookingDate)}</Text>
+          </View>
+          
           {isRejectedStatus && (
-            <View style={styles.rejectedNote}>
-              <Text style={styles.rejectedText}>
-                <Ionicons name="information-circle-outline" size={16} color="#FF5252" />
-                {" "}Nhấn để xem chi tiết
-              </Text>
+            <View style={styles.rejectedMessage}>
+              <Ionicons name="alert-circle" size={18} color={COLORS.status.rejected} />
+              <Text style={styles.rejectedText}>Nhấn để xem chi tiết từ chối</Text>
             </View>
           )}
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+        
+        {/* Card Actions */}
+        {(showContractButton || showDocumentButton || showAttachmentButton || 
+          showPaymentButton || showCancelButton) && (
+          <View style={styles.cardActions}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
+              {showContractButton && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.contractButton]}
+                  onPress={() => router.push({
+                    pathname: '/(tabs)/contract_bookingOffline',
+                    params: { id: item.id }
+                  })}
+                >
+                  <Ionicons name="document-text-outline" size={20} color={COLORS.white} />
+                  <Text style={styles.actionButtonText}>Hợp đồng</Text>
+                </TouchableOpacity>
+              )}
+
+              {showDocumentButton && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.documentButton]}
+                  onPress={() => router.push({
+                    pathname: '/(tabs)/document_bookingOffline',
+                    params: { id: item.id }
+                  })}
+                >
+                  <Ionicons name="folder-outline" size={20} color={COLORS.white} />
+                  <Text style={styles.actionButtonText}>Hồ sơ</Text>
+                </TouchableOpacity>
+              )}
+
+              {showAttachmentButton && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.attachmentButton]}
+                  onPress={() => router.push({
+                    pathname: '/(tabs)/attachment_bookingOffline',
+                    params: { id: item.id }
+                  })}
+                >
+                  <Ionicons name="clipboard-outline" size={20} color={COLORS.white} />
+                  <Text style={styles.actionButtonText}>Biên bản</Text>
+                </TouchableOpacity>
+              )}
+
+              {showPaymentButton && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.paymentButton]}
+                  onPress={() => handlePayment(item)}
+                >
+                  <Ionicons name="wallet-outline" size={20} color={COLORS.white} />
+                  <Text style={styles.actionButtonText}>Thanh toán</Text>
+                </TouchableOpacity>
+              )}
+              
+              {showCancelButton && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => cancelBooking(item)}
+                >
+                  <Ionicons name="close-circle-outline" size={20} color={COLORS.white} />
+                  <Text style={styles.actionButtonText}>Hủy lịch</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+        )}
+      </View>
     );
   };
 
@@ -647,13 +715,25 @@ const YourBooking = () => {
             openFilter && styles.selectListActive
           ]}
           onPress={() => setOpenFilter(!openFilter)}
+          activeOpacity={0.7}
         >
-          <Text style={styles.selectListValueText}>{displayText}</Text>
-          <Ionicons
-            name={openFilter ? "chevron-up" : "chevron-down"} 
-            size={16} 
-            color={openFilter ? "#FF6B6B" : "#666"}
-          />
+          <View style={styles.selectListContent}>
+            <Ionicons 
+              name={selectedConsultType === 'Online' ? "videocam" : 
+                    selectedConsultType === 'Offline' ? "business" : "apps"} 
+              size={20} 
+              color={COLORS.primary}
+              style={styles.selectListIcon}
+            />
+            <Text style={styles.selectListText}>{displayText}</Text>
+          </View>
+          <View style={styles.selectListArrow}>
+            <Ionicons
+              name={openFilter ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={COLORS.primary}
+            />
+          </View>
         </TouchableOpacity>
         
         {openFilter && (
@@ -668,6 +748,7 @@ const YourBooking = () => {
                 setOpenFilter(false);
               }}
             >
+              <Ionicons name="apps" size={20} color={selectedConsultType === 'all' ? COLORS.primary : COLORS.text.secondary} />
               <Text style={[
                 styles.dropdownItemText,
                 selectedConsultType === 'all' && styles.dropdownItemTextActive
@@ -675,9 +756,10 @@ const YourBooking = () => {
                 Tất cả loại tư vấn
               </Text>
               {selectedConsultType === 'all' && (
-                <Ionicons name="checkmark" size={18} color="#FF6B6B" />
+                <Ionicons name="checkmark" size={20} color={COLORS.primary} />
               )}
             </TouchableOpacity>
+            
             <TouchableOpacity
               style={[
                 styles.dropdownItem,
@@ -688,6 +770,7 @@ const YourBooking = () => {
                 setOpenFilter(false);
               }}
             >
+              <Ionicons name="videocam" size={20} color={selectedConsultType === 'Online' ? COLORS.primary : COLORS.text.secondary} />
               <Text style={[
                 styles.dropdownItemText,
                 selectedConsultType === 'Online' && styles.dropdownItemTextActive
@@ -695,9 +778,10 @@ const YourBooking = () => {
                 Tư vấn Online
               </Text>
               {selectedConsultType === 'Online' && (
-                <Ionicons name="checkmark" size={18} color="#FF6B6B" />
+                <Ionicons name="checkmark" size={20} color={COLORS.primary} />
               )}
             </TouchableOpacity>
+            
             <TouchableOpacity
               style={[
                 styles.dropdownItem,
@@ -708,6 +792,7 @@ const YourBooking = () => {
                 setOpenFilter(false);
               }}
             >
+              <Ionicons name="business" size={20} color={selectedConsultType === 'Offline' ? COLORS.primary : COLORS.text.secondary} />
               <Text style={[
                 styles.dropdownItemText,
                 selectedConsultType === 'Offline' && styles.dropdownItemTextActive
@@ -715,7 +800,7 @@ const YourBooking = () => {
                 Tư vấn Offline
               </Text>
               {selectedConsultType === 'Offline' && (
-                <Ionicons name="checkmark" size={18} color="#FF6B6B" />
+                <Ionicons name="checkmark" size={20} color={COLORS.primary} />
               )}
             </TouchableOpacity>
           </View>
@@ -940,16 +1025,28 @@ const YourBooking = () => {
       onRequestClose={() => setBookingDetailVisible(false)}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, styles.bookingDetailContent]}>
+        <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Chi tiết đặt lịch {selectedBooking?.type}</Text>
+            <View style={styles.modalTitleContainer}>
+              <Ionicons 
+                name={selectedBooking?.type === 'Online' ? "videocam" : "business"} 
+                size={24} 
+                color={COLORS.primary} 
+                style={styles.modalHeaderIcon}
+              />
+              <Text style={styles.modalTitle}>
+                Chi tiết {selectedBooking?.type === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline'}
+              </Text>
+            </View>
             <TouchableOpacity 
               style={styles.closeButton}
               onPress={() => setBookingDetailVisible(false)}
             >
-              <Ionicons name="close-circle-outline" size={24} color="#666" />
+              <Ionicons name="close" size={24} color={COLORS.text.secondary} />
             </TouchableOpacity>
           </View>
+
+          <View style={styles.modalDivider} />
 
           {selectedBooking && (
             <ScrollView style={styles.bookingDetailScroll}>
@@ -1002,8 +1099,10 @@ const YourBooking = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B6B" />
-        <Text style={styles.loadingText}>Đang tải...</Text>
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Đang tải lịch tư vấn...</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -1025,43 +1124,73 @@ const YourBooking = () => {
   const header = (
     <View style={styles.header}>
       <TouchableOpacity 
-        onPress={() => router.push('/(tabs)/profile')}
         style={styles.backButton}
+        onPress={() => router.push('/(tabs)/profile')}
       >
-        <Ionicons name="arrow-back" size={24} color="#FFF" />
+        <Ionicons name="chevron-back" size={24} color={COLORS.white} />
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>Lịch tư vấn</Text>
+      <Text style={styles.headerTitle}>Lịch tư vấn của bạn</Text>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
       
-      {header}
+      {/* Elegant Header with Gradient */}
+      <LinearGradient
+        colors={[COLORS.primaryDark, COLORS.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
+            <Ionicons name="chevron-back" size={24} color={COLORS.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Lịch tư vấn của bạn</Text>
+        </View>
+      </LinearGradient>
       
-      <View style={styles.filtersContainer}>
+      {/* Refined Filter Section */}
+      <View style={styles.filterSection}>
         <SelectList />
       </View>
 
-      <FilterModal />
-
-      <FlatList
-        data={filteredBookings}
-        renderItem={renderBookingItem}
-        keyExtractor={(item) => `${item.type}-${item.id}`}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-        refreshing={isRefreshing}
-        onRefresh={refetch}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              Không có lịch đặt tư vấn nào
-            </Text>
+      {/* Loading State */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Đang tải lịch tư vấn...</Text>
           </View>
-        )}
-      />
+        </View>
+      ) : (
+        /* Booking List with Elegant Cards */
+        <FlatList
+          data={filteredBookings}
+          renderItem={renderBookingItem}
+          keyExtractor={(item) => `${item.type}-${item.id}`}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          refreshing={isRefreshing}
+          onRefresh={refetch}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="calendar-outline" size={64} color={COLORS.white} />
+              </View>
+              <Text style={styles.emptyTitle}>Chưa có lịch tư vấn</Text>
+              <Text style={styles.emptyText}>Bạn chưa có lịch đặt tư vấn nào. Vui lòng đặt lịch tư vấn mới để xem tại đây.</Text>
+            </View>
+          )}
+        />
+      )}
+
+      <FilterModal />
       <BookingDetailModal />
       <CustomTabBar />
     </SafeAreaView>
@@ -1069,319 +1198,456 @@ const YourBooking = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+  headerGradient: {
+    elevation: 4,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   header: {
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 16,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-    backgroundColor: '#8B0000',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginLeft: 10,
   },
   backButton: {
-    padding: 8,
-  },
-  listContainer: {
-    padding: 16,
-  },
-  ticketItem: {
-    backgroundColor: '#fff',
-    marginHorizontal: 15,
-    marginVertical: 8,
-    borderRadius: 10,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  ticketHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  workshopName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-    marginRight: 10,
-  },
-  statusTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    color: '#fff',
-    fontSize: 12,
-  },
-  ticketContent: {
-    marginTop: 5,
-    gap: 4,
-  },
-  ticketCount: {
-    fontSize: 14,
-    color: '#666',
-  },
-  bookingTime: {
-    fontSize: 14,
-    color: '#666',
-  },
-  paymentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
-    backgroundColor: '#FF6B6B',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: 5,
-    gap: 5,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  paymentButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+  headerTitle: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    marginLeft: 16,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  filtersContainer: {
+  filterSection: {
+    backgroundColor: COLORS.white,
     padding: 16,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    zIndex: 1,
+    borderBottomColor: COLORS.border,
+    elevation: 2,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
   },
   selectListContainer: {
+    zIndex: 2,
     position: 'relative',
-    zIndex: 1,
   },
   selectList: {
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    elevation: 1,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   selectListActive: {
-    borderColor: '#FF6B6B',
+    borderColor: COLORS.primary,
+    backgroundColor: 'rgba(139, 0, 0, 0.05)',
   },
-  selectListValueText: {
+  selectListContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectListIcon: {
+    marginRight: 12,
+  },
+  selectListText: {
     fontSize: 16,
-    color: '#333',
-    flex: 1,
+    color: COLORS.text.primary,
+    fontWeight: '500',
+  },
+  selectListArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(139, 0, 0, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dropdownContainer: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
+    marginTop: 8,
+    padding: 8,
     borderWidth: 1,
-    borderColor: '#FF6B6B',
-    marginTop: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderColor: COLORS.border,
+    elevation: 4,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    zIndex: 3,
   },
   dropdownItem: {
+    padding: 12,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 4,
   },
   dropdownItemActive: {
-    backgroundColor: '#FFF0F0',
+    backgroundColor: 'rgba(139, 0, 0, 0.08)',
   },
   dropdownItemText: {
     fontSize: 16,
-    color: '#333',
+    color: COLORS.text.secondary,
+    marginLeft: 12,
+    flex: 1,
   },
   dropdownItemTextActive: {
-    color: '#FF6B6B',
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  listContainer: {
+    padding: 16,
+    paddingBottom: 120, // Extra padding for TabBar
+  },
+  bookingCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    borderWidth: Platform.OS === 'ios' ? 1 : 0,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  cardHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  cardTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  cardType: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  statusTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  statusText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  cardBody: {
+    padding: 16,
+    backgroundColor: COLORS.white,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoIcon: {
+    marginRight: 8,
+    width: 22,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    width: 90,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: COLORS.text.primary,
+    fontWeight: '500',
+    flex: 1,
+  },
+  rejectedMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(244, 67, 54, 0.08)',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  rejectedText: {
+    fontSize: 14,
+    color: COLORS.status.rejected,
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  cardActions: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    padding: 12,
+  },
+  actionsScroll: {
+    paddingRight: 8,
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 100,
+    marginRight: 8,
+  },
+  actionButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
     fontWeight: '600',
+    marginLeft: 6,
+  },
+  contractButton: {
+    backgroundColor: COLORS.primary,
+  },
+  documentButton: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  attachmentButton: {
+    backgroundColor: COLORS.primaryDark,
+  },
+  paymentButton: {
+    backgroundColor: '#38A169', // Green
+  },
+  cancelButton: {
+    backgroundColor: '#E53E3E', // Red
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    width: '85%',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    marginTop: 32,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    elevation: 3,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    width: '90%',
-    maxHeight: '80%',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    padding: 20,
+  },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalHeaderIcon: {
+    marginRight: 12,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.text.primary,
   },
-  modalClose: {
-    fontSize: 20,
-    color: '#666',
-    padding: 4,
-  },
-  modalItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalItemText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  errorContainer: {
-    flex: 1,
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
   },
-  errorText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
-  },
-  bookingDetailContent: {
-    padding: 0,
+  modalDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 20,
   },
   bookingDetailScroll: {
-    padding: 15,
-  },
-  bookingDetailSection: {
-    gap: 15,
+    padding: 20,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
   },
   detailLabel: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    color: COLORS.text.secondary,
     flex: 1,
   },
   detailValue: {
     fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-    flex: 2,
-    textAlign: 'right',
-  },
-  statusContainer: {
-    flex: 2,
-    alignItems: 'flex-end',
-  },
-  priceValue: {
-    fontSize: 16,
-    color: '#FF6B6B',
-    fontWeight: '600',
+    color: COLORS.text.primary,
     flex: 2,
     textAlign: 'right',
   },
   separator: {
     height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 5,
+    backgroundColor: COLORS.border,
+    marginVertical: 8,
+  },
+  priceValue: {
+    fontSize: 14,
+    color: COLORS.text.primary,
+    fontWeight: '600',
+    flex: 2,
+    textAlign: 'right',
+  },
+  linkContainer: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  linkText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  paymentButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  bookingDetailContent: {
+    padding: 0,
+  },
+  bookingDetailSection: {
+    gap: 16,
+  },
+  statusContainer: {
+    flex: 2,
+    alignItems: 'flex-end',
   },
   descriptionContainer: {
-    marginTop: 5,
+    marginTop: 8,
   },
   descriptionText: {
     fontSize: 14,
-    color: '#333',
-    marginTop: 5,
+    color: COLORS.text.primary,
+    marginTop: 8,
     lineHeight: 20,
   },
   masterNoteContainer: {
-    marginTop: 15,
+    marginTop: 16,
     padding: 12,
     backgroundColor: '#FFF0F0',
     borderRadius: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#FF6B6B',
+    borderLeftColor: COLORS.primary,
   },
   masterNoteLabel: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.text.primary,
     fontWeight: '600',
     marginBottom: 8,
     flexDirection: 'row',
@@ -1389,108 +1655,8 @@ const styles = StyleSheet.create({
   },
   masterNoteText: {
     fontSize: 14,
-    color: '#333',
+    color: COLORS.text.primary,
     lineHeight: 20,
-  },
-  closeButton: {
-    padding: 5,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
-  },
-  contractButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4ECDC4',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  documentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2196F3',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  attachmentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#9C27B0',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  rejectedNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    backgroundColor: '#FFF0F0',
-    borderRadius: 8,
-  },
-  rejectedText: {
-    fontSize: 14,
-    color: '#FF5252',
-    fontWeight: '500',
-  },
-  linkContainer: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  linkText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  cancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F44336',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: 5,
-    gap: 5,
-  },
-  cancelButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
   },
 });
 

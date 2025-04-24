@@ -11,6 +11,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,7 +19,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { API_CONFIG } from '../../constants/config';
 
+// Responsive sizing utilities
 const { width, height } = Dimensions.get('window');
+const SCREEN_WIDTH = width;
+const SCREEN_HEIGHT = height;
+const BASE_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT);
+const scale = size => Math.round(BASE_SIZE * (size / 375));
+const isIOS = Platform.OS === 'ios';
+
+// Status bar height calculation
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' 
+  ? (Platform.isPad ? 20 : StatusBar.currentHeight || 44) 
+  : StatusBar.currentHeight || 0;
 
 export default function CourseQuizScreen() {
   const router = useRouter();
@@ -622,37 +634,66 @@ export default function CourseQuizScreen() {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+      <View style={styles.container}>
+        <StatusBar 
+          barStyle={isIOS ? "light-content" : "dark-content"} 
+          backgroundColor="#8B0000" 
+          translucent={true}
+        />
+        <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
+        <SafeAreaView style={{ backgroundColor: '#8B0000' }}>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={handleBack} 
+              style={styles.backButton}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Ionicons name="close" size={scale(24)} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{quizTitles[quizId] || 'Bài kiểm tra'}</Text>
+            <View style={{ width: scale(24) }} />
+          </View>
+        </SafeAreaView>
         <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#8B0000" />
+          <ActivityIndicator size="large" color="#8B0000" />
           <Text style={styles.loadingText}>Đang tải câu hỏi...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // Empty questions handling
   if (!loading && (!questions || questions.length === 0)) {
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack}>
-            <Ionicons name="close" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{quizTitles[quizId]}</Text>
-          <View style={{ width: 24 }} />
-        </View>
+    return (
+      <View style={styles.container}>
+        <StatusBar 
+          barStyle={isIOS ? "light-content" : "dark-content"} 
+          backgroundColor="#8B0000" 
+          translucent={true}
+        />
+        <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
+        <SafeAreaView style={{ backgroundColor: '#8B0000' }}>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={handleBack} 
+              style={styles.backButton}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Ionicons name="close" size={scale(24)} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{quizTitles[quizId] || 'Bài kiểm tra'}</Text>
+            <View style={{ width: scale(24) }} />
+          </View>
+        </SafeAreaView>
         <View style={styles.emptyContainer}>
-          <Ionicons name="alert-circle-outline" size={60} color="#8B0000" />
+          <Ionicons name="alert-circle-outline" size={scale(60)} color="#8B0000" />
           <Text style={styles.emptyTitle}>Không có câu hỏi</Text>
           <Text style={styles.emptyText}>Không thể tải câu hỏi cho bài kiểm tra này. Vui lòng thử lại sau.</Text>
           <TouchableOpacity style={styles.returnButton} onPress={handleBack}>
             <Text style={styles.returnButtonText}>Quay lại</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -663,16 +704,12 @@ export default function CourseQuizScreen() {
       return <Text style={styles.errorText}>Question not found</Text>;
     }
     
-    // Chỉ log khi cần debug
-    // console.log('Current question structure:', JSON.stringify(currentQuestion));
-    
     return (
-      <View style={styles.questionContainer}>
+      <View style={styles.questionWrapper}>
         <Text style={styles.questionText}>
           {currentQuestion.questionText || currentQuestion.question || "No question text"}
         </Text>
         
-        {/* Check if answers exists before mapping */}
         {currentQuestion.answers && Array.isArray(currentQuestion.answers) ? (
           <View style={styles.answerContainer}>
             {currentQuestion.answers.map((answer, index) => (
@@ -684,14 +721,25 @@ export default function CourseQuizScreen() {
                 ]}
                 onPress={() => handleAnswerSelect(answer.answerId)}
               >
-                <Text style={styles.answerOptionLabel}>
-                  {String.fromCharCode(65 + index)}
-                </Text>
-                <Text style={styles.answerOptionText}>
+                <View style={[
+                  styles.answerLabel, 
+                  selectedAnswers[currentQuestionIndex] === answer.answerId && styles.selectedAnswerLabel
+                ]}>
+                  <Text style={[
+                    styles.answerLabelText,
+                    selectedAnswers[currentQuestionIndex] === answer.answerId && styles.selectedAnswerLabelText
+                  ]}>
+                    {String.fromCharCode(65 + index)}
+                  </Text>
+                </View>
+                <Text style={[
+                  styles.answerOptionText,
+                  selectedAnswers[currentQuestionIndex] === answer.answerId && styles.selectedAnswerText
+                ]}>
                   {answer.optionText}
                 </Text>
                 {selectedAnswers[currentQuestionIndex] === answer.answerId && (
-                  <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={styles.checkIcon} />
+                  <Ionicons name="checkmark-circle" size={scale(22)} color="#4CAF50" style={styles.checkIcon} />
                 )}
               </TouchableOpacity>
             ))}
@@ -707,14 +755,25 @@ export default function CourseQuizScreen() {
                 ]}
                 onPress={() => handleAnswerSelect(index)}
               >
-                <Text style={styles.answerOptionLabel}>
-                  {String.fromCharCode(65 + index)}
-                </Text>
-                <Text style={styles.answerOptionText}>
+                <View style={[
+                  styles.answerLabel, 
+                  selectedAnswers[currentQuestionIndex] === index && styles.selectedAnswerLabel
+                ]}>
+                  <Text style={[
+                    styles.answerLabelText,
+                    selectedAnswers[currentQuestionIndex] === index && styles.selectedAnswerLabelText
+                  ]}>
+                    {String.fromCharCode(65 + index)}
+                  </Text>
+                </View>
+                <Text style={[
+                  styles.answerOptionText,
+                  selectedAnswers[currentQuestionIndex] === index && styles.selectedAnswerText
+                ]}>
                   {option}
                 </Text>
                 {selectedAnswers[currentQuestionIndex] === index && (
-                  <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={styles.checkIcon} />
+                  <Ionicons name="checkmark-circle" size={scale(22)} color="#4CAF50" style={styles.checkIcon} />
                 )}
               </TouchableOpacity>
             ))}
@@ -724,151 +783,123 @@ export default function CourseQuizScreen() {
     );
   };
 
-  // Chỉ log khi cần thiết
-  // console.log('Quiz state:', {
-  //   questionsLength: questions.length,
-  //   loading,
-  //   error,
-  //   currentIndex: currentQuestionIndex
-  // });
-
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar 
+        barStyle={isIOS ? "light-content" : "dark-content"} 
+        backgroundColor="#8B0000" 
+        translucent={true}
+      />
+      
+      {/* Status Bar Spacer */}
+      <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
       
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack}>
-          <Ionicons name="close" size={24} color="#333" />
-        </TouchableOpacity>
-        
-        <View style={styles.titleContainer}>
-          <Text style={styles.headerTitle}>{quizTitles[quizId]}</Text>
+      <SafeAreaView style={{ backgroundColor: '#8B0000' }}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={handleBack} 
+            style={styles.backButton}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
+            <Ionicons name="close" size={scale(24)} color="#FFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{quizTitles[quizId] || 'Bài kiểm tra'}</Text>
+          <View style={{ width: scale(24) }} />
         </View>
-      </View>
+      </SafeAreaView>
       
       {/* Timer Bar */}
-          <View style={styles.timerContainer}>
+      <View style={styles.timerContainer}>
         <View style={styles.timerInfo}>
-          <Ionicons name="time-outline" size={16} color="#666" />
-            <Text style={styles.timerText}>{formatTimeRemaining()}</Text>
-          </View>
-          <View style={styles.progressContainer}>
-              <View 
-                style={[
+          <Ionicons name="time-outline" size={scale(16)} color="#666" />
+          <Text style={styles.timerText}>{formatTimeRemaining()}</Text>
+        </View>
+        <View style={styles.progressContainer}>
+          <View 
+            style={[
               styles.progressBar, 
               { width: `${(currentQuestionIndex + 1) / questions.length * 100}%` }
-                ]} 
-              />
-            </View>
+            ]} 
+          />
+        </View>
         <Text style={styles.progressText}>
           {currentQuestionIndex + 1}/{questions.length}
         </Text>
-          </View>
-          
+      </View>
+      
       {/* Question Content */}
-          <ScrollView 
-            ref={scrollRef}
+      <ScrollView 
+        ref={scrollRef}
         style={styles.questionScrollView}
-        contentContainerStyle={styles.questionContainer}
+        contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
-          >
+      >
         <Text style={styles.questionNumber}>Câu hỏi {currentQuestionIndex + 1}</Text>
         {renderQuestion()}
-            
-        {/* Options */}
-        {/* <View style={styles.optionsContainer}>
-          {questions[currentQuestionIndex]?.options?.map((option, index) => (
-              <TouchableOpacity 
-                key={index}
-                style={[
-                styles.optionButton,
-                selectedAnswers[currentQuestionIndex] === index && styles.selectedOption
-                ]}
-                onPress={() => handleAnswerSelect(index)}
-              >
-              <View style={styles.optionContent}>
-                <View style={[
-                  styles.optionDot,
-                  selectedAnswers[currentQuestionIndex] === index && styles.selectedDot
-                ]}>
-                  <Text style={[
-                    styles.optionLetter,
-                    selectedAnswers[currentQuestionIndex] === index && styles.selectedOptionLetter
-                  ]}>
-                    {String.fromCharCode(65 + index)}
-                  </Text>
-                </View>
-                <Text style={[
-                  styles.optionText,
-                  selectedAnswers[currentQuestionIndex] === index && styles.selectedOptionText
-                ]}>
-                  {option}
-                </Text>
-              </View>
-              </TouchableOpacity>
-            ))}
-        </View> */}
-          </ScrollView>
-          
-      {/* Navigation Controls */}
-      <View style={styles.navigationContainer}>
+      </ScrollView>
+      
+      {/* Question Indicators */}
+      <View style={styles.indicatorsWrapper}>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.indicatorsContent}
           style={styles.indicatorsContainer}
         >
-              {questions.map((_, index) => (
-                <TouchableOpacity 
-                  key={index}
-                  style={[
+          {questions.map((_, index) => (
+            <TouchableOpacity 
+              key={index}
+              style={[
                 styles.indicatorDot,
                 currentQuestionIndex === index && styles.currentIndicator,
                 selectedAnswers[index] !== undefined && styles.answeredIndicator
-                  ]}
-                  onPress={() => goToQuestion(index)}
-                >
-                  <Text style={[
+              ]}
+              onPress={() => goToQuestion(index)}
+            >
+              <Text style={[
                 styles.indicatorText,
                 currentQuestionIndex === index && styles.currentIndicatorText,
                 selectedAnswers[index] !== undefined && styles.answeredIndicatorText
-                  ]}>
-                    {index + 1}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          
+              ]}>
+                {index + 1}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+      
+      {/* Navigation Controls */}
+      <SafeAreaView style={{ backgroundColor: '#fff' }}>
         <View style={styles.navigationControls}>
-            <TouchableOpacity 
+          <TouchableOpacity 
             style={[styles.navButton, currentQuestionIndex === 0 && styles.disabledButton]}
-              onPress={handlePrevQuestion}
-              disabled={currentQuestionIndex === 0}
-            >
+            onPress={handlePrevQuestion}
+            disabled={currentQuestionIndex === 0}
+          >
             <Ionicons 
               name="chevron-back" 
-              size={18} 
+              size={scale(18)} 
               color={currentQuestionIndex === 0 ? "#ccc" : "#333"} 
             />
             <Text style={[
               styles.navButtonText,
               currentQuestionIndex === 0 && styles.disabledButtonText
             ]}>
-                Câu trước
-              </Text>
-            </TouchableOpacity>
-            
+              Câu trước
+            </Text>
+          </TouchableOpacity>
+          
           {currentQuestionIndex < questions.length - 1 ? (
-              <TouchableOpacity 
+            <TouchableOpacity 
               style={styles.navButton}
               onPress={handleNextQuestion}
-              >
+            >
               <Text style={styles.navButtonText}>Câu sau</Text>
-              <Ionicons name="chevron-forward" size={18} color="#333" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity 
+              <Ionicons name="chevron-forward" size={scale(18)} color="#333" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
               style={[
                 styles.submitButton,
                 !areAllQuestionsAnswered() && styles.disabledSubmitButton
@@ -882,11 +913,11 @@ export default function CourseQuizScreen() {
               ]}>
                 Nộp bài
               </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-      </View>
-    </SafeAreaView>
+            </TouchableOpacity>
+          )}
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -899,217 +930,219 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: scale(20),
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: scale(16),
+    fontSize: scale(16),
     color: '#666',
+    textAlign: 'center',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: scale(24),
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: scale(22),
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: scale(16),
+    marginBottom: scale(8),
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#666',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: scale(24),
+    lineHeight: scale(22),
   },
   returnButton: {
     backgroundColor: '#8B0000',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: scale(24),
+    paddingVertical: scale(12),
+    borderRadius: scale(8),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   returnButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: 'bold',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    backgroundColor: '#8B0000',
+  },
+  backButton: {
+    width: scale(40),
+    height: scale(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: scale(20),
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: 'bold',
-    color: '#333',
-    marginRight: 8,
+    color: '#FFF',
+    textAlign: 'center',
+    flex: 1,
   },
   timerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(10),
     backgroundColor: '#f9f9f9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
   timerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   timerText: {
-    marginLeft: 4,
-    fontSize: 14,
+    marginLeft: scale(4),
+    fontSize: scale(14),
     color: '#666',
+    fontWeight: '500',
   },
   progressContainer: {
     flex: 1,
-    height: 4,
+    height: scale(4),
     backgroundColor: '#e0e0e0',
-    borderRadius: 2,
-    marginHorizontal: 12,
+    borderRadius: scale(2),
+    marginHorizontal: scale(12),
   },
   progressBar: {
     height: '100%',
     backgroundColor: '#8B0000',
-    borderRadius: 2,
+    borderRadius: scale(2),
   },
   progressText: {
-    fontSize: 14,
+    fontSize: scale(14),
     color: '#666',
+    fontWeight: '500',
   },
   questionScrollView: {
     flex: 1,
   },
-  questionContainer: {
-    padding: 16,
-    paddingBottom: 40,
+  scrollContentContainer: {
+    padding: scale(16),
+    paddingBottom: scale(40),
   },
   questionNumber: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#8B0000',
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: scale(8),
+  },
+  questionWrapper: {
+    marginBottom: scale(20),
   },
   questionText: {
-    fontSize: 18,
+    fontSize: scale(18),
     color: '#333',
     fontWeight: '500',
-    marginBottom: 24,
-    lineHeight: 26,
+    marginBottom: scale(24),
+    lineHeight: scale(26),
   },
-  optionsContainer: {
-    marginBottom: 16,
+  answerContainer: {
+    marginBottom: scale(16),
   },
-  optionButton: {
+  answerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: scale(8),
+    marginBottom: scale(10),
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    overflow: 'hidden',
+    paddingVertical: scale(12),
+    paddingRight: scale(12),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
-  selectedOption: {
+  selectedAnswer: {
     backgroundColor: '#f8f0f0',
     borderColor: '#8B0000',
   },
-  optionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  optionDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  answerLabel: {
+    width: scale(36),
+    height: scale(36),
+    borderRadius: scale(18),
     backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginLeft: scale(12),
+    marginRight: scale(12),
   },
-  selectedDot: {
+  selectedAnswerLabel: {
     backgroundColor: '#8B0000',
   },
-  optionLetter: {
-    fontSize: 16,
+  answerLabelText: {
+    fontSize: scale(16),
     fontWeight: 'bold',
     color: '#666',
   },
-  selectedOptionLetter: {
+  selectedAnswerLabelText: {
     color: '#fff',
   },
-  optionText: {
-    fontSize: 16,
+  answerOptionText: {
+    fontSize: scale(16),
     color: '#333',
     flex: 1,
+    lineHeight: scale(22),
   },
-  selectedOptionText: {
+  selectedAnswerText: {
     fontWeight: '500',
   },
-  navigationContainer: {
+  checkIcon: {
+    marginLeft: scale(8),
+  },
+  indicatorsWrapper: {
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     backgroundColor: '#fff',
-    paddingTop: 8,
-    paddingBottom: 16, // Add extra padding for iOS safe area
-  },
-  navigationControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
-  navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  navButtonText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  disabledButtonText: {
-    color: '#ccc',
-  },
-  submitButton: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  disabledSubmitButton: {
-    backgroundColor: '#e0e0e0',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  disabledSubmitButtonText: {
-    color: '#999',
   },
   indicatorsContainer: {
-    paddingHorizontal: 12,
+    paddingVertical: scale(12),
   },
   indicatorsContent: {
-    paddingHorizontal: 4,
+    paddingHorizontal: scale(16),
   },
   indicatorDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: scale(36),
+    height: scale(36),
+    borderRadius: scale(18),
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: scale(4),
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
@@ -1122,8 +1155,9 @@ const styles = StyleSheet.create({
     borderColor: '#4CAF50',
   },
   indicatorText: {
-    fontSize: 14,
+    fontSize: scale(14),
     color: '#666',
+    fontWeight: '500',
   },
   currentIndicatorText: {
     color: '#8B0000',
@@ -1131,79 +1165,83 @@ const styles = StyleSheet.create({
   },
   answeredIndicatorText: {
     color: '#4CAF50',
+    fontWeight: 'bold',
   },
-  reloadButton: {
-    padding: 6,
-    borderRadius: 20,
+  navigationControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: scale(16),
+    paddingTop: scale(12),
+    paddingBottom: isIOS ? scale(16) : scale(12),
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  navButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(10),
+    borderRadius: scale(8),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  disabledButton: {
+    opacity: 0.5,
+    backgroundColor: '#f0f0f0',
+  },
+  navButtonText: {
+    fontSize: scale(16),
+    color: '#333',
+    fontWeight: '500',
+    marginHorizontal: scale(4),
+  },
+  disabledButtonText: {
+    color: '#ccc',
+  },
+  submitButton: {
     backgroundColor: '#8B0000',
-    marginLeft: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    paddingHorizontal: scale(24),
+    paddingVertical: scale(10),
+    borderRadius: scale(8),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  titleContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  disabledSubmitButton: {
+    backgroundColor: '#e0e0e0',
   },
-  testControlsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  submitButtonText: {
+    color: '#fff',
+    fontSize: scale(16),
+    fontWeight: 'bold',
   },
-  resetButton: {
-    padding: 6,
-    borderRadius: 20,
-    backgroundColor: '#444',
-    marginLeft: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+  disabledSubmitButtonText: {
+    color: '#999',
   },
   errorText: {
     color: '#8B0000',
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: 'bold',
-    marginTop: 16,
+    marginVertical: scale(16),
     textAlign: 'center',
-  },
-  questionContainer: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  answerContainer: {
-    marginBottom: 16,
-  },
-  answerOption: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  selectedAnswer: {
-    backgroundColor: '#f8f0f0',
-    borderColor: '#8B0000',
-  },
-  answerOptionLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#666',
-    padding: 16,
-  },
-  answerOptionText: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1,
-  },
-  checkIcon: {
-    marginLeft: 8,
   },
 });

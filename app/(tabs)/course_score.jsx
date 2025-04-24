@@ -12,6 +12,7 @@ import {
   ScrollView,
   Modal,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -20,7 +21,14 @@ import * as Haptics from 'expo-haptics';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const scale = size => Math.round(width * size / 375);
+const isIOS = Platform.OS === 'ios';
+
+// Calculate status bar height
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' 
+  ? (Platform.isPad ? 20 : StatusBar.currentHeight || 44) 
+  : StatusBar.currentHeight || 0;
 
 export default function CourseScoreScreen() {
   const router = useRouter();
@@ -605,7 +613,7 @@ export default function CourseScoreScreen() {
         >
           <Ionicons 
             name={i <= rating ? "star" : "star-outline"} 
-            size={40} 
+            size={scale(40)} 
             color={i <= rating ? "#FFD700" : "#ccc"} 
           />
         </TouchableOpacity>
@@ -655,15 +663,27 @@ export default function CourseScoreScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar 
+        barStyle={isIOS ? "light-content" : "dark-content"}
+        backgroundColor="#8B0000"
+        translucent={true}
+      />
+      
+      {/* Status Bar Spacer */}
+      <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
       
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Kết quả kiểm tra</Text>
-      </View>
+      <SafeAreaView style={{ backgroundColor: '#8B0000' }}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Kết quả kiểm tra</Text>
+        </View>
+      </SafeAreaView>
       
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Quiz Info */}
         <View style={styles.quizInfoContainer}>
           <Text style={styles.quizTitle}>{quizTitles[quizId]}</Text>
@@ -672,57 +692,74 @@ export default function CourseScoreScreen() {
         
         {/* Score Display */}
         <View style={styles.scoreContainer}>
-          <View style={[styles.scoreCircle, isPassed ? styles.scoreCirclePassed : styles.scoreCircleFailed]}>
+          <View style={[
+            styles.scoreCircle, 
+            isPassed ? styles.scoreCirclePassed : styles.scoreCircleFailed
+          ]}>
             <Text style={styles.scoreText}>
-              {scoreData 
-                ? `${scoreData.percentage}%`
-                : `${percentage}%`
-              }
+              {scoreData ? `${scoreData.percentage}%` : `${percentage}%`}
             </Text>
           </View>
           
           <View style={styles.resultSummary}>
-            <Text style={[styles.resultStatus, isPassed ? styles.passedText : styles.failedText]}>
+            <Text style={[
+              styles.resultStatus, 
+              isPassed ? styles.passedText : styles.failedText
+            ]}>
               {isPassed ? 'ĐẠT' : 'CHƯA ĐẠT'}
             </Text>
             <Text style={styles.resultDescription}>
               {isPassed 
                 ? 'Chúc mừng! Bạn đã hoàn thành bài kiểm tra thành công.' 
-                : `Bạn cần đạt tối thiểu 80% câu đúng để vượt qua bài kiểm tra này.`}
+                : 'Bạn cần đạt tối thiểu 80% câu đúng để vượt qua bài kiểm tra này.'}
             </Text>
           </View>
         </View>
         
-        {/* Stats */}
+        {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Ionicons name="checkmark-circle" size={24} color="#4CAF50" style={styles.statIcon} />
+            <Ionicons 
+              name="checkmark-circle" 
+              size={scale(24)} 
+              color="#4CAF50" 
+              style={styles.statIcon} 
+            />
             <Text style={styles.statValue}>
-              {scoreData ? `${scoreData.correctAnswers}/${scoreData.totalQuestions}` : `${correctAnswers}/${totalQuestions}`}
+              {scoreData 
+                ? `${scoreData.correctAnswers}/${scoreData.totalQuestions}` 
+                : `${correctAnswers}/${totalQuestions}`}
             </Text>
             <Text style={styles.statLabel}>Câu trả lời đúng</Text>
           </View>
           
           <View style={styles.statCard}>
-            <Ionicons name="time-outline" size={24} color="#FF9800" style={styles.statIcon} />
+            <Ionicons 
+              name="time-outline" 
+              size={scale(24)} 
+              color="#FF9800" 
+              style={styles.statIcon} 
+            />
             <Text style={styles.statValue}>
               {formatTime(numericTimeSpent)}
             </Text>
             <Text style={styles.statLabel}>Thời gian hoàn thành</Text>
           </View>
-          
-          {quizId === 'final-exam' && isPassed && (
-            <View style={styles.achievementBadge}>
-              <Image 
-                source={require('../../assets/images/certificate.png')} 
-                style={styles.certificateIcon}
-              />
-              <Text style={styles.achievementText}>Chứng chỉ đã mở khóa!</Text>
-            </View>
-          )}
         </View>
         
-        {/* Feedback */}
+        {/* Achievement Badge */}
+        {quizId === 'final-exam' && isPassed && (
+          <View style={styles.achievementBadge}>
+            <Image 
+              source={require('../../assets/images/certificate.png')} 
+              style={styles.certificateIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.achievementText}>Chứng chỉ đã mở khóa!</Text>
+          </View>
+        )}
+        
+        {/* Feedback Section */}
         <View style={styles.feedbackContainer}>
           <Text style={styles.feedbackTitle}>Đánh giá</Text>
           <Text style={styles.feedbackText}>
@@ -734,32 +771,34 @@ export default function CourseScoreScreen() {
       </ScrollView>
       
       {/* Action Buttons */}
-      <View style={styles.actionButtonsContainer}>
-        <View style={styles.buttonGroup}>
-          {!hasRatedBefore && (
+      <SafeAreaView style={styles.actionButtonsWrapper}>
+        <View style={styles.actionButtonsContainer}>
+          <View style={styles.buttonGroup}>
+            {!hasRatedBefore && (
+              <TouchableOpacity 
+                style={styles.rateButton}
+                onPress={openRatingModal}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.rateButtonText}>Đánh giá</Text>
+                <Ionicons name="star" size={scale(20)} color="#fff" />
+              </TouchableOpacity>
+            )}
+            
             <TouchableOpacity 
-              style={styles.rateButton}
-              onPress={openRatingModal}
+              style={[
+                styles.continueButton,
+                !hasRatedBefore ? { flex: 1, marginLeft: scale(8) } : { flex: 1 }
+              ]}
+              onPress={handleReturnToCourse}
               activeOpacity={0.7}
             >
-              <Text style={styles.rateButtonText}>Đánh giá</Text>
-              <Ionicons name="star" size={20} color="#fff" />
+              <Text style={styles.continueButtonText}>Tiếp tục học</Text>
+              <Ionicons name="arrow-forward-circle" size={scale(20)} color="#fff" />
             </TouchableOpacity>
-          )}
-          
-          <TouchableOpacity 
-            style={[
-              styles.continueButton,
-              !hasRatedBefore ? { flex: 1, marginLeft: 8 } : { flex: 1, marginLeft: 0 }
-            ]}
-            onPress={handleReturnToCourse}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.continueButtonText}>Tiếp tục học</Text>
-            <Ionicons name="arrow-forward-circle" size={20} color="#fff" />
-          </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       {/* Modal Đánh giá */}
       <Modal
@@ -772,7 +811,7 @@ export default function CourseScoreScreen() {
           {renderModalContent()}
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -782,49 +821,50 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    backgroundColor: '#8B0000',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    alignItems: 'center',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
+    textAlign: 'center',
   },
   scrollContainer: {
     flexGrow: 1,
-    paddingBottom: 16,
+    paddingBottom: scale(16),
   },
   quizInfoContainer: {
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: scale(16),
+    paddingHorizontal: scale(20),
   },
   quizTitle: {
-    fontSize: 20,
+    fontSize: scale(20),
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   chapterName: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#666',
   },
   scoreContainer: {
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: scale(24),
   },
   scoreCircle: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 10,
+    width: scale(150),
+    height: scale(150),
+    borderRadius: scale(75),
+    borderWidth: scale(10),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: scale(24),
   },
   scoreCirclePassed: {
     borderColor: '#4CAF50',
@@ -833,17 +873,18 @@ const styles = StyleSheet.create({
     borderColor: '#F44336',
   },
   scoreText: {
-    fontSize: 42,
+    fontSize: scale(42),
     fontWeight: 'bold',
     color: '#333',
   },
   resultSummary: {
     alignItems: 'center',
+    paddingHorizontal: scale(20),
   },
   resultStatus: {
-    fontSize: 28,
+    fontSize: scale(28),
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   passedText: {
     color: '#4CAF50',
@@ -852,42 +893,48 @@ const styles = StyleSheet.create({
     color: '#F44336',
   },
   resultDescription: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#555',
     textAlign: 'center',
-    paddingHorizontal: 20,
+    lineHeight: scale(22),
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 10,
-    marginVertical: 20,
+    paddingHorizontal: scale(10),
+    marginVertical: scale(20),
     flexWrap: 'wrap',
   },
   statCard: {
     backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-    padding: 16,
+    borderRadius: scale(10),
+    padding: scale(16),
     alignItems: 'center',
-    width: width / 2 - 25,
-    marginBottom: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    width: width / 2 - scale(25),
+    marginBottom: scale(15),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   statIcon: {
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   statValue: {
-    fontSize: 20,
+    fontSize: scale(20),
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: scale(14),
     color: '#666',
     textAlign: 'center',
   },
@@ -895,92 +942,104 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF9C4',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 10,
-    width: width - 40,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    borderRadius: scale(8),
+    marginHorizontal: scale(20),
+    marginTop: scale(10),
     justifyContent: 'center',
   },
   certificateIcon: {
-    width: 32,
-    height: 32,
-    marginRight: 10,
+    width: scale(32),
+    height: scale(32),
+    marginRight: scale(10),
   },
   achievementText: {
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: 'bold',
     color: '#FF9800',
   },
   feedbackContainer: {
-    paddingHorizontal: 20,
-    marginVertical: 16,
+    paddingHorizontal: scale(20),
+    marginVertical: scale(16),
   },
   feedbackTitle: {
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: scale(8),
   },
   feedbackText: {
-    fontSize: 15,
+    fontSize: scale(15),
     color: '#555',
-    lineHeight: 22,
+    lineHeight: scale(22),
   },
-  actionButtonsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginTop: 'auto',
+  actionButtonsWrapper: {
+    backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
+  },
+  actionButtonsContainer: {
+    paddingHorizontal: scale(20),
+    paddingVertical: scale(16),
   },
   buttonGroup: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#8B0000',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 30,
-    flex: 1,
-    marginLeft: 8,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  continueButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 8,
   },
   rateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FF9800',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 30,
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(20),
+    borderRadius: scale(30),
     flex: 0.8,
-    marginRight: 8,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    marginRight: scale(8),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   rateButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: 'bold',
-    marginRight: 8,
+    marginRight: scale(8),
+  },
+  continueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B0000',
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(20),
+    borderRadius: scale(30),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  continueButtonText: {
+    color: '#fff',
+    fontSize: scale(16),
+    fontWeight: 'bold',
+    marginRight: scale(8),
   },
   // Modal styles
   modalContainer: {
@@ -1005,57 +1064,57 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: scale(20),
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: scale(8),
     color: '#333',
   },
   modalSubtitle: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#666',
-    marginBottom: 20,
+    marginBottom: scale(20),
     textAlign: 'center',
   },
   starsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginVertical: 20,
+    marginVertical: scale(20),
   },
   starButton: {
-    padding: 5,
+    padding: scale(5),
   },
   modalButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginTop: 20,
+    marginTop: scale(20),
   },
   cancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(20),
+    borderRadius: scale(8),
     borderWidth: 1,
     borderColor: '#ddd',
     flex: 1,
-    marginRight: 10,
+    marginRight: scale(10),
     alignItems: 'center',
   },
   cancelButtonText: {
     color: '#666',
-    fontSize: 16,
+    fontSize: scale(16),
   },
   submitButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(20),
+    borderRadius: scale(8),
     backgroundColor: '#8B0000',
     flex: 1,
-    marginLeft: 10,
+    marginLeft: scale(10),
     alignItems: 'center',
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: 'bold',
   },
   disabledRateButton: {

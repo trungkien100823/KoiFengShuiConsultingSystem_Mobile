@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
   ImageBackground,
   StatusBar,
-  Animated
+  Animated,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation } from 'expo-router';
@@ -20,13 +21,18 @@ import { consultingCategories } from '../../constants/consulting';
 import { API_CONFIG } from '../../constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const cardWidth = width * 0.8;
 
+// Define scale function directly in the component
+const scale = (size) => Math.round(width * size / 375);
+
 export default function ConsultingScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [consultants, setConsultants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -184,12 +190,9 @@ export default function ConsultingScreen() {
     >
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, {paddingTop: insets.top}]}>
           <View style={styles.headerContainer}>
             <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
-            <TouchableOpacity style={styles.menuButton}>
-              <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
           </View>
           <View style={styles.searchContainer}>
             <View style={styles.searchBar}>
@@ -199,8 +202,12 @@ export default function ConsultingScreen() {
                 placeholderTextColor="rgba(255,255,255,0.7)"
                 value={searchQuery}
                 onChangeText={handleSearch}
+                onSubmitEditing={() => {/* preserve existing search functionality */}}
               />
-              <TouchableOpacity style={styles.searchButton}>
+              <TouchableOpacity 
+                style={styles.searchButton} 
+                onPress={() => {/* preserve existing search functionality */}}
+              >
                 <Ionicons name="search" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -379,149 +386,144 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 45,
-    paddingBottom: 12,
-    marginTop: 20,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    alignItems: 'flex-start',
+    marginTop: Platform.OS === 'ios' ? -20 : 5,
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: scale(24),
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  menuButton: {
-    padding: 5,
-  },
   searchContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingHorizontal: scale(16),
+    marginBottom: scale(16),
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(80, 30, 30, 0.6)',
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    height: 44,
+    borderRadius: scale(20),
+    paddingHorizontal: scale(16),
+    height: Platform.OS === 'ios' ? 50 : 44,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#FFFFFF',
-    paddingVertical: 10,
+    paddingVertical: scale(10),
   },
   searchButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(220, 60, 60, 0.9)',
+    width: scale(36),
+    height: scale(36),
+    borderRadius: scale(18),
+    backgroundColor: '#8B0000',
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: scale(8),
   },
   contentScrollView: {
     flex: 1,
   },
   searchResultsContainer: {
     marginBottom: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: width * 0.05,
   },
   searchResultsTitle: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 12,
   },
   searchScrollContent: {
     paddingTop: 8,
+    paddingBottom: 4,
   },
   searchConsultantCard: {
-    width: 160,
-    height: 220,
+    width: width * 0.4,
+    height: width * 0.55,
     marginRight: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
   searchCardGradient: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   searchConsultantImage: {
     width: '100%',
-    height: 120,
+    height: width * 0.3,
   },
   searchCardContent: {
-    padding: 10,
+    padding: 12,
+    flex: 1,
+    justifyContent: 'space-between',
   },
-
+  searchConsultantTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.8,
+  },
   searchConsultantName: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 6,
+    marginVertical: 4,
   },
   searchRatingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
   },
   searchRatingText: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 12,
     marginLeft: 4,
+    fontWeight: '500',
   },
   emptySearchResults: {
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
+    borderRadius: 16,
+    height: 100,
   },
   emptySearchText: {
     color: '#FFFFFF',
     fontSize: 14,
+    textAlign: 'center',
   },
   carouselContainer: {
-    paddingHorizontal: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  sectionCount: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '500',
-  },
-  scrollContent: {
-    paddingVertical: 8,
+    paddingHorizontal: width * 0.05,
   },
   consultantWrapper: {
     marginRight: 20,
-    height: 400,
+    height: width * 0.95,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   consultantCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
     height: '100%',
   },
   imageWrapper: {
     position: 'relative',
-    height: 320,
+    height: '75%',
   },
   consultantImage: {
     width: '100%',
@@ -537,9 +539,11 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    flex: 1,
+    justifyContent: 'center',
   },
   consultantName: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
@@ -559,21 +563,42 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '600',
   },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  paginationDot: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#FFFFFF',
+  },
   bookButton: {
     marginBottom: 24,
-    marginTop: 24,
+    marginTop: 16,
     borderRadius: 12,
     overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   bookButtonGradient: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: Platform.OS === 'ios' ? 16 : 14,
   },
   bookButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
   },
   bookButtonIcon: {
@@ -582,23 +607,26 @@ const styles = StyleSheet.create({
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: width * 0.1,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 12,
+    borderRadius: 16,
     marginVertical: 20,
+    height: width * 0.6,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     color: '#FFFFFF',
     fontSize: 16,
+    textAlign: 'center',
   },
   errorContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: width * 0.08,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 12,
+    borderRadius: 16,
     marginVertical: 20,
+    minHeight: width * 0.6,
   },
   errorIcon: {
     marginBottom: 16,
@@ -608,14 +636,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 20,
+    paddingHorizontal: 10,
   },
   retryButton: {
     borderRadius: 12,
     overflow: 'hidden',
+    marginTop: 8,
   },
   retryButtonGradient: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
   },
   retryButtonText: {
     color: '#FFFFFF',
@@ -627,8 +657,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 12,
+    borderRadius: 16,
     marginVertical: 20,
+    minHeight: width * 0.5,
   },
   noDataTitle: {
     fontSize: 18,
@@ -641,21 +672,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
-  },
-  paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    marginHorizontal: 4,
-  },
-  paginationDotActive: {
-    backgroundColor: '#FFFFFF',
   },
 });

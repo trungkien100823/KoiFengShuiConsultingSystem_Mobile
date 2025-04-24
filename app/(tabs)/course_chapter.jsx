@@ -12,6 +12,7 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -21,7 +22,10 @@ import { API_CONFIG } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT);
+const scale = size => Math.round(BASE_SIZE * (size / 375));
+const isIOS = Platform.OS === 'ios';
 
 // Thêm enum ChapterStatus ở đầu file, sau phần import
 const EnrollChapterStatus = {
@@ -996,20 +1000,96 @@ export default function CourseChapterScreen() {
       source={require('../../assets/images/feng shui.png')}
       style={styles.backgroundImage}
     >
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={handleBackNavigation} 
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
+      <SafeAreaView style={styles.safeArea}>
+        {/* Simplified Header - Course title in same row as back button */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity 
+              onPress={handleBackNavigation} 
+              style={styles.backButton}
+            >
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            
+            <Text style={styles.courseTitle} numberOfLines={2}>
+              {courseInfo.courseName || 'Chi tiết khóa học'}
+            </Text>
+          </View>
         </View>
 
-        {renderCourseInfo()}
+        <ScrollView style={styles.content}>
+          {refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+            </View>
+          ) : (
+            <>
+              <Image 
+                source={
+                  courseInfo.imageUrl 
+                    ? { uri: courseInfo.imageUrl }
+                    : require('../../assets/images/koi_image.jpg')
+                }
+                style={styles.fishImage}
+                resizeMode="cover"
+              />
+              
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Thông tin khóa học:</Text>
+                <Text style={styles.descriptionText}>
+                  {courseInfo.description || 'Chưa có mô tả'}
+                </Text>
+                
+                {/* Thông tin tổng quát về khóa học */}
+                <View style={styles.courseStatsContainer}>
+                  {courseInfo.totalChapters != null && (
+                    <View style={styles.statItem}>
+                      <Ionicons name="list" size={18} color="#FFD700" />
+                      <Text style={styles.statText}>
+                        {courseInfo.totalChapters} chương
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {courseInfo.totalQuestions != null && (
+                    <View style={styles.statItem}>
+                      <Ionicons name="help-circle" size={18} color="#FFD700" />
+                      <Text style={styles.statText}>
+                        {courseInfo.totalQuestions} câu hỏi
+                      </Text>
+                    </View>
+                  )}
+
+                  {courseInfo.enrolledStudents != null && (
+                    <View style={styles.statItem}>
+                      <Ionicons name="people" size={18} color="#FFD700" />
+                      <Text style={styles.statText}>
+                        {courseInfo.enrolledStudents} học viên
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {!isRegistered && courseInfo.price != null && (
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.priceText}>
+                      Giá: {courseInfo.price.toLocaleString()} VNĐ
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Nội dung khóa học</Text>
+                {renderChapterList()}
+              </View>
+              
+              {/* Final Exam */}
+              {renderFinalExamButton()}
+            </>
+          )}
+        </ScrollView>
       </SafeAreaView>
     </ImageBackground>
   );
@@ -1020,85 +1100,94 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: 'rgba(100, 0, 0, 0.5)',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
-  header: {
+  headerContainer: {
+    width: '100%',
+    paddingTop: Platform.OS === 'ios' ? scale(8) : scale(8),
+    paddingBottom: scale(8),
+    backgroundColor: 'rgba(139, 0, 0, 0.7)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: scale(16),
+    minHeight: scale(60),
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  resetButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  titleContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    backgroundColor: 'rgba(139, 0, 0, 0.4)',
+    marginRight: scale(15),
   },
   courseTitle: {
-    fontSize: 24,
+    flex: 1,
+    color: '#fff',
+    fontSize: scale(18),
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    lineHeight: scale(24),
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  ratingText: {
-    color: '#fff',
-    marginRight: 4,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 4,
+  titleContainer: {
+    paddingHorizontal: scale(16),
+    paddingBottom: scale(8),
+    marginTop: scale(4),
   },
   fishImage: {
-    width: width,
-    height: width * 0.7,
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 0.6,
+    marginBottom: scale(10),
   },
   content: {
     flex: 1,
   },
   section: {
-    padding: 16,
+    padding: scale(16),
+    marginBottom: scale(12),
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 12,
+    marginBottom: scale(12),
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   descriptionText: {
     color: '#fff',
-    lineHeight: 20,
+    lineHeight: scale(20),
+    fontSize: scale(14),
   },
   chapterItem: {
     backgroundColor: 'rgba(139, 0, 0, 0.7)',
-    borderRadius: 10,
-    marginBottom: 12,
-    padding: 16,
+    borderRadius: scale(10),
+    marginBottom: scale(12),
+    padding: scale(16),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   completedChapter: {
     backgroundColor: 'rgba(0, 100, 0, 0.7)',
@@ -1117,35 +1206,42 @@ const styles = StyleSheet.create({
   },
   chapterMainInfo: {
     flex: 1,
-    marginRight: 10,
+    marginRight: scale(10),
   },
   chapterTitle: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: scale(15),
     fontWeight: 'bold',
+    lineHeight: scale(20),
   },
   statusContainer: {
-    width: 30,
+    width: scale(30),
     alignItems: 'center',
     justifyContent: 'center',
   },
   registerButton: {
     backgroundColor: '#8B0000',
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 8,
+    marginHorizontal: scale(16),
+    padding: scale(16),
+    borderRadius: scale(8),
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: scale(16),
+    marginBottom: scale(16),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   registerButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: scale(16),
     fontWeight: 'bold',
   },
   finalExamContainer: {
-    marginBottom: 15,
-    borderRadius: 8,
+    marginHorizontal: scale(16),
+    marginBottom: scale(24),
+    borderRadius: scale(10),
     backgroundColor: '#8B0000',
     overflow: 'hidden',
     borderWidth: 1,
@@ -1159,115 +1255,134 @@ const styles = StyleSheet.create({
   finalExamContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: scale(16),
   },
   finalExamIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: scale(44),
+    height: scale(44),
+    borderRadius: scale(22),
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: scale(12),
   },
   finalExamTextContainer: {
     flex: 1,
-    marginRight: 8,
+    marginRight: scale(8),
   },
   finalExamTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: scale(16),
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   finalExamDescription: {
     color: '#f8f8f8',
-    fontSize: 14,
-    marginBottom: 6,
+    fontSize: scale(13),
+    marginBottom: scale(6),
+    lineHeight: scale(18),
   },
   finalExamStatus: {
-    width: 44,
-    height: 44,
+    width: scale(44),
+    height: scale(44),
     justifyContent: 'center',
     alignItems: 'center',
   },
   progressBarWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: scale(4),
     flex: 1,
   },
   progressPercentage: {
     color: '#fff',
-    marginLeft: 8,
-    fontSize: 12,
+    marginLeft: scale(8),
+    fontSize: scale(12),
     fontWeight: 'bold',
   },
   progressBarContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 4,
+    borderRadius: scale(4),
     overflow: 'hidden',
     flex: 1,
+    height: scale(8),
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: scale(4),
   },
   disabledExamContainer: {
     opacity: 0.85,
   },
   noContentText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: scale(15),
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: scale(16),
+    paddingHorizontal: scale(20),
   },
   courseStatsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 12,
+    marginTop: scale(12),
     backgroundColor: 'rgba(100, 0, 0, 0.5)',
-    borderRadius: 8,
-    padding: 8,
+    borderRadius: scale(8),
+    padding: scale(12),
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
-    marginVertical: 4,
+    marginRight: scale(16),
+    marginVertical: scale(4),
   },
   statText: {
     color: '#fff',
-    fontSize: 14,
-    marginLeft: 6,
+    fontSize: scale(13),
+    marginLeft: scale(6),
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: scale(20),
   },
   loadingText: {
     color: '#fff',
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: scale(10),
+    fontSize: scale(15),
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: scale(20),
   },
   priceContainer: {
-    marginTop: 12,
-    padding: 8,
+    marginTop: scale(12),
+    padding: scale(12),
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 8,
+    borderRadius: scale(8),
   },
   priceText: {
     color: '#FFD700',
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: scale(4),
+  },
+  ratingText: {
+    color: '#fff',
+    marginRight: scale(4),
+    fontSize: scale(14),
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: scale(4),
   },
 });
 

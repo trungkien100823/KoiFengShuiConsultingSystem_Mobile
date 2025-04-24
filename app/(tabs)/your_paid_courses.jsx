@@ -11,6 +11,9 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Dimensions,
+  Platform,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,12 +23,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { getAuthToken } from '../../services/authService';
 import { paymentService } from '../../constants/paymentService';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+
+const { width, height } = Dimensions.get('window');
+const scale = size => Math.round(width * size / 375);
+const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
 
 export default function YourPaidCoursesScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [paidCourses, setPaidCourses] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const scrollY = new Animated.Value(0);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -283,109 +293,197 @@ export default function YourPaidCoursesScreen() {
   };
 
   const CourseCard = ({ course }) => {
-    console.log('Rendering course card:', {
-      courseId: course.courseId,
-      courseName: course.courseName,
-      paymentStatus: course.paymentStatus,
-      orderId: course.orderId
-    });
-    
     const paymentStatus = course.paymentStatus || 'Paid';
-    
-    // Hiển thị nút hủy khi trạng thái là Pending hoặc PendingConfirm
-    const showCancelButton = 
-      paymentStatus === 'Pending';
+    const showCancelButton = paymentStatus === 'Pending';
     
     return (
-      <TouchableOpacity 
-        style={styles.orderCard}
-        onPress={() => handleCoursePress(course)}
-        activeOpacity={0.7}
-      >
-        <Image 
-          source={
-            course.imageUrl 
-              ? { uri: course.imageUrl } 
-              : require('../../assets/images/buddha.png')
-          } 
-          style={styles.orderImage}
-        />
-        <View style={styles.orderInfo}>
-          <Text style={styles.serviceType}>Dịch vụ: Course</Text>
-          <Text style={styles.courseTitle} numberOfLines={2}>
-            {course.courseName || 'Chưa có tên'}
-          </Text>
-          <Text style={styles.totalAmount}>
-            Giá: {course.price ? `${course.price.toLocaleString('vi-VN')}đ` : 'Miễn phí'}
-          </Text>
-          <Text style={styles.status}>
-            Trạng thái: <Text style={{color: getStatusColor(paymentStatus)}}>{getStatusDisplay(paymentStatus)}</Text>
-          </Text>
+      <View style={styles.cardWrapper}>
+        <TouchableOpacity 
+          style={styles.courseCard}
+          onPress={() => handleCoursePress(course)}
+          activeOpacity={0.9}
+        >
+          {/* Card Header */}
+          <View style={styles.cardHeader}>
+            <View style={styles.courseCategoryTag}>
+              <Ionicons name="school-outline" size={scale(14)} color="#8B0000" />
+              <Text style={styles.courseCategoryText}>Khóa học</Text>
+            </View>
+            
+            <View style={[styles.statusTag, {backgroundColor: getStatusColor(paymentStatus)}]}>
+              <Text style={styles.statusTagText}>{getStatusDisplay(paymentStatus)}</Text>
+            </View>
+          </View>
           
-          {showCancelButton && (
-            <View style={styles.buttonContainer}>
+          {/* Card Content */}
+          <View style={styles.cardContent}>
+            <View style={styles.courseImageBox}>
+              <Image 
+                source={
+                  course.imageUrl 
+                    ? { uri: course.imageUrl } 
+                    : require('../../assets/images/buddha.png')
+                } 
+                style={styles.courseImage}
+                resizeMode="cover"
+              />
+            </View>
+            
+            <View style={styles.courseDetails}>
+              <Text style={styles.courseTitle} numberOfLines={2}>
+                {course.courseName || 'Chưa có tên'}
+              </Text>
+              
+              <View style={styles.courseMeta}>
+                <View style={styles.priceContainer}>
+                  <Ionicons name="pricetag-outline" size={scale(14)} color="#4CAF50" />
+                  <Text style={styles.priceText}>
+                    {course.price ? `${course.price.toLocaleString('vi-VN')}đ` : 'Miễn phí'}
+                  </Text>
+                </View>
+                
+                {/* Additional meta info could go here */}
+              </View>
+            </View>
+          </View>
+          
+          {/* Card Footer */}
+          <View style={styles.cardFooter}>
+            {showCancelButton ? (
               <TouchableOpacity 
                 style={styles.cancelButton}
                 onPress={() => cancelCourse(course)}
               >
-                <Ionicons name="close-circle-outline" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Hủy gói</Text>
+                <LinearGradient
+                  colors={['#F44336', '#D32F2F']}
+                  start={[0, 0]}
+                  end={[1, 0]}
+                  style={styles.cancelButtonGradient}
+                >
+                  <Ionicons name="close-circle-outline" size={scale(16)} color="#FFF" />
+                  <Text style={styles.buttonText}>Hủy đăng ký</Text>
+                </LinearGradient>
               </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={styles.viewButton}
+                onPress={() => handleCoursePress(course)}
+              >
+                <LinearGradient
+                  colors={['#8B0000', '#600000']}
+                  start={[0, 0]}
+                  end={[1, 0]}
+                  style={styles.viewButtonGradient}
+                >
+                  <Text style={styles.buttonText}>Xem khóa học</Text>
+                  <Ionicons name="arrow-forward" size={scale(16)} color="#FFF" />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
     );
   };
 
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.98],
+    extrapolate: 'clamp',
+  });
+
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [scale(150), scale(80)],
+    extrapolate: 'clamp',
+  });
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
       
-      <View style={styles.header}>
+      {/* Header */}
+      <LinearGradient 
+        colors={['#8B0000', '#600000']} 
+        start={[0, 0]} 
+        end={[1, 0]}
+        style={styles.header}
+      >
         <TouchableOpacity 
           onPress={() => router.push('/(tabs)/profile')}
           style={styles.backButton}
+          hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+          <Ionicons name="arrow-back" size={scale(22)} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Khóa học</Text>
-      </View>
+        
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Khóa học của bạn</Text>
+          <Text style={styles.headerSubtitle}>
+            {paidCourses.length > 0 
+              ? `${paidCourses.length} khóa học đã đăng ký` 
+              : 'Khám phá và đăng ký khóa học ngay'
+            }
+          </Text>
+        </View>
+      </LinearGradient>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B0000" />
-          <Text style={styles.loadingText}>Đang tải danh sách khóa học...</Text>
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#8B0000" />
+            <Text style={styles.loadingText}>Đang tải danh sách khóa học...</Text>
+          </View>
         </View>
       ) : (
         <ScrollView 
           style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
               colors={["#8B0000"]}
               tintColor="#8B0000"
+              progressBackgroundColor="#FFF"
             />
           }
         >
           {paidCourses.length > 0 ? (
-            paidCourses.map((course, index) => (
-              <CourseCard key={index} course={course} />
-            ))
+            <>
+              <Text style={styles.sectionTitle}>Danh sách khóa học</Text>
+              {paidCourses.map((course, index) => (
+                <CourseCard key={index} course={course} />
+              ))}
+            </>
           ) : (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                Bạn chưa có khóa học nào
-              </Text>
-              <TouchableOpacity 
-                style={styles.browseButton} 
-                onPress={() => router.push('/(tabs)/courses')}
-              >
-                <Text style={styles.browseButtonText}>Xem khóa học</Text>
-              </TouchableOpacity>
+              <View style={styles.emptyCard}>
+                <Ionicons name="book-outline" size={scale(60)} color="#8B0000" style={styles.emptyIcon} />
+                <Text style={styles.emptyTitle}>Chưa có khóa học nào</Text>
+                <Text style={styles.emptyText}>
+                  Bạn chưa đăng ký khóa học nào. Hãy khám phá các khóa học của chúng tôi ngay.
+                </Text>
+                <TouchableOpacity 
+                  style={styles.browseButton} 
+                  onPress={() => router.push('/(tabs)/courses')}
+                >
+                  <LinearGradient
+                    colors={['#8B0000', '#600000']}
+                    start={[0, 0]}
+                    end={[1, 0]}
+                    style={styles.browseButtonGradient}
+                  >
+                    <Text style={styles.browseButtonText}>Xem khóa học</Text>
+                    <Ionicons name="arrow-forward" size={scale(16)} color="#FFF" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
+          
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       )}
     </SafeAreaView>
@@ -395,142 +493,296 @@ export default function YourPaidCoursesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-    backgroundColor: '#8B0000',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(16),
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + scale(16) : scale(16),
+    borderBottomLeftRadius: scale(20),
+    borderBottomRightRadius: scale(20),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  headerTitleContainer: {
+    marginLeft: scale(16),
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: scale(22),
     fontWeight: 'bold',
     color: '#FFF',
-    marginLeft: 10,
+    marginBottom: scale(4),
+  },
+  headerSubtitle: {
+    fontSize: scale(14),
+    color: 'rgba(255,255,255,0.8)',
   },
   backButton: {
-    padding: 8,
-  },
-  menuButton: {
-    padding: 8,
-  },
-  refreshButton: {
-    padding: 8,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
-    padding: 16,
   },
-  orderCard: {
+  scrollContent: {
+    paddingHorizontal: scale(16),
+    paddingTop: scale(20),
+    paddingBottom: scale(30),
+  },
+  sectionTitle: {
+    fontSize: scale(18),
+    fontWeight: '600',
+    marginBottom: scale(16),
+    color: '#333',
+    marginLeft: scale(4),
+  },
+  
+  // Brand new card styles
+  cardWrapper: {
+    marginBottom: scale(20),
+  },
+  courseCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(16),
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  cardHeader: {
     flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: scale(12),
+    paddingBottom: scale(8),
   },
-  orderImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 12,
-    resizeMode: 'cover',
+  courseCategoryTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
+    borderRadius: scale(20),
   },
-  orderInfo: {
+  courseCategoryText: {
+    fontSize: scale(12),
+    color: '#8B0000',
+    fontWeight: '500',
+    marginLeft: scale(4),
+  },
+  statusTag: {
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(4),
+    borderRadius: scale(20),
+  },
+  statusTagText: {
+    fontSize: scale(12),
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  cardContent: {
+    flexDirection: 'row',
+    padding: scale(12),
+    paddingTop: scale(4),
+    paddingBottom: scale(12),
+  },
+  courseImageBox: {
+    width: scale(80),
+    height: scale(80),
+    borderRadius: scale(10),
+    overflow: 'hidden',
+    marginRight: scale(12),
+    backgroundColor: '#F0F0F0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  courseImage: {
+    width: '100%',
+    height: '100%',
+  },
+  courseDetails: {
     flex: 1,
     justifyContent: 'space-between',
   },
-  serviceType: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
   courseTitle: {
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-    lineHeight: 22,
+    color: '#333333',
+    marginBottom: scale(8),
+    lineHeight: scale(22),
   },
-  totalAmount: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+  courseMeta: {
+    marginTop: scale(4),
   },
-  status: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  priceContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    marginTop: 50,
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
-    textAlign: 'center',
+  priceText: {
+    fontSize: scale(14),
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: scale(6),
   },
-  browseButton: {
-    backgroundColor: '#8B0000',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  cardFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    padding: scale(12),
   },
-  browseButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+  cancelButton: {
+    borderRadius: scale(8),
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
   },
+  cancelButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: scale(8),
+    paddingHorizontal: scale(16),
+  },
+  viewButton: {
+    borderRadius: scale(8),
+    overflow: 'hidden',
+    alignSelf: 'flex-end',
+  },
+  viewButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: scale(8),
+    paddingHorizontal: scale(16),
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: scale(14),
+    fontWeight: '600',
+    marginRight: scale(6),
+  },
+  
+  // Loading styles
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: scale(20),
+  },
+  loadingBox: {
+    backgroundColor: '#FFF',
+    padding: scale(20),
+    borderRadius: scale(16),
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: scale(16),
+    fontSize: scale(16),
     color: '#666',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
+  
+  // Empty state styles
+  emptyContainer: {
+    paddingVertical: scale(40),
+    paddingHorizontal: scale(8),
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 5,
   },
-  cancelButton: {
+  emptyCard: {
+    backgroundColor: '#FFF',
+    borderRadius: scale(20),
+    padding: scale(30),
+    alignItems: 'center',
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  emptyIcon: {
+    marginBottom: scale(16),
+    opacity: 0.8,
+  },
+  emptyTitle: {
+    fontSize: scale(22),
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: scale(12),
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: scale(16),
+    color: '#666',
+    marginBottom: scale(24),
+    textAlign: 'center',
+    lineHeight: scale(24),
+  },
+  browseButton: {
+    borderRadius: scale(30),
+    overflow: 'hidden',
+    width: '100%',
+    maxWidth: scale(200),
+  },
+  browseButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F44336',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    gap: 5,
+    paddingHorizontal: scale(24),
+    paddingVertical: scale(14),
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+  browseButtonText: {
+    color: '#FFF',
+    fontSize: scale(16),
+    fontWeight: 'bold',
+    marginRight: scale(8),
+  },
+  bottomSpacer: {
+    height: IS_IPHONE_X ? scale(40) : scale(20),
   },
 }); 

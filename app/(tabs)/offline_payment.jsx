@@ -12,6 +12,7 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,8 +21,11 @@ import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { paymentService } from '../../constants/paymentService';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT);
+const scale = size => Math.round(BASE_SIZE * (size / 375));
 
 export default function OfflinePaymentScreen() {
   const params = useLocalSearchParams();
@@ -171,125 +175,123 @@ export default function OfflinePaymentScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.push('/(tabs)/your_booking')}
+      {/* Enhanced Header */}
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#590000', '#8B0000', '#AA0000']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
         >
-          <Ionicons name="arrow-back" size={24} color="#8B0000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{getPaymentTitle(params.status)}</Text>
+          <SafeAreaView style={styles.headerSafeArea}>
+            <View style={styles.headerContent}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => router.push('/(tabs)/your_booking')}
+              >
+                <View style={styles.backButtonInner}>
+                  <Ionicons name="chevron-back-outline" size={24} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+              
+              <View style={styles.titleWrapper}>
+                <Text style={styles.headerSubtitle}>Thanh toán</Text>
+                <Text style={styles.headerTitle}>{getPaymentTitle(params.status)}</Text>
+              </View>
+              
+              <View style={styles.headerRight} />
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
       </View>
       
-      <View style={styles.mainContainer}>
-        <ScrollView style={styles.content}>
-          {/* Package Registration Title */}
-          <Text style={styles.registrationTitle}>
-            {params.status === 'VerifiedOTPAttachment' ? 'Thanh toán đợt 2 (70%)' : 'Gói tư vấn bạn đã chọn'}
-          </Text>
-          
-          {/* Package Card */}
-          <View style={styles.courseCardWrapper}>
-            <View style={styles.courseCardContainer}>
-              <View style={styles.courseCard}>
-                <Image 
-                  source={require('../../assets/images/koi_image.jpg')} 
-                  style={styles.courseImage} 
-                />
-                <View style={styles.cardOverlay}>
-                  <Text style={styles.courseTitle}>
-                    {params.packageName || 'Gói tư vấn phong thủy'}
-                  </Text>
-                  <Text style={styles.price}>
-                    {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} đ
-                  </Text>
-                </View>
-              </View>
-              <Image 
-                source={require('../../assets/images/f2.png')} 
-                style={styles.fengShuiLogo}
-              />
-            </View>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Enhanced Package Card */}
+        <View style={styles.packageCard}>
+          <Image 
+            source={require('../../assets/images/koi_image.jpg')} 
+            style={styles.packageImage} 
+          />
+          <View style={styles.packageOverlay}>
+            <Text style={styles.packageName}>
+              {params.packageName || 'Gói tư vấn phong thủy'}
+            </Text>
+            <Text style={styles.packagePrice}>
+              {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} đ
+            </Text>
           </View>
-          
-          {/* Customer Information Section */}
-          <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
-            <View style={styles.customerCard}>
-              {isLoadingUser ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color="#8B0000" />
-                  <Text style={styles.loadingText}>Đang tải thông tin...</Text>
+        </View>
+
+        {/* Customer Information */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
+          <View style={styles.infoCard}>
+            {isLoadingUser ? (
+              <ActivityIndicator color="#8B0000" size="large" />
+            ) : (
+              <>
+                <View style={styles.infoRow}>
+                  <Ionicons name="person" size={20} color="#8B0000" />
+                  <Text style={styles.infoText}>{userName}</Text>
                 </View>
-              ) : (
-                <>
-                  <View style={styles.customerAvatarContainer}>
-                    <Ionicons name="person-circle" size={40} color="#8B0000" />
-                  </View>
-                  <View style={styles.customerDetails}>
-                    <Text style={styles.customerName}>{userName}</Text>
-                    <View style={styles.contactRow}>
-                      <Ionicons name="call-outline" size={14} color="#666" />
-                      <Text style={styles.contactText}>{userPhone}</Text>
-                    </View>
-                    <View style={styles.contactRow}>
-                      <Ionicons name="mail-outline" size={14} color="#666" />
-                      <Text style={styles.contactText}>{userEmail}</Text>
-                    </View>
-                  </View>
-                </>
-              )}
-            </View>
+                <View style={styles.infoRow}>
+                  <Ionicons name="call" size={20} color="#8B0000" />
+                  <Text style={styles.infoText}>{userPhone}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Ionicons name="mail" size={20} color="#8B0000" />
+                  <Text style={styles.infoText}>{userEmail}</Text>
+                </View>
+              </>
+            )}
           </View>
-          <View style={{ height: 20 }} />
-          <View style={styles.priceSection}>
-            <Text style={styles.priceLabel}>Chi tiết thanh toán</Text>
+        </View>
+
+        {/* Payment Details */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Chi tiết thanh toán</Text>
+          <View style={styles.priceCard}>
             <View style={styles.priceRow}>
-              <Text style={styles.priceTitle}>Tổng tiền:</Text>
-              <Text style={styles.priceValue}>
-                {formatPrice(params.selectedPrice)} VNĐ
-              </Text>
+              <Text style={styles.priceLabel}>Tổng tiền</Text>
+              <Text style={styles.priceValue}>{formatPrice(params.selectedPrice)} đ</Text>
             </View>
             {params.status === 'VerifiedOTPAttachment' && (
               <View style={styles.priceRow}>
-                <Text style={styles.priceTitle}>Đã thanh toán đợt 1 (30%):</Text>
+                <Text style={styles.priceLabel}>Đã thanh toán (30%)</Text>
                 <Text style={styles.priceValue}>
-                  {formatPrice(parseFloat(params.selectedPrice) * 0.3)} VNĐ
+                  {formatPrice(parseFloat(params.selectedPrice) * 0.3)} đ
                 </Text>
               </View>
             )}
-            <View style={styles.priceRow}>
-              <Text style={styles.priceTitle}>{getPaymentTitle(params.status)}:</Text>
-              <Text style={styles.priceValue}>
-                {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} VNĐ
+            <View style={[styles.priceRow, styles.totalRow]}>
+              <Text style={styles.totalLabel}>{getPaymentTitle(params.status)}</Text>
+              <Text style={styles.totalValue}>
+                {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} đ
               </Text>
             </View>
           </View>
-        </ScrollView>
-        
-        <View style={styles.checkoutContainer}>
-          <View style={styles.checkoutTotal}>
-            <Text style={styles.checkoutTotalLabel}>{getPaymentTitle(params.status)}</Text>
-            <Text style={styles.checkoutTotalValue}>
-              {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} VND
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={[
-              styles.checkoutButton,
-              isLoading && { opacity: 0.7 }
-            ]}
-            onPress={handlePayment}
-            disabled={isLoading}
-          >
-            <Text style={styles.checkoutButtonText}>
-              {isLoading ? 'Đang xử lý...' : 'Thanh toán'}
-            </Text>
-          </TouchableOpacity>
         </View>
+      </ScrollView>
+
+      {/* Enhanced Checkout Bar */}
+      <View style={styles.checkoutBar}>
+        <View style={styles.checkoutInfo}>
+          <Text style={styles.checkoutLabel}>Tổng thanh toán</Text>
+          <Text style={styles.checkoutPrice}>
+            {formatPrice(calculatePaymentAmount(params.selectedPrice, params.status))} đ
+          </Text>
+        </View>
+        <TouchableOpacity 
+          style={[styles.checkoutButton, isLoading && styles.checkoutButtonDisabled]}
+          onPress={handlePayment}
+          disabled={isLoading}
+        >
+          <Text style={styles.checkoutButtonText}>
+            {isLoading ? 'Đang xử lý...' : 'Thanh toán ngay'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -298,216 +300,235 @@ export default function OfflinePaymentScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: '#F8F9FA',
   },
-  mainContainer: {
-    flex: 1, 
-    position: 'relative', 
-    paddingBottom: 60,
+  headerContainer: {
+    backgroundColor: '#8B0000',
+    zIndex: 10,
   },
   header: {
+    width: '100%',
+    height: '12%',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  headerSafeArea: {
+    backgroundColor: 'transparent',
+  },
+  headerContent: {
+    height: Platform.OS === 'ios' ? 88 : 76,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
+    justifyContent: 'space-between',
+    paddingHorizontal: scale(16),
+    paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight,
+    marginTop: scale(5)
   },
   backButton: {
-    padding: 8,
-    marginRight: 16,
+    width: scale(40),
+    height: scale(40),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: scale(8),
+  },
+  backButtonInner: {
+    width: scale(36),
+    height: scale(36),
+    borderRadius: scale(18),
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: scale(14),
+    fontWeight: '500',
+    marginBottom: scale(4),
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    color: '#FFF',
+    fontSize: scale(20),
     fontWeight: 'bold',
-    color: '#8B0000',
-    flex: 1,
     textAlign: 'center',
-    marginRight: 48, // Để cân bằng với backButton
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+    letterSpacing: 0.5,
+  },
+  headerRight: {
+    width: scale(40),
+    marginLeft: scale(8),
   },
   content: {
     flex: 1,
   },
-  registrationTitle: {
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-    marginVertical: 16,
-    fontWeight: '500',
-  },
-  courseCardWrapper: {
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  courseCardContainer: {
-    position: 'relative',
-    marginBottom: 40,
-    paddingLeft: 8,
-  },
-  courseCard: {
-    backgroundColor: '#000',
-    borderRadius: 12,
+  packageCard: {
+    margin: scale(16),
+    borderRadius: scale(12),
     overflow: 'hidden',
-    position: 'relative',
+    backgroundColor: '#FFF',
     aspectRatio: 1,
+    width: SCREEN_WIDTH - scale(32),
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
-  courseImage: {
+  packageImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  cardOverlay: {
+  packageOverlay: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    padding: 20,
-    backgroundColor: 'rgba(139,0,0,0.6)',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    alignItems: 'flex-end',
+    padding: scale(20),
+    paddingBottom: scale(24),
+    backgroundColor: 'rgba(139, 0, 0, 0.85)',
+    borderBottomLeftRadius: scale(12),
+    borderBottomRightRadius: scale(12),
   },
-  courseTitle: {
-    fontSize: 20,
+  packageName: {
+    color: '#FFF',
+    fontSize: scale(18),
+    fontWeight: '700',
+    marginBottom: scale(8),
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  packagePrice: {
+    color: '#FFF',
+    fontSize: scale(28),
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-    textAlign: 'right',
-    marginLeft: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  price: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'right',
-  },
-  fengShuiLogo: {
-    position: 'absolute',
-    left: -5,
-    bottom: -35,
-    width: 100,
-    height: 100,
-    resizeMode: 'contain',
-    zIndex: 1,
-  },
-  infoSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
+  section: {
+    marginHorizontal: scale(16),
+    marginBottom: scale(24),
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: scale(18),
     fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#8B0000',
-    marginBottom: 16,
+    color: '#1A1A1A',
+    marginBottom: scale(12),
   },
-  customerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#8B0000',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  customerAvatarContainer: {
-    marginRight: 12,
-  },
-  customerDetails: {
-    flex: 1,
-  },
-  customerName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  contactText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 6,
-  },
-  checkoutContainer: {
-    position: 'absolute',
-    bottom: -40,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: '#8B0000',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  checkoutTotal: {
-    flex: 1,
-  },
-  checkoutTotalLabel: {
-    fontSize: 14,
-    color: '#FFF',
-  },
-  checkoutTotalValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 30
-  },
-  checkoutButton: {
+  infoCard: {
     backgroundColor: '#FFF',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    marginBottom: 30
+    borderRadius: scale(12),
+    padding: scale(16),
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
-  checkoutButtonText: {
-    color: '#8B0000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loadingContainer: {
-    flex: 1,
+  infoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    marginBottom: scale(12),
   },
-  loadingText: {
-    marginTop: 8,
-    color: '#666',
-    fontSize: 14,
+  infoText: {
+    marginLeft: scale(12),
+    fontSize: scale(16),
+    color: '#333',
   },
-  priceSection: {
-    padding: 20,
-    backgroundColor: 'rgba(139, 0, 0, 0.1)',
-    marginBottom: 20,
-  },
-  priceLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8B0000',
-    marginBottom: 10,
+  priceCard: {
+    backgroundColor: '#FFF',
+    borderRadius: scale(12),
+    padding: scale(16),
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: scale(12),
   },
-  priceTitle: {
-    fontSize: 16,
-    color: '#333',
+  priceLabel: {
+    fontSize: scale(14),
+    color: '#666',
   },
   priceValue: {
-    fontSize: 16,
+    fontSize: scale(14),
+    color: '#333',
+    fontWeight: '600',
+  },
+  totalRow: {
+    marginTop: scale(8),
+    paddingTop: scale(12),
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
+  },
+  totalLabel: {
+    fontSize: scale(16),
     fontWeight: 'bold',
     color: '#8B0000',
+  },
+  totalValue: {
+    fontSize: scale(18),
+    fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  checkoutBar: {
+    backgroundColor: '#FFF',
+    padding: scale(16),
+    paddingBottom: Platform.OS === 'ios' ? scale(34) : scale(16),
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkoutInfo: {
+    flex: 1,
+  },
+  checkoutLabel: {
+    fontSize: scale(14),
+    color: '#666',
+  },
+  checkoutPrice: {
+    fontSize: scale(20),
+    fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  checkoutButton: {
+    backgroundColor: '#8B0000',
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(24),
+    borderRadius: scale(8),
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  checkoutButtonDisabled: {
+    opacity: 0.7,
+  },
+  checkoutButtonText: {
+    color: '#FFF',
+    fontSize: scale(16),
+    fontWeight: 'bold',
   },
 }); 

@@ -8,7 +8,10 @@ import {
   ImageBackground, 
   SafeAreaView,
   ActivityIndicator,
-  Alert
+  Alert,
+  StatusBar,
+  Platform,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -16,6 +19,35 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
+
+const { width, height } = Dimensions.get('window');
+
+// Add scale function for responsive sizing
+const scale = size => Math.round(width * size / 375);
+
+// Add platform-specific constants
+const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? (IS_IPHONE_X ? 44 : 20) : StatusBar.currentHeight || 0;
+
+// Refined color palette for elegance
+const COLORS = {
+  primary: '#8B0000', // Deep wine red
+  primaryLight: '#C1272D', // Lighter wine red for accents
+  primaryDark: '#4D0003', // Very dark red for depth
+  accent: '#D4AF37', // Gold accent color
+  white: '#FFFFFF',
+  cream: '#FFF8E1', // Warm cream for text on dark backgrounds
+  black: '#1A1A1A',
+  darkGray: '#333333',
+  mediumGray: '#888888',
+  lightGray: '#CCCCCC',
+  background: '#0E0000', // Very dark background
+  transparentDark: 'rgba(14, 0, 0, 0.92)',
+  overlay: 'rgba(14, 0, 0, 0.75)',
+  cardOverlay: 'rgba(14, 0, 0, 0.4)',
+};
 
 export default function OfflinePackageScreen() {
   const router = useRouter();
@@ -42,7 +74,6 @@ export default function OfflinePackageScreen() {
         return await fn();
       } catch (error) {
         if (i === maxRetries - 1) throw error;
-        // Tăng thời gian chờ giữa các lần retry
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
       }
     }
@@ -63,8 +94,6 @@ export default function OfflinePackageScreen() {
       }
 
       const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllConsultationPackages}`;
-
-      // Thêm delay trước khi gọi API để tránh race condition
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const makeRequest = async () => {
@@ -73,7 +102,7 @@ export default function OfflinePackageScreen() {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          timeout: 10000 // Giảm timeout xuống 10s
+          timeout: 10000
         });
       };
 
@@ -101,7 +130,19 @@ export default function OfflinePackageScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#8B0000" />
+        <StatusBar style="light" translucent />
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.loadingGradient}
+        >
+          <View style={styles.logoContainer}>
+            <Ionicons name="calendar" size={scale(45)} color={COLORS.accent} />
+            <ActivityIndicator size="large" color={COLORS.accent} style={{marginTop: scale(20)}} />
+          </View>
+          <Text style={styles.loadingText}>Đang tải gói tư vấn...</Text>
+        </LinearGradient>
       </View>
     );
   }
@@ -112,51 +153,82 @@ export default function OfflinePackageScreen() {
       style={styles.container}
       imageStyle={styles.backgroundImage}
     >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.fixedHeader}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)/offline_booking')}
-          >
-            <Ionicons name="chevron-back-circle" size={32} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Đặt lịch tư vấn{'\n'}trực tiếp</Text>
-        </View>
-
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.sectionTitle}>Các gói tư vấn phong thủy</Text>
-
-          {consultingPackages.map((pkg) => (
+      <ExpoStatusBar style="light" translucent />
+      <LinearGradient
+        colors={['rgba(14, 0, 0, 0.85)', 'rgba(14, 0, 0, 0.7)', 'rgba(14, 0, 0, 0.6)']}
+        style={styles.overlay}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          {/* Status Bar Spacer for Android */}
+          {Platform.OS === 'android' && <View style={{ height: STATUS_BAR_HEIGHT }} />}
+          
+          <View style={styles.headerContainer}>
             <TouchableOpacity 
-              key={pkg.consultationPackageId}
-              style={styles.packageCard}
-              onPress={() => router.push({
-                pathname: '/(tabs)/package_details',
-                params: { 
-                  packageId: pkg.consultationPackageId,
-                  packageTitle: pkg.packageName
-                }
-              })}
+              style={styles.backButton}
+              onPress={() => router.push('/(tabs)/offline_booking')}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
-              <ImageBackground
-                source={pkg.imageUrl ? { uri: pkg.imageUrl } : require('../../assets/images/koi_image.jpg')}
-                style={styles.packageImage}
-                imageStyle={styles.packageImageStyle}
-                resizeMode="cover"
+              <LinearGradient
+                colors={[COLORS.primary, COLORS.primaryDark]}
+                style={styles.backButtonGradient}
               >
-                <View style={styles.packageContent}>
-                  <Text style={styles.packageLabel}>Gói tư vấn</Text>
-                  <Text style={styles.packageTitle}>{pkg.packageName}</Text>
-                </View>
-              </ImageBackground>
+                <Ionicons name="arrow-back" size={scale(22)} color={COLORS.white} />
+              </LinearGradient>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </SafeAreaView>
+            
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Đặt lịch tư vấn trực tiếp</Text>
+              <View style={styles.headerDivider} />
+            </View>
+          </View>
+
+          <ScrollView 
+            style={styles.scrollView}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.titleDecoration} />
+              <Text style={styles.sectionTitle}>Các gói tư vấn phong thủy</Text>
+            </View>
+
+            {consultingPackages.map((pkg) => (
+              <TouchableOpacity 
+                key={pkg.consultationPackageId}
+                style={styles.packageCard}
+                activeOpacity={0.9}
+                onPress={() => router.push({
+                  pathname: '/(tabs)/package_details',
+                  params: { 
+                    packageId: pkg.consultationPackageId,
+                    packageTitle: pkg.packageName
+                  }
+                })}
+              >
+                <ImageBackground
+                  source={pkg.imageUrl ? { uri: pkg.imageUrl } : require('../../assets/images/koi_image.jpg')}
+                  style={styles.packageImage}
+                  imageStyle={styles.packageImageStyle}
+                  resizeMode="cover"
+                >
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.8)']}
+                    style={styles.packageOverlay}
+                  >
+                    <View style={styles.packageTagContainer}>
+                      <Text style={styles.packageTag}>Gói tư vấn</Text>
+                    </View>
+                    
+                    <View style={styles.packageContent}>
+                      <Text style={styles.packageTitle}>{pkg.packageName}</Text>
+                    </View>
+                  </LinearGradient>
+                </ImageBackground>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
     </ImageBackground>
   );
 }
@@ -164,103 +236,157 @@ export default function OfflinePackageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A0000',
+    backgroundColor: COLORS.background,
   },
   backgroundImage: {
-    opacity: 0.3,
+    opacity: 0.4,
+  },
+  overlay: {
+    flex: 1,
   },
   safeArea: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-    marginTop: 120,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  fixedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
+  headerContainer: {
+    paddingTop: Platform.OS === 'ios' ? scale(10) : 20,
+    paddingBottom: scale(15),
+    paddingHorizontal: scale(20),
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 70,
-    paddingBottom: 30,
-    backgroundColor: 'rgba(26, 0, 0, 0.8)',
+    alignItems: 'center',
   },
   backButton: {
-    width: 40,
-    height: 40,
+    marginRight: scale(15),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  backButtonGradient: {
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  headerTitleContainer: {
     flex: 1,
-    textAlign: 'right',
-    marginLeft: 10,
-    lineHeight: 32,
+  },
+  headerTitle: {
+    fontSize: scale(22),
+    color: COLORS.cream,
+    fontWeight: '600',
+  },
+  headerDivider: {
+    width: scale(100),
+    height: 2,
+    backgroundColor: COLORS.accent,
+    marginTop: scale(6),
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: scale(20),
+    paddingTop: scale(10),
+    paddingBottom: scale(30),
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: scale(20),
+  },
+  titleDecoration: {
+    width: 4,
+    height: scale(20),
+    backgroundColor: COLORS.accent,
+    marginRight: scale(10),
+    borderRadius: 2,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 20,
+    fontSize: scale(18),
+    fontWeight: '600',
+    color: COLORS.white,
+    letterSpacing: 0.5,
   },
   packageCard: {
     width: '100%',
-    aspectRatio: 1,
-    marginBottom: 20,
-    borderRadius: 10,
+    height: scale(180),
+    marginBottom: scale(20),
+    borderRadius: scale(16),
     overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.black,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   packageImage: {
     width: '100%',
     height: '100%',
   },
   packageImageStyle: {
-    borderRadius: 10,
+    borderRadius: scale(16),
+  },
+  packageOverlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: scale(16),
+  },
+  packageTagContainer: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(212, 175, 55, 0.8)',
+    paddingVertical: scale(5),
+    paddingHorizontal: scale(10),
+    borderRadius: scale(12),
+  },
+  packageTag: {
+    color: COLORS.black,
+    fontSize: scale(12),
+    fontWeight: '600',
   },
   packageContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    paddingBottom: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  packageLabel: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    opacity: 0.8,
-    marginBottom: 4,
+    width: '100%',
+    marginBottom: scale(10),
   },
   packageTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
+    color: COLORS.white,
+    fontSize: scale(24),
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
   },
   loadingContainer: {
     flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  loadingGradient: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1A0000',
+    padding: scale(20),
+  },
+  logoContainer: {
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: COLORS.cream,
+    fontSize: scale(16),
+    marginTop: scale(20),
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

@@ -10,6 +10,8 @@ import {
   Modal,
   Alert,
   StatusBar,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +21,12 @@ import { API_CONFIG } from '../../constants/config';
 import { getAuthToken } from '../../services/authService';
 import { useFocusEffect } from '@react-navigation/native';
 import { paymentService } from '../../constants/paymentService';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
+const scale = size => Math.round(width * size / 375);
+const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? (IS_IPHONE_X ? 44 : 20) : StatusBar.currentHeight || 0;
 
 const YourRegisterAttend = () => {
   const router = useRouter();
@@ -261,15 +269,21 @@ const YourRegisterAttend = () => {
 
   const renderStatusSelect = () => (
     <View style={styles.filterContainer}>
-      <Text style={styles.filterLabel}>Trạng thái:</Text>
+      <View style={styles.filterLabelContainer}>
+        <Ionicons name="funnel-outline" size={scale(16)} color="#8B0000" />
+        <Text style={styles.filterLabel}>Trạng thái:</Text>
+      </View>
       <TouchableOpacity
         style={styles.selectButton}
         onPress={() => setModalVisible(true)}
+        activeOpacity={0.7}
       >
         <Text style={styles.selectButtonText}>
-          {statusTypes.find(status => status.id === selectedStatus)?.label}
+          {statusTypes.find(status => status.id === selectedStatus)?.label || 'Tất cả'}
         </Text>
-        <Ionicons name="chevron-down" size={20} color="#666" />
+        <View style={styles.selectIconContainer}>
+          <Ionicons name="chevron-down" size={scale(18)} color="#8B0000" />
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -280,61 +294,110 @@ const YourRegisterAttend = () => {
   };
 
   const renderTicketItem = ({ item }) => {
-    // Kiểm tra điều kiện hiển thị nút thanh toán
-    const showPaymentButton = item.status.toLowerCase() === 'pending';
-    
-    // Kiểm tra điều kiện hiển thị nút hủy vé
+    const paymentStatus = item.status || 'Pending';
+    const showPaymentButton = paymentStatus.toLowerCase() === 'pending';
     const showCancelButton = 
-      item.status.toLowerCase() === 'pending' || 
-      item.status.toLowerCase() === 'pendingconfirm';
+      paymentStatus.toLowerCase() === 'pending' || 
+      paymentStatus.toLowerCase() === 'pendingconfirm';
     
     return (
-      <TouchableOpacity 
-        style={styles.ticketItem}
-        onPress={() => router.push({
-          pathname: '/(tabs)/ticketDetails',
-          params: { 
-            groupId: item.groupId,
-            totalPrice: item.totalPrice
-          }
-        })}
-      >
-        <View style={styles.ticketHeader}>
-          <Text style={styles.workshopName}>{item.workshopName}</Text>
-          <Text style={[
-            styles.statusTag,
-            { backgroundColor: getStatusColor(item.status) }
-          ]}>
-            {item.status}
-          </Text>
-        </View>
-        
-        <View style={styles.ticketContent}>
-          <Text style={styles.ticketCount}>Số lượng vé: {item.numberOfTickets}</Text>
-          
-          <View style={styles.buttonContainer}>
-            {showPaymentButton && (
-              <TouchableOpacity 
-                style={styles.paymentButton}
-                onPress={() => handlePayment(item)}
-              >
-                <Ionicons name="wallet-outline" size={20} color="#fff" />
-                <Text style={styles.paymentButtonText}>Tạo đơn thanh toán</Text>
-              </TouchableOpacity>
-            )}
+      <View style={styles.ticketItemContainer}>
+        <TouchableOpacity 
+          style={styles.ticketItem}
+          onPress={() => router.push({
+            pathname: '/(tabs)/ticketDetails',
+            params: { 
+              groupId: item.groupId,
+              totalPrice: item.totalPrice
+            }
+          })}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['#FFFFFF', '#F8F8F8']}
+            style={styles.ticketItemGradient}
+          >
+            {/* Header with status badge */}
+            <View style={styles.ticketHeader}>
+              <View style={styles.headerLeft}>
+                <Ionicons name="calendar-outline" size={scale(18)} color="#8B0000" style={styles.ticketIcon} />
+                <Text style={styles.workshopName} numberOfLines={2}>
+                  {item.workshopName || 'Workshop'}
+                </Text>
+              </View>
+              <View style={[
+                styles.statusTag,
+                { backgroundColor: getStatusColor(item.status) }
+              ]}>
+                <Text style={styles.statusTagText}>
+                  {getStatusDisplay(item.status)}
+                </Text>
+              </View>
+            </View>
             
-            {showCancelButton && (
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={() => cancelTicket(item)}
-              >
-                <Ionicons name="close-circle-outline" size={20} color="#fff" />
-                <Text style={styles.cancelButtonText}>Hủy vé</Text>
-              </TouchableOpacity>
+            {/* Divider */}
+            <View style={styles.divider} />
+            
+            {/* Ticket details */}
+            <View style={styles.ticketDetails}>
+              <View style={styles.detailRow}>
+                <Ionicons name="ticket-outline" size={scale(16)} color="#666" />
+                <Text style={styles.detailText}>Số lượng vé: {item.numberOfTickets}</Text>
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Ionicons name="pricetag-outline" size={scale(16)} color="#666" />
+                <Text style={styles.detailText}>
+                  Tổng tiền: {item.totalPrice ? 
+                    `${item.totalPrice.toLocaleString('vi-VN')}đ` : 
+                    'Miễn phí'}
+                </Text>
+              </View>
+            </View>
+            
+            {/* Action buttons */}
+            {(showPaymentButton || showCancelButton) && (
+              <View style={styles.actionContainer}>
+                {showPaymentButton && (
+                  <TouchableOpacity 
+                    style={styles.paymentButton}
+                    onPress={() => handlePayment(item)}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['#8B0000', '#600000']}
+                      start={[0, 0]}
+                      end={[1, 0]}
+                      style={styles.actionButtonGradient}
+                    >
+                      <Ionicons name="wallet-outline" size={scale(16)} color="#FFF" />
+                      <Text style={styles.actionButtonText}>Thanh toán</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+                
+                {showCancelButton && (
+                  <TouchableOpacity 
+                    style={styles.cancelButton}
+                    onPress={() => cancelTicket(item)}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['#F44336', '#D32F2F']}
+                      start={[0, 0]}
+                      end={[1, 0]}
+                      style={styles.actionButtonGradient}
+                    >
+                      <Ionicons name="close-circle-outline" size={scale(16)} color="#FFF" />
+                      <Text style={styles.actionButtonText}>Hủy vé</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
-          </View>
-        </View>
-      </TouchableOpacity>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -377,6 +440,8 @@ const YourRegisterAttend = () => {
   };
 
   const getStatusColor = (status) => {
+    if (!status) return '#999';
+    
     switch (status.toLowerCase()) {
       case 'paid': return '#4CAF50';
       case 'confirmed': return '#2196F3';
@@ -387,22 +452,55 @@ const YourRegisterAttend = () => {
     }
   };
 
+  const getStatusDisplay = (status) => {
+    if (!status) return 'Chờ thanh toán';
+    
+    switch (status.toLowerCase()) {
+      case 'paid': return 'Đã thanh toán';
+      case 'confirmed': return 'Đã xác nhận';
+      case 'pending': return 'Chờ thanh toán';
+      case 'pendingconfirm': return 'Chờ xác nhận';
+      case 'canceled': return 'Đã hủy';
+      default: return status;
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#8B0000" translucent={true} />
       
-      <View style={styles.header}>
+      {/* Status bar spacer */}
+      <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
+      
+      {/* Header */}
+      <LinearGradient 
+        colors={['#8B0000', '#600000']} 
+        start={[0, 0]} 
+        end={[1, 0]}
+        style={styles.header}
+      >
         <TouchableOpacity 
           onPress={() => router.push('/(tabs)/profile')}
           style={styles.backButton}
+          hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+          <Ionicons name="arrow-back" size={scale(22)} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Vé tham dự hội thảo</Text>
-      </View>
+        
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Vé tham dự hội thảo</Text>
+          <Text style={styles.headerSubtitle}>
+            {tickets.length > 0 
+              ? `${tickets.length} vé đã đăng ký` 
+              : 'Khám phá và đăng ký tham gia'
+            }
+          </Text>
+        </View>
+      </LinearGradient>
 
       {renderStatusSelect()}
 
+      {/* Status selection modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -417,64 +515,106 @@ const YourRegisterAttend = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chọn trạng thái</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+              <TouchableOpacity 
+                onPress={() => setModalVisible(false)}
+                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+              >
+                <Ionicons name="close" size={scale(22)} color="#666" />
               </TouchableOpacity>
             </View>
-            {statusTypes.map((status) => (
-              <TouchableOpacity
-                key={status.id}
-                style={[
-                  styles.modalOption,
-                  selectedStatus === status.id && styles.modalOptionSelected
-                ]}
-                onPress={() => handleStatusSelect(status.id)}
-              >
-                <Text style={[
-                  styles.modalOptionText,
-                  selectedStatus === status.id && styles.modalOptionTextSelected
-                ]}>
-                  {status.label}
-                </Text>
-                {selectedStatus === status.id && (
-                  <Ionicons name="checkmark" size={20} color="#8B0000" />
-                )}
-              </TouchableOpacity>
-            ))}
+            
+            <View style={styles.modalOptions}>
+              {statusTypes.map((status) => (
+                <TouchableOpacity
+                  key={status.id}
+                  style={[
+                    styles.modalOption,
+                    selectedStatus === status.id && styles.modalOptionSelected
+                  ]}
+                  onPress={() => handleStatusSelect(status.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.modalOptionText,
+                    selectedStatus === status.id && styles.modalOptionTextSelected
+                  ]}>
+                    {status.label}
+                  </Text>
+                  {selectedStatus === status.id && (
+                    <Ionicons name="checkmark-circle" size={scale(20)} color="#8B0000" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
 
+      {/* Content area */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B0000" />
-          <Text style={styles.loadingText}>Đang tải danh sách vé...</Text>
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#8B0000" />
+            <Text style={styles.loadingText}>Đang tải danh sách vé...</Text>
+          </View>
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={scale(50)} color="#F44336" style={styles.errorIcon} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity 
             style={styles.retryButton}
             onPress={initData}
+            activeOpacity={0.8}
           >
-            <Text style={styles.retryButtonText}>Thử lại</Text>
+            <LinearGradient
+              colors={['#8B0000', '#600000']}
+              start={[0, 0]}
+              end={[1, 0]}
+              style={styles.retryButtonGradient}
+            >
+              <Text style={styles.retryButtonText}>Thử lại</Text>
+              <Ionicons name="refresh" size={scale(16)} color="#FFF" />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={tickets}
           renderItem={renderTicketItem}
-          keyExtractor={(item) => item.groupId}
+          keyExtractor={(item) => item.groupId || Math.random().toString()}
           contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Không có vé nào</Text>
+              <Ionicons name="ticket-outline" size={scale(60)} color="#8B0000" style={styles.emptyIcon} />
+              <Text style={styles.emptyTitle}>Chưa có vé nào</Text>
+              <Text style={styles.emptyText}>
+                Bạn chưa đăng ký tham dự workshop nào. Hãy khám phá các workshop của chúng tôi ngay.
+              </Text>
+              <TouchableOpacity 
+                style={styles.browseButton} 
+                onPress={() => router.push('/(tabs)/workshop')}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#8B0000', '#600000']}
+                  start={[0, 0]}
+                  end={[1, 0]}
+                  style={styles.browseButtonGradient}
+                >
+                  <Text style={styles.browseButtonText}>Xem workshop</Text>
+                  <Ionicons name="arrow-forward" size={scale(16)} color="#FFF" />
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           }
           refreshing={loading}
           onRefresh={() => fetchTickets(selectedStatus)}
         />
       )}
+
+      {/* Keep the custom tab bar */}
       <CustomTabBar />
     </SafeAreaView>
   );
@@ -483,222 +623,384 @@ const YourRegisterAttend = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-    backgroundColor: '#8B0000',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(16),
+    borderBottomLeftRadius: scale(20),
+    borderBottomRightRadius: scale(20),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  headerTitleContainer: {
+    marginLeft: scale(16),
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: scale(22),
     fontWeight: 'bold',
     color: '#FFF',
-    marginLeft: 10,
+    marginBottom: scale(4),
+  },
+  headerSubtitle: {
+    fontSize: scale(14),
+    color: 'rgba(255,255,255,0.8)',
   },
   backButton: {
-    padding: 8,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  
+  // Filter styles
   filterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
+    justifyContent: 'space-between',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#F0F0F0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  filterLabel: {
-    fontSize: 16,
-    color: '#333',
-    marginRight: 10,
-  },
-  selectButton: {
-    flex: 1,
+  filterLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 8,
+  },
+  filterLabel: {
+    fontSize: scale(14),
+    fontWeight: '500',
+    color: '#333',
+    marginLeft: scale(6),
+  },
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(8),
+    borderRadius: scale(8),
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#E0E0E0',
+    minWidth: scale(130),
   },
   selectButtonText: {
-    fontSize: 15,
+    fontSize: scale(14),
     color: '#333',
+    flex: 1,
   },
+  selectIconContainer: {
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    width: scale(24),
+    height: scale(24),
+    borderRadius: scale(12),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    padding: 20,
+    padding: scale(20),
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
+    backgroundColor: '#FFF',
+    borderRadius: scale(16),
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
-    paddingBottom: 15,
+    padding: scale(16),
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#F0F0F0',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: scale(18),
+    fontWeight: 'bold',
     color: '#333',
+  },
+  modalOptions: {
+    paddingVertical: scale(8),
   },
   modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 5,
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(16),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   modalOptionSelected: {
-    backgroundColor: '#f8f8f8',
+    backgroundColor: 'rgba(139, 0, 0, 0.05)',
   },
   modalOptionText: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#333',
   },
   modalOptionTextSelected: {
     color: '#8B0000',
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  
+  // Ticket item styles
+  ticketItemContainer: {
+    marginBottom: scale(16),
+    marginHorizontal: scale(16),
   },
   ticketItem: {
-    backgroundColor: '#fff',
-    marginHorizontal: 15,
-    marginVertical: 8,
-    borderRadius: 10,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: scale(16),
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  ticketItemGradient: {
+    borderRadius: scale(16),
   },
   ticketHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    padding: scale(16),
+    paddingBottom: scale(12),
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  ticketIcon: {
+    marginRight: scale(8),
   },
   workshopName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: scale(16),
+    fontWeight: 'bold',
     color: '#333',
     flex: 1,
-    marginRight: 10,
   },
   statusTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    color: '#fff',
-    fontSize: 12,
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(5),
+    borderRadius: scale(16),
+    marginLeft: scale(8),
   },
-  ticketContent: {
-    marginTop: 5,
-    gap: 8,
+  statusTagText: {
+    color: '#FFF',
+    fontSize: scale(12),
+    fontWeight: 'bold',
   },
-  ticketCount: {
-    fontSize: 14,
+  divider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: scale(16),
+  },
+  ticketDetails: {
+    padding: scale(16),
+    paddingTop: scale(12),
+    paddingBottom: scale(12),
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: scale(8),
+  },
+  detailText: {
+    fontSize: scale(14),
     color: '#666',
+    marginLeft: scale(8),
   },
+  actionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: scale(16),
+    paddingTop: scale(0),
+    gap: scale(8),
+  },
+  paymentButton: {
+    borderRadius: scale(8),
+    overflow: 'hidden',
+  },
+  cancelButton: {
+    borderRadius: scale(8),
+    overflow: 'hidden',
+  },
+  actionButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: scale(8),
+    paddingHorizontal: scale(12),
+  },
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: scale(14),
+    fontWeight: '600',
+    marginLeft: scale(6),
+  },
+  
+  // Loading styles
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: scale(20),
+  },
+  loadingBox: {
+    backgroundColor: '#FFF',
+    padding: scale(24),
+    borderRadius: scale(16),
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: scale(16),
+    fontSize: scale(16),
     color: '#666',
   },
+  
+  // Error styles
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: scale(20),
+  },
+  errorIcon: {
+    marginBottom: scale(16),
   },
   errorText: {
-    color: '#d9534f',
+    color: '#666',
+    fontSize: scale(16),
     textAlign: 'center',
+    marginBottom: scale(20),
   },
+  retryButton: {
+    borderRadius: scale(8),
+    overflow: 'hidden',
+  },
+  retryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(20),
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: scale(16),
+    fontWeight: '600',
+    marginRight: scale(8),
+  },
+  
+  // Empty state styles
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: scale(20),
+    marginTop: scale(40),
+  },
+  emptyIcon: {
+    marginBottom: scale(16),
+    opacity: 0.8,
+  },
+  emptyTitle: {
+    fontSize: scale(22),
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: scale(12),
+    textAlign: 'center',
   },
   emptyText: {
+    fontSize: scale(16),
     color: '#666',
-    fontSize: 16,
+    marginBottom: scale(24),
+    textAlign: 'center',
+    lineHeight: scale(24),
   },
+  browseButton: {
+    borderRadius: scale(30),
+    overflow: 'hidden',
+    width: '100%',
+    maxWidth: scale(200),
+  },
+  browseButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: scale(24),
+    paddingVertical: scale(14),
+  },
+  browseButtonText: {
+    color: '#FFF',
+    fontSize: scale(16),
+    fontWeight: 'bold',
+    marginRight: scale(8),
+  },
+  
+  // List container
   listContainer: {
-    flexGrow: 1,
-    paddingVertical: 10,
-  },
-  retryButton: {
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#8B0000',
-    borderRadius: 5,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 5,
-  },
-  paymentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#AE1D1D',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    gap: 5,
-  },
-  paymentButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  cancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F44336',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    gap: 5,
-  },
-  cancelButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+    paddingTop: scale(16),
+    paddingBottom: IS_IPHONE_X ? scale(100) : scale(80), // Account for custom tab bar
+    minHeight: '100%',
   },
 });
 

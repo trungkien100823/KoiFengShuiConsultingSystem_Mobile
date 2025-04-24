@@ -11,7 +11,11 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   ActivityIndicator,
-  Alert
+  Alert,
+  Dimensions,
+  Platform,
+  StatusBar,
+  KeyboardAvoidingView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -21,6 +25,8 @@ import { API_CONFIG } from '../../constants/config';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+
+const { width, height } = Dimensions.get('window');
 
 export default function OnlineBookingScreen() {
   const router = useRouter();
@@ -163,122 +169,129 @@ export default function OnlineBookingScreen() {
       style={styles.container}
       imageStyle={styles.backgroundImage}
     >
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <SafeAreaView style={styles.safeArea}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView 
-            style={styles.scrollView}
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.header}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => router.push('/(tabs)/OfflineOnline')}
-              >
-                <Ionicons name="chevron-back-circle" size={32} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Đặt lịch tư vấn{'\n'} trực tuyến</Text>
-            </View>
-            
-            <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidView}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView 
+              style={styles.scrollView}
+              contentContainerStyle={styles.content}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.header}>
+                <TouchableOpacity 
+                  style={styles.backButton}
+                  onPress={() => router.push('/(tabs)/OfflineOnline')}
+                >
+                  <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Đặt lịch tư vấn{'\n'} trực tuyến</Text>
+              </View>
+              
+              <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
 
-            <View style={styles.formContainer}>
-              {/* Consultant Picker */}
-              <View style={styles.formGroup}>
-                {isLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  </View>
-                ) : fromMasterDetails ? (
-                  <View style={[styles.dropdown, {justifyContent: 'center'}]}>
-                    <Text style={styles.dropdownText}>{selectedMasterName}</Text>
-                  </View>
-                ) : (
-                  <SelectList 
-                    setSelected={setSelectedConsultant} 
-                    data={consultants} 
-                    boxStyles={styles.dropdown}
-                    dropdownStyles={styles.dropdownList}
-                    inputStyles={styles.dropdownText}
-                    dropdownTextStyles={styles.dropdownText}
-                    placeholder="Chúng tôi sẽ chọn giúp"
-                    search={false}
-                    defaultOption={
-                      selectedMasterId 
-                        ? { key: selectedMasterId, value: selectedMasterName }
-                        : { key: null, value: 'Chúng tôi sẽ chọn giúp' }
-                    }
-                    arrowicon={<Ionicons name="chevron-down" size={24} color="#FFFFFF" />}
-                    save="key"
+              <View style={styles.formContainer}>
+                {/* Consultant Picker */}
+                <View style={styles.formGroup}>
+                  {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    </View>
+                  ) : fromMasterDetails ? (
+                    <View style={[styles.dropdown, {justifyContent: 'center'}]}>
+                      <Text style={styles.dropdownText}>{selectedMasterName}</Text>
+                    </View>
+                  ) : (
+                    <SelectList 
+                      setSelected={setSelectedConsultant} 
+                      data={consultants} 
+                      boxStyles={styles.dropdown}
+                      dropdownStyles={styles.dropdownList}
+                      inputStyles={styles.dropdownText}
+                      dropdownTextStyles={styles.dropdownText}
+                      placeholder="Chúng tôi sẽ chọn giúp"
+                      search={false}
+                      defaultOption={
+                        selectedMasterId 
+                          ? { key: selectedMasterId, value: selectedMasterName }
+                          : { key: null, value: 'Chúng tôi sẽ chọn giúp' }
+                      }
+                      arrowicon={<Ionicons name="chevron-down" size={24} color="#FFFFFF" />}
+                      save="key"
+                    />
+                  )}
+                </View>
+
+                {/* Name Input */}
+                <View style={styles.formGroup}>
+                  <TextInput
+                    style={[styles.input, {opacity: 0.7}]}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Họ và tên"
+                    placeholderTextColor="#FFFFFF"
+                    editable={false}
                   />
-                )}
-              </View>
+                  <Text style={styles.asterisk}>*</Text>
+                </View>
+                
+                {/* Phone Number */}
+                <View style={styles.formGroup}>
+                  <TextInput
+                    style={[styles.input, {opacity: 0.7}]}
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="Số điện thoại"
+                    keyboardType="phone-pad"
+                    placeholderTextColor="#FFFFFF"
+                    editable={false}
+                  />
+                  <Text style={styles.asterisk}>*</Text>
+                </View>
+                
+                {/* Email */}
+                <View style={styles.formGroup}>
+                  <TextInput
+                    style={[styles.input, {opacity: 0.7}]}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Email"
+                    keyboardType="email-address"
+                    placeholderTextColor="#FFFFFF"
+                    editable={false}
+                  />
+                  <Text style={styles.asterisk}>*</Text>
+                </View>
+                
+                {/* Description */}
+                <View style={styles.formGroup}>
+                  <TextInput
+                    style={styles.textArea}
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Mô tả nhu cầu tư vấn"
+                    multiline
+                    numberOfLines={4}
+                    placeholderTextColor="#FFFFFF"
+                  />
+                  <Text style={styles.asterisk}>*</Text>
+                </View>
 
-              {/* Name Input */}
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={[styles.input, {opacity: 0.7}]}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Họ và tên"
-                  placeholderTextColor="#FFFFFF"
-                  editable={false}
-                />
-                <Text style={styles.asterisk}>*</Text>
+                {/* Submit Button */}
+                <TouchableOpacity 
+                  style={styles.submitButton}
+                  onPress={handleSubmit}
+                >
+                  <Text style={styles.submitButtonText}>Chọn lịch tư vấn</Text>
+                </TouchableOpacity>
               </View>
-              
-              {/* Phone Number */}
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={[styles.input, {opacity: 0.7}]}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Số điện thoại"
-                  keyboardType="phone-pad"
-                  placeholderTextColor="#FFFFFF"
-                  editable={false}
-                />
-                <Text style={styles.asterisk}>*</Text>
-              </View>
-              
-              {/* Email */}
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={[styles.input, {opacity: 0.7}]}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Email"
-                  keyboardType="email-address"
-                  placeholderTextColor="#FFFFFF"
-                  editable={false}
-                />
-                <Text style={styles.asterisk}>*</Text>
-              </View>
-              
-              {/* Description */}
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={styles.textArea}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Mô tả nhu cầu tư vấn"
-                  multiline
-                  numberOfLines={4}
-                  placeholderTextColor="#FFFFFF"
-                />
-                <Text style={styles.asterisk}>*</Text>
-              </View>
-
-              {/* Submit Button */}
-              <TouchableOpacity 
-                style={styles.submitButton}
-                onPress={handleSubmit}
-              >
-                <Text style={styles.submitButtonText}>Chọn lịch tư vấn</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ImageBackground>
   );
@@ -290,129 +303,155 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A0000',
   },
   backgroundImage: {
-    flex: 1,
-    resizeMode: 'cover',
+    opacity: 0.8,
   },
   safeArea: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  keyboardAvoidView: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: width * 0.05,
+    paddingTop: Platform.OS === 'ios' ? height * 0.02 : height * 0.03,
     flexGrow: 1,
+    paddingBottom: height * 0.05,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 30,
+    marginBottom: height * 0.04,
     justifyContent: 'space-between',
   },
   backButton: {
-    marginTop: 5,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: width * 0.07,
     fontWeight: 'bold',
     color: '#FFFFFF',
     textAlign: 'right',
     flex: 0.8,
-    lineHeight: 32,
+    lineHeight: Platform.OS === 'ios' ? width * 0.08 : width * 0.09,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: width * 0.05,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: height * 0.02,
+    marginBottom: height * 0.03,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   formContainer: {
     width: '100%',
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: height * 0.025,
     position: 'relative',
   },
   inputLabel: {
     color: '#FFFFFF',
     marginBottom: 8,
-    fontSize: 16,
+    fontSize: width * 0.04,
     fontWeight: '500',
   },
   dropdown: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
-    padding: 15,
-    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: Platform.OS === 'ios' ? 16 : 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    minHeight: 56,
   },
   dropdownList: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     borderColor: 'rgba(255, 255, 255, 0.2)',
     marginTop: 5,
+    borderRadius: 12,
+    padding: 5,
+    maxHeight: height * 0.4,
   },
   dropdownText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: width * 0.04,
     textAlign: 'left',
     marginLeft: 0,
   },
   asterisk: {
     color: '#FF0000',
     position: 'absolute',
-    top: 15,
+    top: Platform.OS === 'ios' ? 16 : 14,
     right: 15,
-    fontSize: 16,
+    fontSize: width * 0.045,
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
+    borderRadius: 12,
+    padding: Platform.OS === 'ios' ? 16 : 14,
+    fontSize: width * 0.04,
     color: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+    minHeight: 56,
   },
   textArea: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: width * 0.04,
     color: '#FFFFFF',
-    minHeight: 120,
+    minHeight: height * 0.15,
     textAlignVertical: 'top',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   submitButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#8B0000',
     borderRadius: 25,
-    padding: 15,
+    padding: Platform.OS === 'ios' ? 16 : 14,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: height * 0.03,
+    marginBottom: height * 0.02,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
     elevation: 5,
   },
   submitButtonText: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
-    color: '#000000',
+    color: '#FFFFFF',
   },
   loadingContainer: {
-    height: 50,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   }
 });

@@ -17,7 +17,8 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Keyboard,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
@@ -27,6 +28,7 @@ import { API_CONFIG } from '../../constants/config';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Ngũ hành colors
 const elementColors = {
@@ -38,6 +40,14 @@ const elementColors = {
 };
 
 const { width, height } = Dimensions.get('window');
+
+// Add scale function for responsive sizing
+const scale = size => Math.round(width * size / 375);
+
+// Add platform-specific constants
+const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? (IS_IPHONE_X ? 44 : 20) : StatusBar.currentHeight || 0;
+const HEADER_HEIGHT = scale(60) + STATUS_BAR_HEIGHT;
 
 // Add modalStyles
 const modalStyles = StyleSheet.create({
@@ -1541,6 +1551,7 @@ export default function EditProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
         <ActivityIndicator size="large" color="#8B0000" />
         <Text style={styles.loadingText}>Đang tải hồ sơ của bạn...</Text>
       </SafeAreaView>
@@ -1548,174 +1559,240 @@ export default function EditProfileScreen() {
   }
   
   return (
-    <ImageBackground 
-      source={require('../../assets/images/feng shui.png')} 
-      style={styles.backgroundImage}
-    >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chỉnh Sửa Hồ Sơ</Text>
-          <View style={styles.spacer} />
-        </View>
-        
-        <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
-          <View style={styles.formCard}>
-            <View style={styles.avatarContainer}>
-              <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
-                {imageUrl ? (
-                  <Image source={{ uri: imageUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Ionicons name="person" size={40} color="rgba(255,255,255,0.6)" />
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+      <ImageBackground 
+        source={require('../../assets/images/feng shui.png')} 
+        style={styles.backgroundImage}
+      >
+        <SafeAreaView style={styles.container}>
+          {/* Status bar spacer */}
+          <View style={{ height: STATUS_BAR_HEIGHT }} />
+          
+          <LinearGradient
+            colors={['rgba(139,0,0,0.9)', 'rgba(80,0,0,0.8)']}
+            style={styles.header}
+          >
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Chỉnh Sửa Hồ Sơ</Text>
+            <View style={styles.spacer} />
+          </LinearGradient>
+          
+          <ScrollView 
+            style={styles.form} 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.formContentContainer}
+          >
+            <View style={styles.formCard}>
+              <View style={styles.avatarContainer}>
+                <TouchableOpacity 
+                  onPress={pickImage} 
+                  style={styles.avatarWrapper}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['rgba(255,215,0,0.7)', 'rgba(139,0,0,0.7)']}
+                    style={styles.avatarGradient}
+                  >
+                    {imageUrl ? (
+                      <Image source={{ uri: imageUrl }} style={styles.avatar} />
+                    ) : (
+                      <View style={styles.avatarPlaceholder}>
+                        <Ionicons name="person" size={scale(40)} color="rgba(255,255,255,0.6)" />
+                      </View>
+                    )}
+                  </LinearGradient>
+                  <View style={styles.avatarEditButton}>
+                    <Ionicons name="camera" size={scale(18)} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.avatarText}>Ảnh đại diện</Text>
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Tên</Text>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Nhập tên của bạn"
+                  placeholderTextColor="rgba(255,255,255,0.5)"
+                />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={[styles.input, styles.disabledInput]}
+                  value={email}
+                  editable={false}
+                />
+                <Text style={styles.helperText}>Email không thể thay đổi</Text>
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Số Điện Thoại</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Nhập số điện thoại của bạn"
+                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  keyboardType="phone-pad"
+                />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Ngày Sinh</Text>
+                <TouchableOpacity 
+                  style={styles.dateInput}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={styles.dateText}>{dob.toISOString().split('T')[0]}</Text>
+                  <Ionicons name="calendar-outline" size={22} color="#ffffff" />
+                </TouchableOpacity>
+                
+                {showDatePicker && (
+                  <View>
+                    {Platform.OS === 'ios' ? (
+                      <Modal
+                        transparent={true}
+                        visible={showDatePicker}
+                        animationType="slide"
+                      >
+                        <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
+                          <View style={{flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)'}}>
+                            <TouchableWithoutFeedback>
+                              <View style={{backgroundColor: 'white', borderTopLeftRadius: 15, borderTopRightRadius: 15, padding: 15}}>
+                                <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10}}>
+                                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                    <Text style={{color: '#8B0000', fontSize: 16}}>Đóng</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                    <Text style={{color: '#8B0000', fontSize: 16, fontWeight: 'bold'}}>Xong</Text>
+                                  </TouchableOpacity>
+                                </View>
+                                <Text style={{textAlign: 'center', marginTop: 10, marginBottom: 15}}>
+                                  Chọn ngày sinh: {dob.toLocaleDateString('vi-VN')}
+                                </Text>
+                              </View>
+                            </TouchableWithoutFeedback>
+                          </View>
+                        </TouchableWithoutFeedback>
+                      </Modal>
+                    ) : (
+                      // For Android, we'll render a simplified date picker screen
+                      <View style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999}}>
+                        <View style={{margin: 20, backgroundColor: 'white', borderRadius: 10, padding: 20}}>
+                          <Text style={{fontSize: 18, textAlign: 'center', marginBottom: 20}}>Chọn ngày sinh</Text>
+                          <TouchableOpacity 
+                            style={{backgroundColor: '#8B0000', padding: 10, borderRadius: 5, alignItems: 'center'}}
+                            onPress={() => setShowDatePicker(false)}
+                          >
+                            <Text style={{color: 'white'}}>Đóng</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 )}
-                <View style={styles.avatarEditButton}>
-                  <Ionicons name="camera" size={18} color="#fff" />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Giới Tính</Text>
+                <View style={styles.genderContainer}>
+                  <TouchableOpacity 
+                    style={[styles.genderOption, !gender && styles.activeGenderOption]}
+                    onPress={() => setGender(false)}
+                  >
+                    <Ionicons 
+                      name="woman-outline" 
+                      size={22} 
+                      color={!gender ? "#fff" : "rgba(255,255,255,0.6)"} 
+                    />
+                    <Text style={[styles.genderText, !gender && styles.activeGenderText]}>Nữ</Text>
+                  </TouchableOpacity>
+                  
+                  <View style={styles.genderDivider} />
+                  
+                  <TouchableOpacity 
+                    style={[styles.genderOption, gender && styles.activeGenderOption]}
+                    onPress={() => setGender(true)}
+                  >
+                    <Ionicons 
+                      name="man-outline" 
+                      size={22} 
+                      color={gender ? "#fff" : "rgba(255,255,255,0.6)"} 
+                    />
+                    <Text style={[styles.genderText, gender && styles.activeGenderText]}>Nam</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
-              <Text style={styles.avatarText}>Ảnh đại diện</Text>
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Tên</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Nhập tên của bạn"
-                placeholderTextColor="rgba(255,255,255,0.5)"
-              />
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={[styles.input, styles.disabledInput]}
-                value={email}
-                editable={false}
-              />
-              <Text style={styles.helperText}>Email không thể thay đổi</Text>
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Số Điện Thoại</Text>
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Nhập số điện thoại của bạn"
-                placeholderTextColor="rgba(255,255,255,0.5)"
-                keyboardType="phone-pad"
-              />
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Ngày Sinh</Text>
+              </View>
+              
+              <View style={styles.sectionTitle}>
+                <Text style={styles.sectionTitleText}>Thông Tin Ngân Hàng</Text>
+              </View>
+
               <TouchableOpacity 
-                style={styles.dateInput}
-                onPress={() => setShowDatePicker(true)}
+                style={styles.changePasswordButton}
+                onPress={toggleBankInfoModal}
               >
-                <Text style={styles.dateText}>{dob.toISOString().split('T')[0]}</Text>
-                <Ionicons name="calendar-outline" size={22} color="#ffffff" />
+                <Ionicons name="card-outline" size={22} color="#fff" style={styles.changePasswordIcon} />
+                <Text style={styles.changePasswordText}>Thông tin ngân hàng</Text>
+                <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
               
-              {showDatePicker && (
-                <DateTimePicker
-                  value={dob}
-                  mode="date"
-                  display="default"
-                  onChange={onDateChange}
-                  maximumDate={new Date()}
-                />
-              )}
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Giới Tính</Text>
-              <View style={styles.genderContainer}>
-                <TouchableOpacity 
-                  style={[styles.genderOption, !gender && styles.activeGenderOption]}
-                  onPress={() => setGender(false)}
-                >
-                  <Ionicons 
-                    name="woman-outline" 
-                    size={22} 
-                    color={!gender ? "#fff" : "rgba(255,255,255,0.6)"} 
-                  />
-                  <Text style={[styles.genderText, !gender && styles.activeGenderText]}>Nữ</Text>
-                </TouchableOpacity>
-                
-                <View style={styles.genderDivider} />
-                
-                <TouchableOpacity 
-                  style={[styles.genderOption, gender && styles.activeGenderOption]}
-                  onPress={() => setGender(true)}
-                >
-                  <Ionicons 
-                    name="man-outline" 
-                    size={22} 
-                    color={gender ? "#fff" : "rgba(255,255,255,0.6)"} 
-                  />
-                  <Text style={[styles.genderText, gender && styles.activeGenderText]}>Nam</Text>
-                </TouchableOpacity>
+              {/* Thêm nút đổi mật khẩu */}
+              <View style={styles.sectionTitle}>
+                <Text style={styles.sectionTitleText}>Bảo Mật</Text>
               </View>
-            </View>
-            
-            <View style={styles.sectionTitle}>
-              <Text style={styles.sectionTitleText}>Thông Tin Ngân Hàng</Text>
-            </View>
-
-            <TouchableOpacity 
-              style={styles.changePasswordButton}
-              onPress={toggleBankInfoModal}
-            >
-              <Ionicons name="card-outline" size={22} color="#fff" style={styles.changePasswordIcon} />
-              <Text style={styles.changePasswordText}>Thông tin ngân hàng</Text>
-              <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.7)" />
-            </TouchableOpacity>
-            
-            {/* Thêm nút đổi mật khẩu */}
-            <View style={styles.sectionTitle}>
-              <Text style={styles.sectionTitleText}>Bảo Mật</Text>
+              
+              <TouchableOpacity 
+                style={styles.changePasswordButton}
+                onPress={togglePasswordModal}
+              >
+                <Ionicons name="lock-closed-outline" size={22} color="#fff" style={styles.changePasswordIcon} />
+                <Text style={styles.changePasswordText}>Đổi mật khẩu</Text>
+                <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
             </View>
             
             <TouchableOpacity 
-              style={styles.changePasswordButton}
-              onPress={togglePasswordModal}
+              style={[styles.saveButton, submitting && styles.disabledButton]}
+              onPress={handleSave}
+              disabled={submitting}
+              activeOpacity={0.8}
             >
-              <Ionicons name="lock-closed-outline" size={22} color="#fff" style={styles.changePasswordIcon} />
-              <Text style={styles.changePasswordText}>Đổi mật khẩu</Text>
-              <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.7)" />
+              <LinearGradient
+                colors={['#8B0000', '#5D0000']}
+                style={styles.saveButtonGradient}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="save-outline" size={scale(22)} color="#fff" style={styles.saveIcon} />
+                    <Text style={styles.saveButtonText}>Lưu Thay Đổi</Text>
+                  </>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
-          </View>
-          
-          <TouchableOpacity 
-            style={[styles.saveButton, submitting && styles.disabledButton]}
-            onPress={handleSave}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="save-outline" size={22} color="#fff" style={styles.saveIcon} />
-                <Text style={styles.saveButtonText}>Lưu Thay Đổi</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-      <UserInfoModal />
-      {renderPasswordChangeModal()}
-      {renderBankInfoModal()}
-    </ImageBackground>
+          </ScrollView>
+        </SafeAreaView>
+        <UserInfoModal />
+        {renderPasswordChangeModal()}
+        {renderBankInfoModal()}
+      </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+  },
   backgroundImage: {
     flex: 1,
     width: '100%',
@@ -1723,81 +1800,104 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)', // Semi-transparent overlay
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   header: {
+    height: scale(60),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: scale(16),
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.3)', // Changed to white tint
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderTopLeftRadius: scale(20),
+    borderTopRightRadius: scale(20),
   },
   backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139,0,0,0.7)', // Semi-transparent red
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: scale(20),
     fontWeight: 'bold',
-    color: '#fff', // Gold color
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0,0,0,0.7)',
+    color: '#fff',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   spacer: {
-    width: 40,
+    width: scale(40),
   },
   form: {
     flex: 1,
-    padding: 20,
+  },
+  formContentContainer: {
+    padding: scale(16),
+    paddingBottom: scale(40),
   },
   formCard: {
-    borderRadius: 16,
-    padding: 22,
-    marginBottom: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: scale(16),
+    padding: scale(20),
+    marginTop: scale(20),
+    marginBottom: scale(10),
     borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.3)', // Gold tint border
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    borderColor: 'rgba(255,215,0,0.3)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   formGroup: {
-    marginBottom: 24,
+    marginBottom: scale(20),
   },
   label: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: '#ffffff', // Changed to white
+    fontSize: scale(14),
+    color: '#fff',
+    marginBottom: scale(8),
     fontWeight: '600',
-    letterSpacing: 0.5,
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   helperText: {
-    fontSize: 12,
+    fontSize: scale(12),
     color: 'rgba(255,255,255,0.6)',
-    marginTop: 6,
+    marginTop: scale(6),
     fontStyle: 'italic',
   },
   input: {
     backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: scale(12),
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    fontSize: scale(16),
+    color: '#fff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)', // Changed to white-tinted border
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    color: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   disabledInput: {
     backgroundColor: 'rgba(80,80,80,0.3)',
@@ -1805,22 +1905,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   dateInput: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)', // Changed to white-tinted border
-    borderRadius: 12,
-    padding: 14,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: scale(12),
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   dateText: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: 'white',
   },
   genderContainer: {
     flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: scale(12),
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
@@ -1830,15 +1931,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: scale(16),
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   activeGenderOption: {
     backgroundColor: 'rgba(139,0,0,0.8)',
   },
   genderText: {
-    fontSize: 16,
-    marginLeft: 8,
+    fontSize: scale(16),
+    marginLeft: scale(8),
     color: 'rgba(255,255,255,0.6)',
     fontWeight: '500',
   },
@@ -1854,142 +1955,105 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.4)',
   },
   saveButton: {
-    backgroundColor: 'rgba(139,0,0,0.9)', // Semi-transparent deep red
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: scale(12),
+    overflow: 'hidden',
+    marginTop: scale(20),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  saveButtonGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
-    marginBottom: 40,
-    flexDirection: 'row',
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  saveIcon: {
-    marginRight: 10,
-  },
-  disabledButton: {
-    backgroundColor: 'rgba(80,80,80,0.7)',
-    borderColor: 'rgba(255,255,255,0.3)',
+    paddingVertical: scale(16),
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0,0,0,0.7)',
+    marginLeft: scale(8),
+    textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  saveIcon: {
+    marginRight: scale(10),
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#ffffff', // Changed to white
-    textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
+  changePasswordButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalView: {
-    width: '80%',
-    backgroundColor: 'rgba(30, 30, 30, 0.95)',
-    borderRadius: 16,
-    padding: 22,
-    alignItems: 'center',
+    paddingVertical: scale(15),
+    paddingHorizontal: scale(20),
+    backgroundColor: 'rgba(50, 50, 50, 0.6)',
+    borderRadius: scale(12),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: scale(15),
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: 3,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
+  changePasswordIcon: {
+    marginRight: scale(12),
+  },
+  changePasswordText: {
     color: '#ffffff',
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  modalText: {
-    marginBottom: 20,
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#ffffff',
-    lineHeight: 22,
-  },
-  buttonClose: {
-    backgroundColor: 'rgba(139,0,0,0.9)',
-    borderRadius: 12,
-    padding: 10,
-    paddingHorizontal: 30,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  textStyle: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    fontSize: 16,
-  },
-  sectionTitle: {
-    marginTop: 10,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,215,0,0.3)',
-    paddingBottom: 8,
-  },
-  sectionTitleText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontSize: scale(16),
+    fontWeight: '600',
+    flex: 1,
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginTop: scale(-40),
+    marginBottom: scale(20),
   },
   avatarWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    position: 'relative',
-    marginBottom: 10,
+    width: scale(100),
+    height: scale(100),
+    borderRadius: scale(50),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: scale(8),
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  avatarGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: scale(50),
+    padding: scale(2),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: 'rgba(255,215,0,0.5)',
+    width: '95%',
+    height: '95%',
+    borderRadius: scale(50),
   },
   avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: scale(100),
+    height: scale(100),
+    borderRadius: scale(50),
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2001,46 +2065,33 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: 'rgba(139,0,0,0.9)',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: scale(34),
+    height: scale(34),
+    borderRadius: scale(17),
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.4)',
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#ffffff',
     fontWeight: '600',
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
-  changePasswordButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(50, 50, 50, 0.6)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+  sectionTitle: {
+    marginTop: scale(10),
+    marginBottom: scale(16),
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,215,0,0.3)',
+    paddingBottom: scale(8),
   },
-  changePasswordIcon: {
-    marginRight: 12,
-  },
-  changePasswordText: {
+  sectionTitleText: {
+    fontSize: scale(18),
+    fontWeight: 'bold',
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,

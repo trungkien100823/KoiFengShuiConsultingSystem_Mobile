@@ -11,6 +11,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,7 +19,18 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
 
-const { width } = Dimensions.get('window');
+// Responsive sizing utilities
+const { width, height } = Dimensions.get('window');
+const SCREEN_WIDTH = width;
+const SCREEN_HEIGHT = height;
+const BASE_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT);
+const scale = size => Math.round(BASE_SIZE * (size / 375));
+const isIOS = Platform.OS === 'ios';
+
+// Status bar height calculation
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' 
+  ? (Platform.isPad ? 20 : StatusBar.currentHeight || 44) 
+  : StatusBar.currentHeight || 0;
 
 export default function CourseQuizStartScreen() {
   const router = useRouter();
@@ -160,50 +172,105 @@ export default function CourseQuizStartScreen() {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+      <View style={styles.container}>
+        <StatusBar 
+          barStyle={isIOS ? "light-content" : "dark-content"} 
+          backgroundColor="#8B0000" 
+          translucent={true}
+        />
+        <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
+        <SafeAreaView style={{ backgroundColor: '#8B0000' }}>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={handleBack} 
+              style={styles.backButton}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFF" />
+              <Text style={styles.backText}>Quay lại</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#8B0000" />
           <Text style={styles.loadingText}>Đang tải thông tin bài kiểm tra...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+      <View style={styles.container}>
+        <StatusBar 
+          barStyle={isIOS ? "light-content" : "dark-content"} 
+          backgroundColor="#8B0000" 
+          translucent={true}
+        />
+        <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
+        <SafeAreaView style={{ backgroundColor: '#8B0000' }}>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={handleBack} 
+              style={styles.backButton}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFF" />
+              <Text style={styles.backText}>Quay lại</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
         <View style={styles.loadingContainer}>
+          <Ionicons name="alert-circle-outline" size={scale(50)} color="#8B0000" />
           <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchQuizData}>
+            <Text style={styles.retryText}>Thử lại</Text>
+          </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar 
+        barStyle={isIOS ? "light-content" : "dark-content"} 
+        backgroundColor="#8B0000" 
+        translucent={true}
+      />
+      
+      {/* Status Bar Spacer */}
+      <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
       
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
-          <Text style={styles.backText}>Quay lại</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={{ backgroundColor: '#8B0000' }}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={handleBack} 
+            style={styles.backButton}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFF" />
+            <Text style={styles.backText}>Quay lại</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
       
       {/* Quiz Content */}
-      <ScrollView style={styles.contentContainer}>
+      <ScrollView 
+        style={styles.contentScrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.quizHeader}>
           <View style={styles.iconContainer}>
-            <Ionicons name="document-text-outline" size={40} color="#8B0000" />
+            <Ionicons name="document-text-outline" size={scale(40)} color="#8B0000" />
           </View>
           <Text style={styles.quizTitle}>{quizTitle || 'Bài kiểm tra'}</Text>
           {hasCompletedQuiz && (
             <View style={styles.completedBadge}>
-              <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+              <Ionicons name="checkmark-circle" size={scale(20)} color="#4CAF50" />
               <Text style={styles.completedText}>Đã hoàn thành</Text>
             </View>
           )}
@@ -211,16 +278,16 @@ export default function CourseQuizStartScreen() {
         
         <View style={styles.quizInfoCard}>
           <Text style={styles.sectionHeading}>Mô tả</Text>
-          <Text style={styles.quizDescription}>{quizData?.description || 'Chưa có mô tả cho bài kiểm tra này'}</Text>
+          <Text style={styles.quizDescription}>
+            {quizData?.description || 'Chưa có mô tả cho bài kiểm tra này'}
+          </Text>
           
           <View style={styles.divider} />
           
           <Text style={styles.sectionHeading}>Chi tiết</Text>
-          {console.log('Current quizData:', quizData)}
-          {console.log('Question count:', quizData?.questionCount)}
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="time-outline" size={20} color="#666" />
+              <Ionicons name="time-outline" size={scale(20)} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Thời gian</Text>
                 <Text style={styles.detailValue}>
@@ -231,18 +298,20 @@ export default function CourseQuizStartScreen() {
               </View>
             </View>
             <View style={styles.detailItem}>
-              <Ionicons name="help-circle-outline" size={20} color="#666" />
+              <Ionicons name="help-circle-outline" size={scale(20)} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Số câu hỏi</Text>
                 <Text style={styles.detailValue}>
-                  {quizData?.questionCount !== undefined && quizData?.questionCount !== null ? `${quizData.questionCount} câu` : 'Chưa xác định'}
+                  {quizData?.questionCount !== undefined && quizData?.questionCount !== null 
+                    ? `${quizData.questionCount} câu` 
+                    : 'Chưa xác định'}
                 </Text>
               </View>
             </View>
           </View>
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="trophy-outline" size={20} color="#666" />
+              <Ionicons name="trophy-outline" size={scale(20)} color="#666" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>Điểm cần đạt</Text>
                 <Text style={styles.detailValue}>{quizData?.passingScore || '80%'}</Text>
@@ -265,18 +334,20 @@ export default function CourseQuizStartScreen() {
       </ScrollView>
       
       {/* Start Quiz Button */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={[styles.startButton, hasCompletedQuiz && styles.retakeButton]}
-          onPress={handleStartQuiz}
-          disabled={!quizId}
-        >
-          <Text style={styles.startButtonText}>
-            {hasCompletedQuiz ? 'Kiểm tra lại' : 'Bắt đầu làm bài'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      <SafeAreaView style={{ backgroundColor: '#fff' }}>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={[styles.startButton, hasCompletedQuiz && styles.retakeButton]}
+            onPress={handleStartQuiz}
+            disabled={!quizId}
+          >
+            <Text style={styles.startButtonText}>
+              {hasCompletedQuiz ? 'Kiểm tra lại' : 'Bắt đầu làm bài'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -289,187 +360,241 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: scale(20),
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: scale(16),
+    fontSize: scale(16),
     color: '#8B0000',
+    textAlign: 'center',
+  },
+  errorText: {
+    marginTop: scale(16),
+    marginBottom: scale(20),
+    fontSize: scale(16),
+    color: '#8B0000',
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#8B0000',
+    paddingHorizontal: scale(24),
+    paddingVertical: scale(10),
+    borderRadius: scale(8),
+  },
+  retryText: {
+    color: '#FFF',
+    fontSize: scale(14),
+    fontWeight: 'bold',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    backgroundColor: '#8B0000',
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(8),
+    borderRadius: scale(20),
   },
   backText: {
-    fontSize: 16,
+    fontSize: scale(16),
     fontWeight: '500',
-    marginLeft: 10,
-    color: '#333',
+    marginLeft: scale(8),
+    color: '#fff',
+  },
+  contentScrollView: {
+    flex: 1,
   },
   contentContainer: {
-    flex: 1,
+    paddingBottom: scale(20),
   },
   quizHeader: {
     backgroundColor: '#fff',
-    padding: 20,
+    padding: scale(20),
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
   iconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: scale(70),
+    height: scale(70),
+    borderRadius: scale(35),
     backgroundColor: '#f8f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: scale(15),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#8B0000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   quizTitle: {
-    fontSize: 20,
+    fontSize: scale(20),
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#333',
+    marginBottom: scale(8),
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(6),
+    borderRadius: scale(16),
+    marginTop: scale(8),
+  },
+  completedText: {
+    fontSize: scale(14),
+    color: '#4CAF50',
+    marginLeft: scale(5),
+    fontWeight: '500',
   },
   quizInfoCard: {
     backgroundColor: '#fff',
-    margin: 15,
-    borderRadius: 10,
-    padding: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    margin: scale(15),
+    borderRadius: scale(12),
+    padding: scale(20),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   sectionHeading: {
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
+    marginBottom: scale(12),
   },
   quizDescription: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#666',
-    marginBottom: 16,
-    lineHeight: 22,
+    marginBottom: scale(16),
+    lineHeight: scale(22),
   },
   divider: {
     height: 1,
     backgroundColor: '#e0e0e0',
-    marginVertical: 20,
+    marginVertical: scale(20),
   },
   detailRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: scale(15),
   },
   detailItem: {
     flexDirection: 'row',
     width: '48%',
+    marginBottom: scale(8),
   },
   detailTextContainer: {
-    marginLeft: 10,
+    marginLeft: scale(10),
+    flex: 1,
   },
   detailLabel: {
-    fontSize: 14,
+    fontSize: scale(14),
     color: '#666',
   },
   detailValue: {
-    fontSize: 15,
+    fontSize: scale(15),
     fontWeight: '500',
     color: '#333',
   },
   instructionContainer: {
     backgroundColor: '#fff',
-    margin: 15,
-    borderRadius: 10,
-    padding: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    margin: scale(15),
+    borderRadius: scale(12),
+    padding: scale(20),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   instructionTitle: {
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: scale(15),
   },
   instructionItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: scale(12),
   },
   instructionNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: scale(24),
+    height: scale(24),
+    borderRadius: scale(12),
     backgroundColor: '#8B0000',
     color: '#fff',
     textAlign: 'center',
-    lineHeight: 24,
-    fontSize: 14,
+    lineHeight: scale(24),
+    fontSize: scale(14),
     fontWeight: 'bold',
-    marginRight: 12,
+    marginRight: scale(12),
+    overflow: 'hidden',
   },
   instructionText: {
-    fontSize: 15,
+    fontSize: scale(15),
     color: '#555',
     flex: 1,
-  },
-  decorativeImage: {
-    width: width - 30,
-    height: 150,
-    alignSelf: 'center',
-    marginVertical: 20,
-    opacity: 0.6,
+    lineHeight: scale(22),
   },
   buttonContainer: {
-    padding: 15,
+    padding: scale(15),
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
   startButton: {
     backgroundColor: '#8B0000',
-    borderRadius: 8,
-    paddingVertical: 15,
+    borderRadius: scale(8),
+    paddingVertical: scale(15),
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   startButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: 'bold',
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#8B0000',
-  },
-  completedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e8f5e9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 12,
-  },
-  completedText: {
-    fontSize: 14,
-    color: '#4CAF50',
-    marginLeft: 5,
   },
   retakeButton: {
     backgroundColor: '#4CAF50',

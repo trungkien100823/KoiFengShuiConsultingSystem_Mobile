@@ -11,6 +11,7 @@ import {
   StatusBar,
   Modal,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -19,6 +20,14 @@ import { certificateService } from '../../services/certificateService';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
+
+// Add scale function for responsive sizing
+const scale = size => Math.round(width * size / 375);
+
+// Add platform-specific constants
+const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? (IS_IPHONE_X ? 44 : 20) : StatusBar.currentHeight || 0;
+const HEADER_HEIGHT = scale(60) + STATUS_BAR_HEIGHT;
 
 export default function CertificateDetailsScreen() {
   const router = useRouter();
@@ -33,7 +42,7 @@ export default function CertificateDetailsScreen() {
   const [isZoomed, setIsZoomed] = useState(false);
 
   // Animated values for zoom
-  const scale = useSharedValue(1);
+  const zoomScale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   
@@ -87,12 +96,12 @@ export default function CertificateDetailsScreen() {
       
       translateX.value = withTiming(newTranslateX, { duration: 300 });
       translateY.value = withTiming(newTranslateY, { duration: 300 });
-      scale.value = withTiming(2.5, { duration: 300 });
+      zoomScale.value = withTiming(2.5, { duration: 300 });
     } else {
       // Trở về vị trí ban đầu
       translateX.value = withTiming(0, { duration: 300 });
       translateY.value = withTiming(0, { duration: 300 });
-      scale.value = withTiming(1, { duration: 300 });
+      zoomScale.value = withTiming(1, { duration: 300 });
     }
     
     setIsZoomed(!isZoomed);
@@ -103,7 +112,7 @@ export default function CertificateDetailsScreen() {
       transform: [
         { translateX: translateX.value },
         { translateY: translateY.value },
-        { scale: scale.value },
+        { scale: zoomScale.value },
       ],
     };
   });
@@ -111,7 +120,7 @@ export default function CertificateDetailsScreen() {
   const handleOpenModal = () => {
     setModalVisible(true);
     setIsZoomed(false);
-    scale.value = 1;
+    zoomScale.value = 1;
     translateX.value = 0;
     translateY.value = 0;
   };
@@ -156,18 +165,29 @@ export default function CertificateDetailsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <View style={styles.container}>
+      <StatusBar 
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
       
-      <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => router.push('/(tabs)/your_certificate')}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chi tiết chứng chỉ</Text>
-      </View>
+      {/* Status Bar Spacer */}
+      <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
+      
+      {/* Header */}
+      <SafeAreaView style={styles.headerContainer}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => router.push('/(tabs)/your_certificate')}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={scale(24)} color="#FFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chi tiết chứng chỉ</Text>
+        </View>
+      </SafeAreaView>
 
       <ScrollView style={styles.content}>
         <TouchableOpacity 
@@ -182,10 +202,7 @@ export default function CertificateDetailsScreen() {
           )}
           <Image
             source={certificate.certificateImageUrl ? { uri: certificate.certificateImageUrl } : images['buddha.png']}
-            style={[
-              styles.certificateImage,
-              imageError && styles.errorImage
-            ]}
+            style={[styles.certificateImage, imageError && styles.errorImage]}
             resizeMode="contain"
             onLoad={handleImageLoad}
             onError={handleImageError}
@@ -197,26 +214,40 @@ export default function CertificateDetailsScreen() {
           )}
         </TouchableOpacity>
 
-        <View style={styles.detailsContainer}>
-          <Text style={styles.title}>{certificate.courseName}</Text>
+        {/* Details Card */}
+        <View style={styles.detailsCard}>
+          <Text style={styles.courseTitle}>{certificate.courseName}</Text>
           
-          <View style={styles.infoRow}>
-            <Ionicons name="person" size={20} color="#666" />
-            <Text style={styles.infoText}>Giảng viên: {certificate.masterName}</Text>
+          <View style={styles.infoSection}>
+            <View style={styles.infoRow}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="person" size={scale(20)} color="#8B0000" />
+              </View>
+              <Text style={styles.infoText}>Giảng viên: {certificate.masterName}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="calendar" size={scale(20)} color="#8B0000" />
+              </View>
+              <Text style={styles.infoText}>
+                Ngày hoàn thành: {new Date(certificate.createDate).toLocaleDateString()}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="trophy" size={scale(20)} color="#8B0000" />
+              </View>
+              <Text style={styles.infoText}>Điểm số: {formatPoint(certificate.point)}</Text>
+            </View>
           </View>
 
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar" size={20} color="#666" />
-            <Text style={styles.infoText}>Ngày hoàn thành: {new Date(certificate.createDate).toLocaleDateString()}</Text>
+          {/* Description Section */}
+          <View style={styles.descriptionSection}>
+            <Text style={styles.sectionTitle}>Mô tả khóa học</Text>
+            <Text style={styles.description}>{certificate.description}</Text>
           </View>
-
-          <View style={styles.infoRow}>
-            <Ionicons name="trophy" size={20} color="#666" />
-            <Text style={styles.infoText}>Điểm số: {formatPoint(certificate.point)}</Text>
-          </View>
-
-          <Text style={styles.sectionTitle}>Mô tả khóa học</Text>
-          <Text style={styles.description}>{certificate.description}</Text>
 
           <Text style={styles.sectionTitle}>Bạn đã học được</Text>
           <View style={styles.learningSection}>
@@ -224,7 +255,7 @@ export default function CertificateDetailsScreen() {
               learningItems.map((item, index) => (
                 <View key={index} style={styles.learningItem}>
                   <View style={styles.checkmarkContainer}>
-                    <Ionicons name="checkmark" size={20} color="#8B0000" />
+                    <Ionicons name="checkmark" size={scale(20)} color="#8B0000" />
                   </View>
                   <Text style={styles.learningText}>{item}</Text>
                 </View>
@@ -232,7 +263,7 @@ export default function CertificateDetailsScreen() {
             ) : (
               <View style={styles.learningItem}>
                 <View style={styles.checkmarkContainer}>
-                  <Ionicons name="information-circle" size={20} color="#666" />
+                  <Ionicons name="information-circle" size={scale(20)} color="#666" />
                 </View>
                 <Text style={styles.learningText}>Chưa có thông tin về nội dung đã học</Text>
               </View>
@@ -252,7 +283,7 @@ export default function CertificateDetailsScreen() {
             style={styles.closeButton}
             onPress={() => setModalVisible(false)}
           >
-            <Ionicons name="close-circle" size={40} color="#FFF" />
+            <Ionicons name="close-circle" size={scale(40)} color="#FFF" />
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -270,40 +301,164 @@ export default function CertificateDetailsScreen() {
           </TouchableOpacity>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: '#F5F5F5',
+  },
+  headerContainer: {
+    backgroundColor: '#8B0000',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
     backgroundColor: '#8B0000',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: scale(20),
     fontWeight: 'bold',
     color: '#FFF',
-    marginLeft: 10,
+    marginLeft: scale(16),
   },
   backButton: {
-    padding: 8,
+    padding: scale(8),
+    borderRadius: scale(20),
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   content: {
     flex: 1,
   },
   certificateContainer: {
-    padding: 16,
+    margin: scale(16),
+    backgroundColor: '#FFF',
+    borderRadius: scale(12),
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  certificateImage: {
+    width: '100%',
+    height: scale(200),
+    borderRadius: scale(12),
+  },
+  detailsCard: {
+    margin: scale(16),
+    marginTop: 0,
+    backgroundColor: '#FFF',
+    borderRadius: scale(12),
+    padding: scale(16),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  courseTitle: {
+    fontSize: scale(22),
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: scale(16),
+  },
+  infoSection: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: scale(8),
+    padding: scale(12),
+    marginBottom: scale(16),
+  },
+  infoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: scale(12),
+  },
+  iconContainer: {
+    width: scale(32),
+    height: scale(32),
+    borderRadius: scale(16),
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: scale(12),
+  },
+  infoText: {
+    fontSize: scale(15),
+    color: '#444',
+    flex: 1,
+  },
+  descriptionSection: {
+    marginBottom: scale(16),
+  },
+  sectionTitle: {
+    fontSize: scale(18),
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: scale(8),
+  },
+  description: {
+    fontSize: scale(15),
+    color: '#666',
+    lineHeight: scale(22),
+  },
+  learningSection: {
+    marginTop: scale(8),
+    gap: scale(10),
+  },
+  learningItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF',
+    padding: scale(12),
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: 'rgba(139, 0, 0, 0.3)',
+    marginBottom: scale(8),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  checkmarkContainer: {
+    width: scale(24),
+    height: scale(24),
+    borderRadius: scale(12),
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: scale(12),
+    marginTop: scale(2),
+  },
+  learningText: {
+    fontSize: scale(15),
+    color: '#444',
+    flex: 1,
+    lineHeight: scale(22),
   },
   loadingContainer: {
     position: 'absolute',
@@ -313,114 +468,42 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     zIndex: 1,
-  },
-  certificateImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
-    backgroundColor: '#fff',
   },
   errorImage: {
     opacity: 0.5,
   },
   errorText: {
-    color: '#d9534f',
-    marginTop: 8,
+    color: '#FF3B30',
     textAlign: 'center',
+    padding: scale(8),
   },
   zoomHint: {
     color: '#8B0000',
-    marginTop: 8,
+    marginTop: scale(8),
+    marginBottom: scale(8),
     textAlign: 'center',
     fontStyle: 'italic',
-    fontSize: 14,
-  },
-  detailsContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  infoText: {
-    fontSize: 16,
-    color: '#666',
-    marginLeft: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 24,
-    marginBottom: 10,
+    fontSize: scale(14),
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: scale(20),
   },
   retryButton: {
     backgroundColor: '#8B0000',
-    padding: 10,
-    borderRadius: 5,
+    padding: scale(10),
+    paddingHorizontal: scale(20),
+    borderRadius: scale(8),
+    marginTop: scale(16),
   },
   retryText: {
     color: '#FFF',
-    fontSize: 16,
-  },
-  learningSection: {
-    paddingTop: 10,
-    gap: 10,
-  },
-  learningItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFF',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#8B0000',
-  },
-  checkmarkContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(139, 0, 0, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  learningText: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1,
-    lineHeight: 24,
+    fontSize: scale(16),
+    fontWeight: '600',
   },
   modalContainer: {
     flex: 1,
@@ -430,9 +513,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 40,
-    right: 20,
+    top: STATUS_BAR_HEIGHT + scale(20),
+    right: scale(20),
     zIndex: 2,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: scale(20),
   },
   modalImageWrapper: {
     width: width,
