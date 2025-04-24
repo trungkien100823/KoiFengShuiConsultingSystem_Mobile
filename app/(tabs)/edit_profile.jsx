@@ -406,6 +406,27 @@ const modalStyles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
+  bankInfoButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  bankInfoCancelButton: {
+    backgroundColor: '#333333',
+    marginRight: 10,
+  },
+  bankInfoSaveButton: {
+    backgroundColor: '#FF4500',
+    marginLeft: 10,
+  },
+  bankInfoButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
   highlightBar: {
     position: 'absolute',
     top: 0,
@@ -1005,10 +1026,61 @@ export default function EditProfileScreen() {
   };
 
   // Thêm hàm lưu thông tin ngân hàng
-  const saveBankInfo = () => {
-    // Không cần gửi API riêng vì thông tin ngân hàng sẽ được gửi cùng thông tin profile
-    setShowBankInfoModal(false);
-    showAlert('Thành Công', 'Đã cập nhật thông tin ngân hàng');
+  const saveBankInfo = async () => {
+    try {
+      setSubmitting(true);
+      
+      const token = await getAuthToken();
+      if (!token) {
+        showAlert('Lỗi', 'Bạn chưa đăng nhập');
+        setSubmitting(false);
+        return;
+      }
+      
+      // Tạo form data để gửi thông tin ngân hàng
+      const formData = new FormData();
+      formData.append('bankId', bankId.toString());
+      formData.append('accountNo', accountNo);
+      formData.append('accountName', accountName);
+      
+      // Gọi API cập nhật thông tin ngân hàng
+      const response = await axios.put(
+        `${API_CONFIG.baseURL}/api/Account/edit-profile`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        }
+      );
+      
+      if (response.data && response.data.isSuccess) {
+        setShowBankInfoModal(false);
+        showAlert('Thành Công', 'Đã cập nhật thông tin ngân hàng');
+      } else {
+        showAlert('Lỗi', response.data?.message || 'Đã xảy ra lỗi khi cập nhật thông tin ngân hàng');
+      }
+    } catch (error) {
+      console.error('Error updating bank info:', error);
+      let errorMessage = 'Không thể cập nhật thông tin ngân hàng. Vui lòng thử lại.';
+      
+      if (error.response) {
+        if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else {
+          errorMessage = `Lỗi ${error.response.status}: ${error.message}`;
+        }
+      }
+      
+      showAlert('Lỗi', errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Thêm UserInfoModal component
@@ -1453,9 +1525,21 @@ export default function EditProfileScreen() {
                   />
                 </View>
                 
-                <TouchableOpacity style={modalStyles.bankInfoButton} onPress={saveBankInfo}>
-                  <Text style={modalStyles.bankInfoButtonText}>Lưu Thay Đổi</Text>
-                </TouchableOpacity>
+                <View style={modalStyles.bankInfoButtonRow}>
+                  <TouchableOpacity 
+                    style={[modalStyles.bankInfoButton, modalStyles.bankInfoCancelButton]}
+                    onPress={() => setShowBankInfoModal(false)}
+                  >
+                    <Text style={modalStyles.bankInfoButtonText}>Hủy bỏ</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[modalStyles.bankInfoButton, modalStyles.bankInfoSaveButton]}
+                    onPress={saveBankInfo}
+                  >
+                    <Text style={modalStyles.bankInfoButtonText}>Lưu Thay Đổi</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -1571,13 +1655,48 @@ export default function EditProfileScreen() {
                 </TouchableOpacity>
                 
                 {showDatePicker && (
-                  <DateTimePicker
-                    value={dob}
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                    maximumDate={new Date()}
-                  />
+                  <View>
+                    {Platform.OS === 'ios' ? (
+                      <Modal
+                        transparent={true}
+                        visible={showDatePicker}
+                        animationType="slide"
+                      >
+                        <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
+                          <View style={{flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)'}}>
+                            <TouchableWithoutFeedback>
+                              <View style={{backgroundColor: 'white', borderTopLeftRadius: 15, borderTopRightRadius: 15, padding: 15}}>
+                                <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10}}>
+                                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                    <Text style={{color: '#8B0000', fontSize: 16}}>Đóng</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                    <Text style={{color: '#8B0000', fontSize: 16, fontWeight: 'bold'}}>Xong</Text>
+                                  </TouchableOpacity>
+                                </View>
+                                <Text style={{textAlign: 'center', marginTop: 10, marginBottom: 15}}>
+                                  Chọn ngày sinh: {dob.toLocaleDateString('vi-VN')}
+                                </Text>
+                              </View>
+                            </TouchableWithoutFeedback>
+                          </View>
+                        </TouchableWithoutFeedback>
+                      </Modal>
+                    ) : (
+                      // For Android, we'll render a simplified date picker screen
+                      <View style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999}}>
+                        <View style={{margin: 20, backgroundColor: 'white', borderRadius: 10, padding: 20}}>
+                          <Text style={{fontSize: 18, textAlign: 'center', marginBottom: 20}}>Chọn ngày sinh</Text>
+                          <TouchableOpacity 
+                            style={{backgroundColor: '#8B0000', padding: 10, borderRadius: 5, alignItems: 'center'}}
+                            onPress={() => setShowDatePicker(false)}
+                          >
+                            <Text style={{color: 'white'}}>Đóng</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                  </View>
                 )}
               </View>
               

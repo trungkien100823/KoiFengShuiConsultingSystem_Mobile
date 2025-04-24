@@ -44,6 +44,7 @@ export const API_CONFIG = {
     logout: '/api/Account/logout',
     changePassword: '/api/Account/change-password',
     forgotPassword: '/api/Account/forgot-password',
+    verifyOTP: '/api/Account/verify-otp',
 
     // Customer endpoints
     currentCustomerElement: '/api/Customer/current-customer-element-palace',

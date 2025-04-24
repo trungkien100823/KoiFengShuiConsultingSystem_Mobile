@@ -11,11 +11,12 @@ import {
   TouchableWithoutFeedback,
   Alert,
   ActivityIndicator,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { authAPI } from '../../constants/auth';
 import axios from 'axios';
@@ -54,7 +55,7 @@ export default function RegisterScreen() {
     isValidName, isValidEmail
   } = formState;
   
-  const navigation = useNavigation();
+  const router = useRouter();
 
   // Reset the form when the screen comes into focus
   useFocusEffect(
@@ -76,7 +77,7 @@ export default function RegisterScreen() {
   };
 
   const handleLogin = () => {
-    navigation.navigate('Login');
+    router.push('/login');
   };
 
   const checkInputType = (text) => {
@@ -213,7 +214,7 @@ export default function RegisterScreen() {
         [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('Login')
+            onPress: () => router.push('/login')
           }
         ]
       );
@@ -234,7 +235,7 @@ export default function RegisterScreen() {
           [
             {
               text: 'OK',
-              onPress: () => navigation.navigate('Login')
+              onPress: () => router.push('/login')
             }
           ]
         );
@@ -402,12 +403,28 @@ export default function RegisterScreen() {
                   <Ionicons name="calendar-outline" size={22} color="#8B0000" />
                 </TouchableOpacity>
                 
-                {showDatePicker && (
+                {showDatePicker && Platform.OS === 'ios' && (
                   <DateTimePicker
                     value={dob}
                     mode="date"
                     display="default"
                     onChange={onDateChange}
+                    maximumDate={new Date()}
+                  />
+                )}
+
+                {showDatePicker && Platform.OS === 'android' && (
+                  <DateTimePicker
+                    testID="dateTimePicker"
+                    value={dob}
+                    mode="date"
+                    display="default"
+                    onChange={(event, selectedDate) => {
+                      updateFormState('showDatePicker', false);
+                      if (selectedDate) {
+                        updateFormState('dob', selectedDate);
+                      }
+                    }}
                     maximumDate={new Date()}
                   />
                 )}

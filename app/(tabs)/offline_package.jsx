@@ -20,8 +20,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 
 const { width, height } = Dimensions.get('window');
+
+// Add scale function for responsive sizing
+const scale = size => Math.round(width * size / 375);
+
+// Add platform-specific constants
+const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? (IS_IPHONE_X ? 44 : 20) : StatusBar.currentHeight || 0;
 
 // Refined color palette for elegance
 const COLORS = {
@@ -101,6 +109,7 @@ export default function OfflinePackageScreen() {
       const response = await retryRequest(makeRequest);
 
       if (response.data && response.data.isSuccess) {
+        console.log('API Response:', response.data.data);
         setConsultingPackages(response.data.data);
       } else {
         throw new Error(response.data?.message || 'Không thể lấy danh sách gói tư vấn');
@@ -121,7 +130,7 @@ export default function OfflinePackageScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <StatusBar style="light" translucent />
         <LinearGradient
           colors={[COLORS.primary, COLORS.primaryDark]}
           start={{ x: 0, y: 0 }}
@@ -129,8 +138,8 @@ export default function OfflinePackageScreen() {
           style={styles.loadingGradient}
         >
           <View style={styles.logoContainer}>
-            <Ionicons name="calendar" size={width * 0.12} color={COLORS.accent} />
-            <ActivityIndicator size="large" color={COLORS.accent} style={{marginTop: height * 0.03}} />
+            <Ionicons name="calendar" size={scale(45)} color={COLORS.accent} />
+            <ActivityIndicator size="large" color={COLORS.accent} style={{marginTop: scale(20)}} />
           </View>
           <Text style={styles.loadingText}>Đang tải gói tư vấn...</Text>
         </LinearGradient>
@@ -144,12 +153,15 @@ export default function OfflinePackageScreen() {
       style={styles.container}
       imageStyle={styles.backgroundImage}
     >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <ExpoStatusBar style="light" translucent />
       <LinearGradient
         colors={['rgba(14, 0, 0, 0.85)', 'rgba(14, 0, 0, 0.7)', 'rgba(14, 0, 0, 0.6)']}
         style={styles.overlay}
       >
         <SafeAreaView style={styles.safeArea}>
+          {/* Status Bar Spacer for Android */}
+          {Platform.OS === 'android' && <View style={{ height: STATUS_BAR_HEIGHT }} />}
+          
           <View style={styles.headerContainer}>
             <TouchableOpacity 
               style={styles.backButton}
@@ -160,7 +172,7 @@ export default function OfflinePackageScreen() {
                 colors={[COLORS.primary, COLORS.primaryDark]}
                 style={styles.backButtonGradient}
               >
-                <Ionicons name="arrow-back" size={width * 0.055} color={COLORS.white} />
+                <Ionicons name="arrow-back" size={scale(22)} color={COLORS.white} />
               </LinearGradient>
             </TouchableOpacity>
             
@@ -180,57 +192,40 @@ export default function OfflinePackageScreen() {
               <Text style={styles.sectionTitle}>Các gói tư vấn phong thủy</Text>
             </View>
 
-            <View style={styles.packageGrid}>
-              {consultingPackages.map((pkg, index) => (
-                <TouchableOpacity 
-                  key={pkg.consultationPackageId}
-                  style={styles.packageCard}
-                  onPress={() => router.push({
-                    pathname: '/(tabs)/package_details',
-                    params: { 
-                      packageId: pkg.consultationPackageId,
-                      packageTitle: pkg.packageName
-                    }
-                  })}
-                  activeOpacity={0.92}
+            {consultingPackages.map((pkg) => (
+              <TouchableOpacity 
+                key={pkg.consultationPackageId}
+                style={styles.packageCard}
+                activeOpacity={0.9}
+                onPress={() => router.push({
+                  pathname: '/(tabs)/package_details',
+                  params: { 
+                    packageId: pkg.consultationPackageId,
+                    packageTitle: pkg.packageName
+                  }
+                })}
+              >
+                <ImageBackground
+                  source={pkg.imageUrl ? { uri: pkg.imageUrl } : require('../../assets/images/koi_image.jpg')}
+                  style={styles.packageImage}
+                  imageStyle={styles.packageImageStyle}
+                  resizeMode="cover"
                 >
-                  <ImageBackground
-                    source={require('../../assets/images/koi_image.jpg')}
-                    style={styles.packageImage}
-                    imageStyle={styles.packageImageStyle}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.8)']}
+                    style={styles.packageOverlay}
                   >
-                    <LinearGradient
-                      colors={['rgba(14, 0, 0, 0)', 'rgba(14, 0, 0, 0.7)', 'rgba(14, 0, 0, 0.9)']}
-                      style={styles.packageOverlay}
-                    >
-                      <View style={styles.packageHeader}>
-                        <View style={styles.packageTagContainer}>
-                          <Text style={styles.packageTag}>Phong thủy</Text>
-                        </View>
-                        
-                        <View style={styles.detailsButtonContainer}>
-                          <LinearGradient
-                            colors={[COLORS.primary, COLORS.primaryLight]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.detailsButton}
-                          >
-                            <Text style={styles.detailsButtonText}>Xem chi tiết</Text>
-                            <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
-                          </LinearGradient>
-                        </View>
-                      </View>
-                      
-                      <View style={styles.packageContent}>
-                        <View style={styles.packageTitleContainer}>
-                          <Text style={styles.packageTitle}>{pkg.packageName}</Text>
-                        </View>
-                      </View>
-                    </LinearGradient>
-                  </ImageBackground>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <View style={styles.packageTagContainer}>
+                      <Text style={styles.packageTag}>Gói tư vấn</Text>
+                    </View>
+                    
+                    <View style={styles.packageContent}>
+                      <Text style={styles.packageTitle}>{pkg.packageName}</Text>
+                    </View>
+                  </LinearGradient>
+                </ImageBackground>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </SafeAreaView>
       </LinearGradient>
@@ -251,144 +246,128 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   headerContainer: {
-    paddingTop: Platform.OS === 'ios' ? height * 0.05 : height * 0.03,
-    paddingBottom: height * 0.02,
-    paddingHorizontal: width * 0.05,
+    paddingTop: Platform.OS === 'ios' ? scale(10) : 20,
+    paddingBottom: scale(15),
+    paddingHorizontal: scale(20),
     flexDirection: 'row',
     alignItems: 'center',
   },
   backButton: {
-    marginRight: width * 0.03,
+    marginRight: scale(15),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   backButtonGradient: {
-    width: width * 0.11,
-    height: width * 0.11,
-    borderRadius: width * 0.055,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
   headerTitleContainer: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: width * 0.055,
+    fontSize: scale(22),
     color: COLORS.cream,
     fontWeight: '600',
   },
   headerDivider: {
-    width: width * 0.3,
+    width: scale(100),
     height: 2,
     backgroundColor: COLORS.accent,
-    marginTop: height * 0.01,
+    marginTop: scale(6),
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: width * 0.05,
-    paddingTop: height * 0.02,
-    paddingBottom: height * 0.08,
+    paddingHorizontal: scale(20),
+    paddingTop: scale(10),
+    paddingBottom: scale(30),
   },
   sectionTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: height * 0.025,
+    marginBottom: scale(20),
   },
   titleDecoration: {
     width: 4,
-    height: height * 0.03,
+    height: scale(20),
     backgroundColor: COLORS.accent,
-    marginRight: width * 0.02,
+    marginRight: scale(10),
     borderRadius: 2,
   },
   sectionTitle: {
-    fontSize: width * 0.05,
+    fontSize: scale(18),
     fontWeight: '600',
     color: COLORS.white,
     letterSpacing: 0.5,
   },
-  packageGrid: {
-    width: '100%',
-  },
   packageCard: {
     width: '100%',
-    height: height * 0.4,
-    marginBottom: height * 0.03,
-    borderRadius: width * 0.04,
+    height: scale(180),
+    marginBottom: scale(20),
+    borderRadius: scale(16),
     overflow: 'hidden',
-    elevation: 6,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.black,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   packageImage: {
     width: '100%',
     height: '100%',
   },
   packageImageStyle: {
-    borderRadius: width * 0.04,
+    borderRadius: scale(16),
   },
   packageOverlay: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: width * 0.04,
-  },
-  packageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
+    padding: scale(16),
   },
   packageTagContainer: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(212, 175, 55, 0.8)',
-    paddingVertical: height * 0.006,
-    paddingHorizontal: width * 0.025,
-    borderRadius: width * 0.03,
+    paddingVertical: scale(5),
+    paddingHorizontal: scale(10),
+    borderRadius: scale(12),
   },
   packageTag: {
     color: COLORS.black,
-    fontSize: width * 0.032,
+    fontSize: scale(12),
     fontWeight: '600',
   },
   packageContent: {
     width: '100%',
-  },
-  packageTitleContainer: {
-    marginBottom: height * 0.01,
+    marginBottom: scale(10),
   },
   packageTitle: {
     color: COLORS.white,
-    fontSize: width * 0.1,
+    fontSize: scale(24),
     fontWeight: 'bold',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 4,
-  },
-  detailsButtonContainer: {
-    alignSelf: 'flex-start',
-  },
-  detailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: height * 0.008,
-    paddingHorizontal: width * 0.035,
-    borderRadius: width * 0.06,
-  },
-  detailsButtonText: {
-    color: COLORS.white,
-    fontSize: width * 0.032,
-    fontWeight: '600',
-    marginRight: width * 0.01,
   },
   loadingContainer: {
     flex: 1,
@@ -398,15 +377,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: width * 0.05,
+    padding: scale(20),
   },
   logoContainer: {
     alignItems: 'center',
   },
   loadingText: {
     color: COLORS.cream,
-    fontSize: width * 0.045,
-    marginTop: height * 0.03,
+    fontSize: scale(16),
+    marginTop: scale(20),
     fontWeight: '500',
     textAlign: 'center',
   },

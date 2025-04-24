@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   StatusBar,
+  Modal,
   Dimensions,
   Platform,
 } from 'react-native';
@@ -16,16 +17,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { images } from '../../constants/images';
 import { certificateService } from '../../services/certificateService';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-// Add these constants for responsive design
 const { width, height } = Dimensions.get('window');
-const scale = size => Math.round(width * size / 375);
-const isIOS = Platform.OS === 'ios';
 
-// Calculate status bar height
-const STATUS_BAR_HEIGHT = Platform.OS === 'ios' 
-  ? (Platform.isPad ? 20 : StatusBar.currentHeight || 44) 
-  : StatusBar.currentHeight || 0;
+// Add scale function for responsive sizing
+const scale = size => Math.round(width * size / 375);
+
+// Add platform-specific constants
+const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? (IS_IPHONE_X ? 44 : 20) : StatusBar.currentHeight || 0;
+const HEADER_HEIGHT = scale(60) + STATUS_BAR_HEIGHT;
 
 export default function CertificateDetailsScreen() {
   const router = useRouter();
@@ -36,7 +38,14 @@ export default function CertificateDetailsScreen() {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [learningItems, setLearningItems] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
 
+  // Animated values for zoom
+  const zoomScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  
   useEffect(() => {
     fetchCertificateDetails();
   }, [id]);
@@ -70,6 +79,59 @@ export default function CertificateDetailsScreen() {
   const handleImageError = () => {
     setImageLoading(false);
     setImageError(true);
+  };
+
+  const toggleZoom = (event) => {
+    // Lấy tọa độ nhấn trên màn hình
+    const { locationX, locationY } = event.nativeEvent;
+    
+    // Tính toán vị trí trung tâm của vùng hiển thị
+    const centerX = width / 2;
+    const centerY = height * 0.35; // Điều chỉnh để phù hợp với vị trí của ảnh
+
+    if (!isZoomed) {
+      // Tính toán vị trí dịch chuyển để điểm nhấn trở thành trung tâm khi zoom
+      const newTranslateX = (centerX - locationX) * 1.5;
+      const newTranslateY = (centerY - locationY) * 1.5;
+      
+      translateX.value = withTiming(newTranslateX, { duration: 300 });
+      translateY.value = withTiming(newTranslateY, { duration: 300 });
+      zoomScale.value = withTiming(2.5, { duration: 300 });
+    } else {
+      // Trở về vị trí ban đầu
+      translateX.value = withTiming(0, { duration: 300 });
+      translateY.value = withTiming(0, { duration: 300 });
+      zoomScale.value = withTiming(1, { duration: 300 });
+    }
+    
+    setIsZoomed(!isZoomed);
+  };
+
+  const rStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { scale: zoomScale.value },
+      ],
+    };
+  });
+
+  const handleOpenModal = () => {
+    setModalVisible(true);
+    setIsZoomed(false);
+    zoomScale.value = 1;
+    translateX.value = 0;
+    translateY.value = 0;
+  };
+
+  const formatPoint = (point) => {
+    // Nếu điểm là 100 hoặc bằng 100 (có thể có dạng 100.00, 100.0)
+    if (Math.floor(point) === 100) {
+      return "100/100";
+    }
+    // Ngược lại, giữ nguyên giá trị
+    return `${point}/100`;
   };
 
   if (loading) {
@@ -106,7 +168,7 @@ export default function CertificateDetailsScreen() {
     <View style={styles.container}>
       <StatusBar 
         barStyle="light-content"
-        backgroundColor="#8B0000"
+        backgroundColor="transparent"
         translucent={true}
       />
       
@@ -127,12 +189,12 @@ export default function CertificateDetailsScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView 
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Certificate Image Card */}
-        <View style={styles.certificateContainer}>
+      <ScrollView style={styles.content}>
+        <TouchableOpacity 
+          style={styles.certificateContainer}
+          onPress={handleOpenModal}
+          activeOpacity={0.9}
+        >
           {imageLoading && (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#8B0000" />
@@ -145,10 +207,12 @@ export default function CertificateDetailsScreen() {
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
-          {imageError && (
+          {imageError ? (
             <Text style={styles.errorText}>Không thể tải hình ảnh chứng chỉ</Text>
+          ) : (
+            <Text style={styles.zoomHint}>Nhấn vào ảnh để xem</Text>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Details Card */}
         <View style={styles.detailsCard}>
@@ -175,7 +239,7 @@ export default function CertificateDetailsScreen() {
               <View style={styles.iconContainer}>
                 <Ionicons name="trophy" size={scale(20)} color="#8B0000" />
               </View>
-              <Text style={styles.infoText}>Điểm số: {certificate.point}/10</Text>
+              <Text style={styles.infoText}>Điểm số: {formatPoint(certificate.point)}</Text>
             </View>
           </View>
 
@@ -185,31 +249,58 @@ export default function CertificateDetailsScreen() {
             <Text style={styles.description}>{certificate.description}</Text>
           </View>
 
-          {/* Learning Outcomes Section */}
+          <Text style={styles.sectionTitle}>Bạn đã học được</Text>
           <View style={styles.learningSection}>
-            <Text style={styles.sectionTitle}>Bạn đã học được</Text>
-            <View style={styles.learningList}>
-              {learningItems.length > 0 ? (
-                learningItems.map((item, index) => (
-                  <View key={index} style={styles.learningItem}>
-                    <View style={styles.checkmarkContainer}>
-                      <Ionicons name="checkmark-circle" size={scale(20)} color="#8B0000" />
-                    </View>
-                    <Text style={styles.learningText}>{item}</Text>
-                  </View>
-                ))
-              ) : (
-                <View style={styles.learningItem}>
+            {learningItems.length > 0 ? (
+              learningItems.map((item, index) => (
+                <View key={index} style={styles.learningItem}>
                   <View style={styles.checkmarkContainer}>
-                    <Ionicons name="information-circle" size={scale(20)} color="#666" />
+                    <Ionicons name="checkmark" size={scale(20)} color="#8B0000" />
                   </View>
-                  <Text style={styles.learningText}>Chưa có thông tin về nội dung đã học</Text>
+                  <Text style={styles.learningText}>{item}</Text>
                 </View>
-              )}
-            </View>
+              ))
+            ) : (
+              <View style={styles.learningItem}>
+                <View style={styles.checkmarkContainer}>
+                  <Ionicons name="information-circle" size={scale(20)} color="#666" />
+                </View>
+                <Text style={styles.learningText}>Chưa có thông tin về nội dung đã học</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => setModalVisible(false)}
+          >
+            <Ionicons name="close-circle" size={scale(40)} color="#FFF" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            activeOpacity={0.9}
+            style={styles.modalImageWrapper}
+            onPress={toggleZoom}
+          >
+            <Animated.View style={[styles.modalImageContainer, rStyle]}>
+              <Image
+                source={certificate.certificateImageUrl ? { uri: certificate.certificateImageUrl } : images['buddha.png']}
+                style={styles.modalImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -329,12 +420,8 @@ const styles = StyleSheet.create({
     lineHeight: scale(22),
   },
   learningSection: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: scale(8),
-    padding: scale(16),
-  },
-  learningList: {
     marginTop: scale(8),
+    gap: scale(10),
   },
   learningItem: {
     flexDirection: 'row',
@@ -342,6 +429,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     padding: scale(12),
     borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: 'rgba(139, 0, 0, 0.3)',
     marginBottom: scale(8),
     ...Platform.select({
       ios: {
@@ -356,6 +445,12 @@ const styles = StyleSheet.create({
     }),
   },
   checkmarkContainer: {
+    width: scale(24),
+    height: scale(24),
+    borderRadius: scale(12),
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: scale(12),
     marginTop: scale(2),
   },
@@ -382,22 +477,63 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#FF3B30',
     textAlign: 'center',
+    padding: scale(8),
+  },
+  zoomHint: {
+    color: '#8B0000',
     marginTop: scale(8),
+    marginBottom: scale(8),
+    textAlign: 'center',
+    fontStyle: 'italic',
     fontSize: scale(14),
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: scale(20),
   },
   retryButton: {
     backgroundColor: '#8B0000',
-    padding: 10,
-    borderRadius: 5,
+    padding: scale(10),
+    paddingHorizontal: scale(20),
+    borderRadius: scale(8),
+    marginTop: scale(16),
   },
   retryText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: scale(16),
+    fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: STATUS_BAR_HEIGHT + scale(20),
+    right: scale(20),
+    zIndex: 2,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: scale(20),
+  },
+  modalImageWrapper: {
+    width: width,
+    height: height * 0.8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  modalImageContainer: {
+    width: width,
+    height: height * 0.7,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalImage: {
+    width: '90%',
+    height: '90%',
   },
 }); 
