@@ -1293,9 +1293,6 @@ export default function MenuScreen() {
               {/* Updated header */}
               <View style={styles.headerContainer}>
                 <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
-                <TouchableOpacity style={styles.menuButton}>
-                  <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
               </View>
               
               {/* Updated search bar */}

@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  ScrollView, 
+  ActivityIndicator,
+  StatusBar,
+  Dimensions,
+  Platform
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +18,11 @@ import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+
+const { width, height } = Dimensions.get('window');
+const scale = size => Math.round(width * size / 375);
+const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? (IS_IPHONE_X ? 44 : 20) : StatusBar.currentHeight || 0;
 
 export default function TicketDetails() {
   const { groupId, totalPrice } = useLocalSearchParams();
@@ -72,13 +88,31 @@ export default function TicketDetails() {
     }
   };
 
+  const formatTime = (timeString) => {
+    if (!timeString) return 'N/A';
+    return timeString;
+  };
+
+  const workshopInfo = ticketsList[0] || null;
+
+  const getStatusColor = (status) => {
+    if (!status) return '#999';
+    
+    switch (status.toLowerCase()) {
+      case 'paid': return '#4CAF50';
+      case 'confirmed': return '#2196F3';
+      case 'pending': return '#FFA726';
+      case 'pendingconfirm': return '#FFA726';
+      case 'canceled': return '#F44336';
+      default: return '#999';
+    }
+  };
+
   const translateStatus = (status) => {
     if (!status) return 'N/A';
     
-    // Chuyển đổi status thành chữ thường để so sánh
     const statusLower = status.toLowerCase();
     
-    // Trả về trạng thái tiếng Việt tương ứng
     switch (statusLower) {
       case 'pending':
         return 'Đang chờ xử lý thanh toán';
@@ -89,25 +123,20 @@ export default function TicketDetails() {
       case 'canceled':
         return 'Đã hủy';
       default:
-        return status; // Trả về status gốc nếu không match
+        return status;
     }
   };
 
-  const formatCurrency = (amount) => {
-    return amount?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " VNĐ" || 'N/A';
-  };
-
-  const formatTime = (timeString) => {
-    if (!timeString) return 'N/A';
-    return timeString;
-  };
-
-  const workshopInfo = ticketsList[0] || null;
-
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#8B0000" translucent={true} />
+      
+      {/* Status bar spacer */}
+      <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
+      
+      {/* Header */}
       <LinearGradient
-        colors={['#AE1D1D', '#212121']}
+        colors={['#8B0000', '#600000']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
@@ -115,155 +144,251 @@ export default function TicketDetails() {
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.push('/(tabs)/your_registerAttend')}
+          hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
         >
-          <Ionicons name="chevron-back" size={28} color="#fff" />
+          <Ionicons name="arrow-back" size={scale(22)} color="#FFF" />
         </TouchableOpacity>
-        <View style={styles.headerContent}>
+        
+        <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Chi tiết vé</Text>
+          <Text style={styles.headerSubtitle}>
+            {workshopInfo ? workshopInfo.workshopName : 'Thông tin vé tham dự'}
+          </Text>
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content}>
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#AE1D1D" />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#8B0000" />
             <Text style={styles.loadingText}>Đang tải thông tin vé...</Text>
           </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <View style={styles.errorCard}>
+            <Ionicons name="alert-circle-outline" size={scale(50)} color="#F44336" style={styles.errorIcon} />
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity 
               style={styles.retryButton}
               onPress={() => fetchTicketsGroup(groupId)}
+              activeOpacity={0.8}
             >
-              <Text style={styles.retryButtonText}>Thử lại</Text>
+              <LinearGradient
+                colors={['#8B0000', '#600000']}
+                start={[0, 0]}
+                end={[1, 0]}
+                style={styles.retryButtonGradient}
+              >
+                <Text style={styles.retryButtonText}>Thử lại</Text>
+                <Ionicons name="refresh" size={scale(16)} color="#FFF" />
+              </LinearGradient>
             </TouchableOpacity>
           </View>
-        ) : workshopInfo ? (
-          <>
-            <Text style={styles.eventTitle}>
-              <Ionicons name="ticket-outline" size={24} color="#AE1D1D" />
-              {' '}{workshopInfo.workshopName}
-            </Text>
-            
-            <View style={styles.ticketInfo}>
-              <View style={styles.infoRow}>
-                <View style={styles.labelContainer}>
-                  <Ionicons name="calendar-outline" size={20} color="#666" />
-                  <Text style={styles.label}>Ngày sự kiện:</Text>
+        </View>
+      ) : workshopInfo ? (
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.contentInner}>
+            {/* Event info card */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleContainer}>
+                  <Ionicons name="calendar" size={scale(20)} color="#8B0000" />
+                  <Text style={styles.sectionTitle}>Thông tin sự kiện</Text>
                 </View>
-                <Text style={styles.value}>{formatDate(workshopInfo.startDate)}</Text>
               </View>
               
-              <View style={styles.infoRow}>
-                <View style={styles.labelContainer}>
-                  <Ionicons name="time-outline" size={20} color="#666" />
-                  <Text style={styles.label}>Thời gian:</Text>
-                </View>
-                <Text style={styles.value}>{formatTime(workshopInfo.startTime)} - {formatTime(workshopInfo.endTime)}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <View style={styles.labelContainer}>
-                  <Ionicons name="location-outline" size={20} color="#666" />
-                  <Text style={styles.label}>Địa điểm:</Text>
-                </View>
-                <Text style={styles.value}>{workshopInfo.location || 'N/A'}</Text>
-              </View>
-              
-              {workshopInfo.masterName && (
+              <View style={styles.sectionContent}>
                 <View style={styles.infoRow}>
                   <View style={styles.labelContainer}>
-                    <Ionicons name="person-outline" size={20} color="#666" />
-                    <Text style={styles.label}>Người chủ trì:</Text>
+                    <Ionicons name="bookmark-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Tên sự kiện:</Text>
                   </View>
-                  <Text style={styles.value}>{workshopInfo.masterName}</Text>
+                  <Text style={styles.value} numberOfLines={2}>{workshopInfo.workshopName || 'N/A'}</Text>
                 </View>
-              )}
-
-              <View style={styles.divider} />
-              
-              <View style={styles.infoRow}>
-                <View style={styles.labelContainer}>
-                  <Ionicons name="person-outline" size={20} color="#666" />
-                  <Text style={styles.label}>Khách hàng:</Text>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="calendar-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Ngày sự kiện:</Text>
+                  </View>
+                  <Text style={styles.value}>{formatDate(workshopInfo.startDate)}</Text>
                 </View>
-                <Text style={styles.value}>{workshopInfo.customerName}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <View style={styles.labelContainer}>
-                  <Ionicons name="call-outline" size={20} color="#666" />
-                  <Text style={styles.label}>Số điện thoại:</Text>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="time-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Thời gian:</Text>
+                  </View>
+                  <Text style={styles.value}>{formatTime(workshopInfo.startTime)} - {formatTime(workshopInfo.endTime)}</Text>
                 </View>
-                <Text style={styles.value}>{workshopInfo.phoneNumber}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <View style={styles.labelContainer}>
-                  <Ionicons name="mail-outline" size={20} color="#666" />
-                  <Text style={styles.label}>Email:</Text>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="location-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Địa điểm:</Text>
+                  </View>
+                  <Text style={styles.value}>{workshopInfo.location || 'N/A'}</Text>
                 </View>
-                <Text style={styles.value}>{workshopInfo.customerEmail}</Text>
-              </View>
-              
-              <View style={styles.divider} />
-              
-              <View style={styles.infoRow}>
-                <View style={styles.labelContainer}>
-                  <Ionicons name="documents-outline" size={20} color="#666" />
-                  <Text style={styles.label}>Số lượng vé:</Text>
-                </View>
-                <Text style={styles.value}>{ticketsList.length}</Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <View style={styles.labelContainer}>
-                  <Ionicons name="wallet-outline" size={20} color="#666" />
-                  <Text style={styles.label}>Tổng tiền:</Text>
-                </View>
-                <Text style={[styles.value, { color: '#AE1D1D', fontWeight: 'bold' }]}>
-                  {formatCurrency(totalPrice)}
-                </Text>
+                
+                {workshopInfo.masterName && (
+                  <View style={styles.infoRow}>
+                    <View style={styles.labelContainer}>
+                      <Ionicons name="person-outline" size={scale(16)} color="#666" />
+                      <Text style={styles.label}>Người chủ trì:</Text>
+                    </View>
+                    <Text style={styles.value}>{workshopInfo.masterName}</Text>
+                  </View>
+                )}
               </View>
             </View>
+            
+            {/* Customer info card */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleContainer}>
+                  <Ionicons name="person" size={scale(20)} color="#8B0000" />
+                  <Text style={styles.sectionTitle}>Thông tin khách hàng</Text>
+                </View>
+              </View>
+              
+              <View style={styles.sectionContent}>
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="person-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Họ tên:</Text>
+                  </View>
+                  <Text style={styles.value}>{workshopInfo.customerName || 'N/A'}</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="call-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Số điện thoại:</Text>
+                  </View>
+                  <Text style={styles.value}>{workshopInfo.phoneNumber || 'N/A'}</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="mail-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Email:</Text>
+                  </View>
+                  <Text style={styles.value}>{workshopInfo.customerEmail || 'N/A'}</Text>
+                </View>
+              </View>
+            </View>
+            
+            {/* Payment info card */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleContainer}>
+                  <Ionicons name="card" size={scale(20)} color="#8B0000" />
+                  <Text style={styles.sectionTitle}>Thông tin thanh toán</Text>
+                </View>
+              </View>
+              
+              <View style={styles.sectionContent}>
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="ticket-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Số lượng vé:</Text>
+                  </View>
+                  <Text style={styles.value}>{ticketsList.length}</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="pricetag-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Đơn giá:</Text>
+                  </View>
+                  <Text style={styles.value}>
+                    {workshopInfo.price ? `${workshopInfo.price.toLocaleString('vi-VN')}đ` : 'N/A'}
+                  </Text>
+                </View>
 
-            <View style={styles.ticketsListContainer}>
-              <Text style={styles.ticketsListTitle}>
-                <Ionicons name="list-circle-outline" size={24} color="#333" />
-                {' '}Danh sách vé
-              </Text>
+                <View style={styles.infoRow}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="wallet-outline" size={scale(16)} color="#666" />
+                    <Text style={styles.label}>Tổng tiền:</Text>
+                  </View>
+                  <Text style={styles.highlightValue}>
+                    {totalPrice ? `${parseInt(totalPrice).toLocaleString('vi-VN')}đ` : 'N/A'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            {/* Tickets List */}
+            <View style={styles.ticketsListCard}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleContainer}>
+                  <Ionicons name="list" size={scale(20)} color="#8B0000" />
+                  <Text style={styles.sectionTitle}>Danh sách vé</Text>
+                </View>
+              </View>
+              
               {ticketsList.map((item, index) => (
                 <View key={item.attendId || index} style={styles.ticketItem}>
-                  <Text style={styles.ticketItemTitle}>Vé #{index + 1}</Text>
-                  <View style={styles.ticketItemDetails}>
-                    <View style={styles.ticketInfoRow}>
-                      <Text style={styles.ticketInfoLabel}>Mã vé:</Text>
-                      <Text style={styles.ticketInfoValue}>{item.attendId || 'N/A'}</Text>
-                    </View>
-                    <View style={styles.ticketInfoRow}>
-                      <Text style={styles.ticketInfoLabel}>Trạng thái:</Text>
-                      <Text style={[
-                        styles.ticketInfoValue, 
-                        { 
-                          color: item.status?.toLowerCase() === 'confirmed' ? '#4CAF50' : 
-                                item.status?.toLowerCase() === 'pending' ? '#FF9800' : 
-                                item.status?.toLowerCase() === 'cancelled' || 
-                                item.status?.toLowerCase() === 'canceled' ? '#d32f2f' : '#333' 
-                        }
+                  <LinearGradient
+                    colors={['#FFFFFF', '#F8F8F8']}
+                    style={styles.ticketItemContent}
+                  >
+                    <View style={styles.ticketHeader}>
+                      <View style={styles.ticketNumberContainer}>
+                        <Ionicons name="ticket-outline" size={scale(16)} color="#8B0000" />
+                        <Text style={styles.ticketNumber}>Vé #{index + 1}</Text>
+                      </View>
+                      
+                      <View style={[
+                        styles.statusBadge,
+                        { backgroundColor: getStatusColor(item.status) }
                       ]}>
-                        {translateStatus(item.status)}
-                      </Text>
+                        <Text style={styles.statusText}>{translateStatus(item.status)}</Text>
+                      </View>
                     </View>
-                  </View>
+                    
+                    <View style={styles.ticketDetails}>
+                      <View style={styles.ticketInfoRow}>
+                        <Text style={styles.ticketInfoLabel}>Mã vé:</Text>
+                        <Text style={styles.ticketInfoValue} numberOfLines={1}>{item.attendId || 'N/A'}</Text>
+                      </View>
+                      
+                      <View style={styles.ticketInfoRow}>
+                        <Text style={styles.ticketInfoLabel}>Ngày đăng ký:</Text>
+                        <Text style={styles.ticketInfoValue}>{formatDate(item.createdDate) || 'N/A'}</Text>
+                      </View>
+                    </View>
+                  </LinearGradient>
                 </View>
               ))}
             </View>
-          </>
-        ) : (
-          <Text style={styles.noTicketsText}>Không có thông tin vé</Text>
-        )}
-      </ScrollView>
+            
+            {/* Bottom spacer */}
+            <View style={styles.bottomSpacer} />
+          </View>
+        </ScrollView>
+      ) : (
+        <View style={styles.noDataContainer}>
+          <Ionicons name="ticket-outline" size={scale(60)} color="#8B0000" style={styles.noDataIcon} />
+          <Text style={styles.noDataText}>Không có thông tin vé</Text>
+          <TouchableOpacity 
+            style={styles.backToListButton} 
+            onPress={() => router.push('/(tabs)/your_registerAttend')}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#8B0000', '#600000']}
+              start={[0, 0]}
+              end={[1, 0]}
+              style={styles.backToListButtonGradient}
+            >
+              <Text style={styles.backToListButtonText}>Quay lại danh sách vé</Text>
+              <Ionicons name="arrow-forward" size={scale(16)} color="#FFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -271,187 +396,337 @@ export default function TicketDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
   },
   header: {
-    height: 90,
-    justifyContent: 'flex-end',
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
-  },
-  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 30,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(16),
+    borderBottomLeftRadius: scale(20),
+    borderBottomRightRadius: scale(20),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  headerTitleContainer: {
+    marginLeft: scale(16),
+    flex: 1,
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 22,
+    fontSize: scale(22),
     fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: scale(4),
   },
+  headerSubtitle: {
+    fontSize: scale(14),
+    color: 'rgba(255,255,255,0.8)',
+    paddingRight: scale(8),
+  },
+  backButton: {
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Content styles
   content: {
     flex: 1,
-    padding: 20,
   },
-  eventTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
+  contentInner: {
+    padding: scale(16),
+  },
+  
+  // Section card styles
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(16),
+    marginBottom: scale(16),
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  sectionHeader: {
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: scale(16),
+    fontWeight: '600',
     color: '#333',
-    textAlign: 'center',
+    marginLeft: scale(8),
   },
-  ticketInfo: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+  sectionContent: {
+    padding: scale(16),
   },
+  
+  // Info row styles
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 8,
+    alignItems: 'flex-start',
+    marginBottom: scale(12),
   },
   labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '40%',
+    minWidth: scale(100),
+    maxWidth: '40%',
   },
   label: {
+    fontSize: scale(14),
     color: '#666',
-    fontSize: 14,
-    marginLeft: 8,
+    marginLeft: scale(6),
   },
   value: {
+    fontSize: scale(14),
     color: '#333',
-    fontSize: 14,
     fontWeight: '500',
     flex: 1,
     textAlign: 'right',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#ddd',
-    marginVertical: 10,
-  },
-  ticketsListContainer: {
-    marginTop: 25,
-    padding: 20,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 15,
-  },
-  ticketsListTitle: {
-    fontSize: 20,
+  highlightValue: {
+    fontSize: scale(16),
+    color: '#8B0000',
     fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-    textAlign: 'center',
+    flex: 1,
+    textAlign: 'right',
+  },
+  
+  // Tickets list styles
+  ticketsListCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(16),
+    overflow: 'hidden',
+    marginBottom: scale(16),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   ticketItem: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#AE1D1D',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    padding: scale(12),
   },
-  ticketItemTitle: {
-    fontSize: 16,
+  ticketItemContent: {
+    borderRadius: scale(12),
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  ticketHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: scale(12),
+    paddingBottom: scale(8),
+  },
+  ticketNumberContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ticketNumber: {
+    fontSize: scale(14),
     fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#AE1D1D',
+    color: '#333',
+    marginLeft: scale(6),
   },
-  ticketItemDetails: {
-    paddingLeft: 6,
+  statusBadge: {
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
+    borderRadius: scale(12),
+  },
+  statusText: {
+    color: '#FFF',
+    fontSize: scale(12),
+    fontWeight: 'bold',
+  },
+  ticketDetails: {
+    padding: scale(12),
+    paddingTop: scale(0),
   },
   ticketInfoRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: scale(8),
+    flexWrap: 'wrap',
   },
   ticketInfoLabel: {
-    fontSize: 14,
-    color: '#555',
-    width: 80,
+    fontSize: scale(14),
+    color: '#666',
+    width: scale(100),
   },
   ticketInfoValue: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: scale(14),
     color: '#333',
+    fontWeight: '500',
     flex: 1,
   },
-  noTicketsText: {
-    textAlign: 'center',
-    color: '#888',
-    fontStyle: 'italic',
-    padding: 20,
-  },
+  
+  // Loading styles
   loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#666',
-    fontSize: 14,
-  },
-  buttonContainer: {
-    padding: 16,
-    paddingTop: 10,
-    paddingBottom: 20,
-    alignItems: 'center',
-  },
-  buttonWrapper: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    height: 45,
-    width: 200,
-  },
-  gradientButton: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: scale(20),
   },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  errorContainer: {
-    padding: 20,
+  loadingCard: {
+    backgroundColor: '#FFF',
+    padding: scale(24),
+    borderRadius: scale(16),
     alignItems: 'center',
+    width: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  loadingText: {
+    marginTop: scale(16),
+    fontSize: scale(16),
+    color: '#666',
+  },
+  
+  // Error styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: scale(20),
+  },
+  errorCard: {
+    backgroundColor: '#FFF',
+    padding: scale(24),
+    borderRadius: scale(16),
+    alignItems: 'center',
+    width: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  errorIcon: {
+    marginBottom: scale(16),
   },
   errorText: {
-    color: 'red',
-    marginBottom: 10,
+    color: '#666',
+    fontSize: scale(16),
+    textAlign: 'center',
+    marginBottom: scale(20),
   },
   retryButton: {
-    padding: 10,
-    backgroundColor: '#AE1D1D',
-    borderRadius: 8,
+    borderRadius: scale(8),
+    overflow: 'hidden',
+  },
+  retryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(20),
   },
   retryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
+    color: '#FFF',
+    fontSize: scale(16),
+    fontWeight: '600',
+    marginRight: scale(8),
   },
-  backButton: {
-    position: 'absolute',
-    bottom: 12,
-    left: 20,
-    padding: 5,
+  
+  // No data styles
+  noDataContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: scale(20),
+  },
+  noDataIcon: {
+    marginBottom: scale(16),
+    opacity: 0.7,
+  },
+  noDataText: {
+    fontSize: scale(18),
+    color: '#666',
+    marginBottom: scale(24),
+    textAlign: 'center',
+  },
+  backToListButton: {
+    borderRadius: scale(25),
+    overflow: 'hidden',
+  },
+  backToListButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(24),
+  },
+  backToListButtonText: {
+    color: '#FFF',
+    fontSize: scale(16),
+    fontWeight: '600',
+    marginRight: scale(8),
+  },
+  
+  // Bottom spacer
+  bottomSpacer: {
+    height: scale(30),
   },
 });

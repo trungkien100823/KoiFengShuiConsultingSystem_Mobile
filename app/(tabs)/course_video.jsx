@@ -22,8 +22,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { useFocusEffect } from '@react-navigation/native';
+import { StatusBar as RNStatusBar } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const SCREEN_WIDTH = width;
+const SCREEN_HEIGHT = height;
+const BASE_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT);
+const scale = size => Math.round(BASE_SIZE * (size / 375));
+const isIOS = Platform.OS === 'ios';
+
+// Define this constant with your other constants 
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 
+  (Platform.isPad ? 20 : RNStatusBar.currentHeight || 44) : 
+  RNStatusBar.currentHeight || 0;
 
 // Thêm các mã thông báo API response
 const API_RESPONSE_MESSAGES = {
@@ -926,20 +937,25 @@ export default function CourseVideoScreen() {
 
           {loading && (
             <View style={styles.overlay}>
-              <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.loadingText}>Đang tải video...</Text>
+              <View style={styles.loaderCard}>
+                <ActivityIndicator size="large" color="#8B0000" />
+                <Text style={styles.loaderText}>Đang tải video...</Text>
+              </View>
             </View>
           )}
 
           {videoError && (
             <View style={styles.overlay}>
-              <Text style={styles.errorText}>{videoErrorMessage}</Text>
-              <TouchableOpacity 
-                style={styles.retryButton}
-                onPress={retryVideo}
-              >
-                <Text style={styles.retryText}>Thử lại</Text>
-              </TouchableOpacity>
+              <View style={styles.errorCard}>
+                <Ionicons name="alert-circle" size={40} color="#FFD700" />
+                <Text style={styles.errorText}>{videoErrorMessage}</Text>
+                <TouchableOpacity 
+                  style={styles.retryButton}
+                  onPress={retryVideo}
+                >
+                  <Text style={styles.retryText}>Thử lại</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -1101,269 +1117,515 @@ export default function CourseVideoScreen() {
   }, [chapterId]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar 
+        barStyle={isIOS ? "light-content" : "dark-content"} 
+        backgroundColor="#8B0000" 
+        translucent={true}
+      />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
-          <Text style={styles.headerTitle}>
-            {chapterData?.title || 'Đang tải...'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Status Bar Spacer */}
+      <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
       
-      {/* Video Container */}
-      <View style={styles.mainContainer}>
-        <View style={styles.videoWrapper}>
+      {/* Enhanced Header */}
+      <SafeAreaView style={{ backgroundColor: '#8B0000' }}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={handleBack} 
+            style={styles.backButton}
+            hitSlop={{ top: 10, left: 10, bottom: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+          
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle} numberOfLines={2}>
+              {chapterData?.title || 'Đang tải bài học...'}
+            </Text>
+            
+            {chapterStatus === "Done" && (
+              <View style={styles.completedBadge}>
+                <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                <Text style={styles.completedText}>Đã hoàn thành</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </SafeAreaView>
+      
+      {/* Rest of your UI */}
+      <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+        {/* Video Player Container */}
+        <View style={styles.videoContainer}>
           {chapterData?.video ? (
-            renderVideoComponent(chapterData.video)
+            <View style={styles.playerWrapper}>
+              <Video
+                ref={videoRef}
+                style={styles.videoPlayer}
+                source={{
+                  uri: Platform.OS === 'ios' 
+                    ? optimizeCloudinaryUrlForIOS(chapterData.video)
+                    : addCacheBuster(chapterData.video),
+                  headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                  }
+                }}
+                useNativeControls
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={true}
+                isLooping={false}
+                volume={1.0}
+                playsInSilentModeIOS={true}
+                ignoreSilentSwitch="ignore"
+                onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+                onLoad={() => {
+                  setLoading(false);
+                  setVideoLoaded(true);
+                }}
+                onError={(error) => {
+                  console.error('Video error:', error);
+                  setLoading(false);
+                  setVideoError(true);
+                  setVideoErrorMessage('Không thể tải video. Vui lòng thử lại sau.');
+                }}
+              />
+
+              {/* Loading Overlay */}
+              {loading && (
+                <View style={styles.overlay}>
+                  <View style={styles.loaderCard}>
+                    <ActivityIndicator size="large" color="#8B0000" />
+                    <Text style={styles.loaderText}>Đang tải video...</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Error Overlay */}
+              {videoError && (
+                <View style={styles.overlay}>
+                  <View style={styles.errorCard}>
+                    <Ionicons name="alert-circle" size={40} color="#FFD700" />
+                    <Text style={styles.errorText}>{videoErrorMessage}</Text>
+                    <TouchableOpacity 
+                      style={styles.retryButton}
+                      onPress={retryVideo}
+                    >
+                      <Text style={styles.retryText}>Thử lại</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
           ) : (
-            <View style={styles.overlay}>
-              <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.loadingText}>Đang tải video...</Text>
+            <View style={styles.playerWrapper}>
+              <View style={styles.overlay}>
+                <View style={styles.loaderCard}>
+                  <ActivityIndicator size="large" color="#8B0000" />
+                  <Text style={styles.loaderText}>Đang tải thông tin bài học...</Text>
+                </View>
+              </View>
             </View>
           )}
         </View>
 
         {/* Chapter Information */}
-        {chapterData && (
-          <ScrollView style={styles.infoContainer}>
-            <View style={styles.chapterInfoContainer}>
-              <Text style={styles.chapterTitle}>
-                {chapterData.title || 'Không có tiêu đề'}
-              </Text>
-              
-              {chapterData.description && (
-                <View style={styles.descriptionContainer}>
-                  <Text style={styles.descriptionTitle}>Mô tả:</Text>
-                  <Text style={styles.descriptionText}>
-                    {chapterData.description}
+        <ScrollView 
+          style={styles.contentScroll}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {chapterData && (
+            <>
+              {/* Chapter Title and Progress */}
+              <View style={styles.chapterInfoCard}>
+                <View style={styles.chapterHeaderRow}>
+                  <Ionicons name="play-circle" size={24} color="#8B0000" />
+                  <Text style={styles.chapterTitle}>
+                    {chapterData.title || 'Không có tiêu đề'}
                   </Text>
                 </View>
+                
+                {chapterStatus && (
+                  <View style={[
+                    styles.statusIndicator, 
+                    chapterStatus === "Done" ? styles.completedStatus : styles.inProgressStatus
+                  ]}>
+                    {chapterStatus === "Done" ? (
+                      <Ionicons name="checkmark-circle" size={16} color="#FFF" />
+                    ) : (
+                      <Ionicons name="time" size={16} color="#FFF" />
+                    )}
+                    <Text style={styles.statusText}>
+                      {chapterStatus === "Done" ? "Đã hoàn thành" : "Đang học"}
+                    </Text>
+                  </View>
+                )}
+                
+                {/* Chapter Description */}
+                {chapterData.description && (
+                  <View style={styles.descriptionContainer}>
+                    <Text style={styles.descriptionTitle}>Mô tả bài học:</Text>
+                    <Text style={styles.descriptionText}>
+                      {chapterData.description}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              
+              {/* Course Navigation */}
+              {courseContent && courseContent.length > 0 && (
+                <View style={styles.navigationCard}>
+                  <View style={styles.navigationHeader}>
+                    <Ionicons name="list" size={20} color="#8B0000" />
+                    <Text style={styles.navigationTitle}>Nội dung khóa học</Text>
+                  </View>
+                  
+                  {courseContent.map((item, index) => {
+                    const isCurrentChapter = item.chapterId === chapterId;
+                    const isChapterCompleted = item.status === "Done" || completedLessons[item.chapterId] === true;
+                    
+                    return (
+                      <TouchableOpacity 
+                        key={item.chapterId}
+                        style={[
+                          styles.chapterItem,
+                          isCurrentChapter && styles.currentChapterItem,
+                          isChapterCompleted && styles.completedChapterItem
+                        ]}
+                        onPress={() => navigateToChapter(item)}
+                        disabled={isCurrentChapter}
+                      >
+                        <View style={styles.chapterItemContent}>
+                          <Text style={styles.chapterNumber}>
+                            Chương {index + 1}
+                          </Text>
+                          <Text style={styles.chapterItemTitle} numberOfLines={2}>
+                            {item.title}
+                          </Text>
+                        </View>
+                        
+                        <View style={[
+                          styles.chapterIndicator,
+                          isCurrentChapter && styles.currentIndicator,
+                          isChapterCompleted && styles.completedIndicator
+                        ]}>
+                          {isCurrentChapter ? (
+                            <Ionicons name="play" size={16} color="#FFF" />
+                          ) : isChapterCompleted ? (
+                            <Ionicons name="checkmark" size={16} color="#FFF" />
+                          ) : (
+                            <Ionicons name="lock-open" size={16} color="#666" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               )}
+            </>
+          )}
+        </ScrollView>
+        
+        {/* Bottom Action Bar */}
+        {!isCompleted && chapterData && (
+          <SafeAreaView style={{ backgroundColor: '#FFF' }}>
+            <View style={styles.actionBar}>
+              <TouchableOpacity 
+                style={styles.completeButton}
+                onPress={updateProgress}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                <Text style={styles.completeButtonText}>
+                  Đánh dấu hoàn thành
+                </Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+          </SafeAreaView>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  videoContainer: {
-    width: '100%',
-    aspectRatio: 16 / 9,
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingHorizontal: scale(16),
+    paddingTop: isIOS ? scale(8) : scale(12),
+    paddingBottom: scale(12),
+    backgroundColor: '#8B0000',
   },
   backButton: {
-    flexDirection: 'row',
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    marginLeft: scale(12),
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginLeft: 8,
-  },
-  infoContainer: {
-    flex: 1,
-    padding: 15,
-  },
-  chapterInfoContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  chapterTitle: {
-    fontSize: 18,
+    fontSize: scale(16),
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    color: '#FFF',
+    letterSpacing: 0.2,
   },
-  descriptionContainer: {
-    marginTop: 10,
-  },
-  descriptionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#444',
-    marginBottom: 5,
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  errorContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
+  completedBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    marginTop: scale(4),
   },
-  loaderContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)'
+  completedText: {
+    fontSize: scale(12),
+    color: '#4CAF50',
+    marginLeft: scale(4),
+    fontWeight: '500',
   },
-  playerContainer: {
-    flex: 1,
+  videoContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+  },
+  playerWrapper: {
+    width: '100%',
+    height: '100%',
     backgroundColor: '#000',
     position: 'relative',
   },
-  video: {
-    flex: 1,
+  videoPlayer: {
     width: '100%',
     height: '100%',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
-  loadingText: {
-    color: '#fff',
-    fontSize: 16,
-    marginTop: 10,
+  loaderCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: scale(12),
+    padding: scale(20),
+    alignItems: 'center',
+  },
+  loaderText: {
+    color: '#FFF',
+    fontSize: scale(14),
+    marginTop: scale(12),
+    fontWeight: '500',
+  },
+  errorCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: scale(12),
+    padding: scale(20),
+    alignItems: 'center',
+    width: '80%',
   },
   errorText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#FFF',
+    fontSize: scale(14),
     textAlign: 'center',
-    marginBottom: 20,
+    marginVertical: scale(12),
+    lineHeight: scale(20),
   },
   retryButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: '#8B0000',
+    paddingHorizontal: scale(24),
+    paddingVertical: scale(10),
+    borderRadius: scale(20),
+    marginTop: scale(8),
   },
   retryText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  videoInfo: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  videoTitle: {
-    fontSize: 18,
+    color: '#FFF',
+    fontSize: scale(14),
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
   },
-  courseTitle: {
-    fontSize: 16,
-    color: '#fff',
+  contentScroll: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
   },
-  chapterButton: {
+  contentContainer: {
+    padding: scale(16),
+    paddingBottom: scale(32),
+  },
+  chapterInfoCard: {
+    backgroundColor: '#FFF',
+    borderRadius: scale(12),
+    padding: scale(16),
+    marginBottom: scale(16),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  chapterHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginBottom: scale(12),
   },
-  chapterButtonContent: {
+  chapterTitle: {
+    fontSize: scale(16),
+    fontWeight: 'bold',
+    color: '#222',
+    marginLeft: scale(8),
+    flex: 1,
+  },
+  statusIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(4),
+    borderRadius: scale(12),
+    alignSelf: 'flex-start',
+    marginBottom: scale(12),
   },
-  chapterInfo: {
-    flexDirection: 'column',
+  completedStatus: {
+    backgroundColor: '#4CAF50',
+  },
+  inProgressStatus: {
+    backgroundColor: '#007AFF',
+  },
+  statusText: {
+    color: '#FFF',
+    fontSize: scale(12),
+    fontWeight: '500',
+    marginLeft: scale(4),
+  },
+  descriptionContainer: {
+    marginTop: scale(8),
+  },
+  descriptionTitle: {
+    fontSize: scale(14),
+    fontWeight: '600',
+    color: '#444',
+    marginBottom: scale(6),
+  },
+  descriptionText: {
+    fontSize: scale(14),
+    color: '#666',
+    lineHeight: scale(20),
+  },
+  navigationCard: {
+    backgroundColor: '#FFF',
+    borderRadius: scale(12),
+    padding: scale(16),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  navigationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: scale(16),
+  },
+  navigationTitle: {
+    fontSize: scale(16),
+    fontWeight: 'bold',
+    color: '#222',
+    marginLeft: scale(8),
+  },
+  chapterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(12),
+    backgroundColor: '#F9F9F9',
+    borderRadius: scale(8),
+    marginBottom: scale(8),
+  },
+  currentChapterItem: {
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#8B0000',
+  },
+  completedChapterItem: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50',
+  },
+  chapterItemContent: {
     flex: 1,
   },
   chapterNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: scale(12),
+    color: '#666',
+    marginBottom: scale(4),
+  },
+  chapterItemTitle: {
+    fontSize: scale(14),
+    fontWeight: '500',
     color: '#333',
   },
-  chapterTitle: {
-    fontSize: 16,
-    color: '#666',
-  },
-  chapterStatus: {
-    flexDirection: 'row',
+  chapterIndicator: {
+    width: scale(28),
+    height: scale(28),
+    borderRadius: scale(14),
+    backgroundColor: '#DDD',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: scale(12),
   },
   currentIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#8B0000',
   },
   completedIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
     backgroundColor: '#4CAF50',
-    justifyContent: 'center',
+  },
+  actionBar: {
+    backgroundColor: '#FFF',
+    padding: scale(16),
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+    paddingBottom: isIOS && !Platform.isPad ? scale(30) : scale(16),
+  },
+  completeButton: {
+    backgroundColor: '#8B0000',
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  incompleteIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#999',
     justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: scale(12),
+    borderRadius: scale(8),
   },
-  chapterDuration: {
-    fontSize: 14,
-    color: '#666',
-  },
-  currentChapterButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  completedChapterButton: {
-    backgroundColor: '#e0e0e0',
-  },
-  currentChapterText: {
+  completeButtonText: {
+    color: '#FFF',
+    fontSize: scale(16),
     fontWeight: 'bold',
-  },
-  mainContainer: {
-    flex: 1,
-  },
-  videoWrapper: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: '#000',
-    position: 'relative',
+    marginLeft: scale(8),
   },
 });

@@ -13,7 +13,8 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  ImageBackground
+  ImageBackground,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -312,14 +313,9 @@ export default function CoursesScreen() {
               {searchQuery.trim() !== '' && (
                 <View style={styles.sectionContainer}>
                   <View style={styles.sectionHeader}>
-                    <LinearGradient
-                      colors={['#8B0000', '#600000']}
-                      start={[0, 0]}
-                      end={[1, 0]}
-                      style={styles.sectionTitleGradient}
-                    >
+                    <View style={styles.sectionTitleGradient}>
                       <Text style={styles.sectionTitle}>Searching courses</Text>
-                    </LinearGradient>
+                    </View>
                   </View>
                   
                   {isLoading ? (
@@ -349,14 +345,9 @@ export default function CoursesScreen() {
               {/* Best Seller Courses Section */}
               <View style={styles.sectionContainer}>
                 <View style={styles.sectionHeader}>
-                  <LinearGradient
-                    colors={['#8B0000', '#600000']}
-                    start={[0, 0]}
-                    end={[1, 0]}
-                    style={styles.sectionTitleGradient}
-                  >
-                    <Text style={styles.sectionTitle}>Best Seller Courses</Text>
-                  </LinearGradient>
+                  <View style={styles.sectionTitleGradient}>
+                    <Text style={styles.sectionTitle}>Khóa học bán chạy</Text>
+                  </View>
                 </View>
                 
                 {featuredCourses.length > 0 && (
@@ -374,14 +365,9 @@ export default function CoursesScreen() {
               {/* Categories Section */}
               <View style={styles.sectionContainer}>
                 <View style={styles.sectionHeader}>
-                  <LinearGradient
-                    colors={['#8B0000', '#600000']}
-                    start={[0, 0]}
-                    end={[1, 0]}
-                    style={styles.sectionTitleGradient}
-                  >
-                    <Text style={styles.sectionTitle}>Categories</Text>
-                  </LinearGradient>
+                  <View style={styles.sectionTitleGradient}>
+                    <Text style={styles.sectionTitle}>Danh mục</Text>
+                  </View>
                 </View>
                 
                 {categories.length > 0 && (
@@ -399,14 +385,9 @@ export default function CoursesScreen() {
               {/* Top Rated Courses Section */}
               <View style={styles.sectionContainer}>
                 <View style={styles.sectionHeader}>
-                  <LinearGradient
-                    colors={['#8B0000', '#600000']}
-                    start={[0, 0]}
-                    end={[1, 0]}
-                    style={styles.sectionTitleGradient}
-                  >
-                    <Text style={styles.sectionTitle}>Top Rated Courses</Text>
-                  </LinearGradient>
+                  <View style={styles.sectionTitleGradient}>
+                    <Text style={styles.sectionTitle}>Khóa học được đánh giá cao</Text>
+                  </View>
                 </View>
                 
                 {topCourses.length > 0 && (
@@ -449,13 +430,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 45,
-    paddingBottom: 12,
-    marginTop: -20,
+    paddingHorizontal: width * 0.04,
+    paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight + 10,
+    paddingBottom: width * 0.03,
+    marginTop: Platform.OS === 'ios' ? -20 : 5,
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: width * 0.07,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
@@ -463,27 +444,27 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingHorizontal: width * 0.04,
+    marginBottom: width * 0.04,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(80, 30, 30, 0.6)',
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    height: 44,
+    borderRadius: width * 0.06,
+    paddingHorizontal: width * 0.04,
+    height: width * 0.12,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: width * 0.04,
     color: '#FFFFFF',
-    paddingVertical: 10,
+    paddingVertical: width * 0.025,
   },
   searchButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: width * 0.075,
+    height: width * 0.075,
+    borderRadius: width * 0.0375,
     backgroundColor: 'rgba(220, 60, 60, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -492,39 +473,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionContainer: {
-    marginBottom: 30,
+    marginBottom: width * 0.06,
+    paddingTop: width * 0.02,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingHorizontal: width * 0.05,
+    marginBottom: width * 0.04,
   },
   sectionTitleGradient: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingVertical: width * 0.01,
+    borderLeftWidth: 3,
+    borderLeftColor: '#8B0000',
+    paddingLeft: width * 0.03,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: width * 0.045,
+    fontWeight: '700',
     color: '#FFF',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   horizontalList: {
-    paddingLeft: 20,
-    paddingRight: 10,
+    paddingLeft: width * 0.05,
+    paddingRight: width * 0.025,
   },
   featuredCard: {
     width: width * 0.7,
-    height: 200,
-    marginRight: 15,
-    borderRadius: 16,
+    height: width * 0.5,
+    marginRight: width * 0.04,
+    borderRadius: width * 0.04,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: width * 0.01 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: width * 0.02,
     elevation: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
@@ -532,7 +518,7 @@ const styles = StyleSheet.create({
   },
   cardInner: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: width * 0.04,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -553,52 +539,52 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
+    padding: width * 0.04,
   },
   featuredTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: width * 0.02,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
   courseStats: {
-    marginTop: 8,
+    marginTop: width * 0.02,
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: width * 0.015,
   },
   statText: {
-    fontSize: 14,
+    fontSize: width * 0.035,
     color: '#FFF',
-    marginLeft: 8,
+    marginLeft: width * 0.02,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
   priceText: {
-    fontSize: 14,
+    fontSize: width * 0.035,
     fontWeight: 'bold',
     color: '#FFF',
-    marginLeft: 8,
+    marginLeft: width * 0.02,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
   categoryCard: {
-    width: 160,
-    height: 80,
-    marginRight: 15,
-    borderRadius: 16,
+    width: width * 0.4,
+    height: width * 0.2,
+    marginRight: width * 0.04,
+    borderRadius: width * 0.04,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: width * 0.01 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: width * 0.02,
     elevation: 5,
   },
   categoryGradient: {
@@ -606,11 +592,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
+    padding: width * 0.04,
   },
   categoryTitle: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: width * 0.04,
     fontWeight: 'bold',
     flex: 1,
   },
@@ -619,14 +605,14 @@ const styles = StyleSheet.create({
   },
   topCourseCard: {
     width: width * 0.6,
-    height: 180,
-    marginRight: 15,
-    borderRadius: 16,
+    height: width * 0.45,
+    marginRight: width * 0.04,
+    borderRadius: width * 0.04,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: width * 0.01 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: width * 0.02,
     elevation: 5,
     backgroundColor: '#FFF',
   },
@@ -637,9 +623,9 @@ const styles = StyleSheet.create({
   },
   topCourseTitle: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: width * 0.04,
     fontWeight: 'bold',
-    marginBottom: 6,
+    marginBottom: width * 0.015,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
@@ -648,22 +634,23 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    minHeight: width * 0.5,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: width * 0.03,
     color: '#8B0000',
-    fontSize: 16,
+    fontSize: width * 0.04,
   },
   emptySearchResults: {
-    padding: 30,
+    padding: width * 0.075,
     alignItems: 'center',
     justifyContent: 'center',
     width: width * 0.8,
   },
   emptySearchText: {
-    fontSize: 16,
+    fontSize: width * 0.04,
     color: '#FFF',
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: width * 0.03,
   },
 });

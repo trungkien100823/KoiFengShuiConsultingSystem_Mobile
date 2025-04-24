@@ -21,13 +21,18 @@ import { consultingCategories } from '../../constants/consulting';
 import { API_CONFIG } from '../../constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const cardWidth = width * 0.8;
 
+// Define scale function directly in the component
+const scale = (size) => Math.round(width * size / 375);
+
 export default function ConsultingScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [consultants, setConsultants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -185,31 +190,26 @@ export default function ConsultingScreen() {
     >
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, {paddingTop: insets.top}]}>
           <View style={styles.headerContainer}>
             <Text style={styles.headerTitle}>Bạn Thích Gì?</Text>
-            <TouchableOpacity style={styles.menuButton}>
-              <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
           </View>
           <View style={styles.searchContainer}>
             <View style={styles.searchBar}>
-              <Ionicons name="search" size={20} color="rgba(255,255,255,0.7)" style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Tìm kiếm ở đây"
                 placeholderTextColor="rgba(255,255,255,0.7)"
                 value={searchQuery}
                 onChangeText={handleSearch}
+                onSubmitEditing={() => {/* preserve existing search functionality */}}
               />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity 
-                  style={styles.clearButton}
-                  onPress={() => handleSearch('')}
-                >
-                  <Ionicons name="close-circle" size={18} color="#FFFFFF" />
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity 
+                style={styles.searchButton} 
+                onPress={() => {/* preserve existing search functionality */}}
+              >
+                <Ionicons name="search" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -386,57 +386,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: width * 0.05,
-    paddingTop: Platform.OS === 'ios' ? 50 : 45,
-    paddingBottom: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    alignItems: 'flex-start',
+    marginTop: Platform.OS === 'ios' ? -20 : 5,
   },
   headerTitle: {
-    fontSize: width * 0.07,
+    fontSize: scale(24),
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  menuButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
   searchContainer: {
-    paddingHorizontal: width * 0.05,
-    marginBottom: 16,
-    marginTop: 4,
+    paddingHorizontal: scale(16),
+    marginBottom: scale(16),
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(80, 30, 30, 0.6)',
-    borderRadius: 22,
-    paddingHorizontal: 16,
+    borderRadius: scale(20),
+    paddingHorizontal: scale(16),
     height: Platform.OS === 'ios' ? 50 : 44,
-  },
-  searchIcon: {
-    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#FFFFFF',
-    paddingVertical: 10,
-    height: '100%',
-  },
-  clearButton: {
-    padding: 4,
+    paddingVertical: scale(10),
   },
   searchButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(220, 60, 60, 0.9)',
+    width: scale(36),
+    height: scale(36),
+    borderRadius: scale(18),
+    backgroundColor: '#8B0000',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: scale(8),
   },
   contentScrollView: {
     flex: 1,
