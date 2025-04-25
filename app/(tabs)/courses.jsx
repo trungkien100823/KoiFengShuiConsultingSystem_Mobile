@@ -314,7 +314,7 @@ export default function CoursesScreen() {
                 <View style={styles.sectionContainer}>
                   <View style={styles.sectionHeader}>
                     <View style={styles.sectionTitleGradient}>
-                      <Text style={styles.sectionTitle}>Searching courses</Text>
+                      <Text style={styles.sectionTitle}>Kết quả tìm kiếm</Text>
                     </View>
                   </View>
                   
