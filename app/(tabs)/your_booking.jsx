@@ -255,9 +255,9 @@ const YourBooking = () => {
       // Kiểm tra điều kiện thanh toán cho từng loại booking
       const isOnlinePaymentAllowed = booking.type === 'Online' && booking.status.trim() === 'Pending';
       const isOfflineFirstPaymentAllowed = booking.type === 'Offline' && 
-        (booking.status.trim() === 'VerifiedOTP' || booking.status.trim() === 'VerifiedOTPAttachment');
+        (booking.status.trim() === 'Xác thực OTP' || booking.status.trim() === 'Đã xác thực OTP');
       const isOfflineSecondPaymentAllowed = booking.type === 'Offline' && 
-        booking.status.trim() === 'SecondPaymentPending';
+        booking.status.trim() === 'Chờ thanh toán lần 2';
 
       if (!isOnlinePaymentAllowed && !isOfflineFirstPaymentAllowed && !isOfflineSecondPaymentAllowed) {
         Alert.alert('Thông báo', 'Booking không ở trạng thái cho phép thanh toán');
@@ -299,20 +299,24 @@ const YourBooking = () => {
 
         console.log('Chuyển sang màn hình thanh toán với thông tin:', {
           serviceId: booking.id,
+          bookingOnlineId: booking.type === 'Online' ? booking.id : null,
           packageName: bookingDetail.packageName || 'Gói tư vấn phong thủy',
           selectedPrice: selectedPrice,
           status: booking.status.trim(),
-          serviceType: booking.type === 'Offline' ? 'BookingOffline' : 'BookingOnline'
+          serviceType: booking.type === 'Offline' ? 'BookingOffline' : 'BookingOnline',
+          source: 'your_booking'
         });
 
         router.push({
-          pathname: '/(tabs)/offline_payment',
+          pathname: booking.type === 'Online' ? '/(tabs)/online_checkout' : '/(tabs)/offline_payment',
           params: {
             serviceId: booking.id,
+            bookingOnlineId: booking.type === 'Online' ? booking.id : null,
             packageName: bookingDetail.packageName || 'Gói tư vấn phong thủy',
             selectedPrice: selectedPrice,
             status: booking.status.trim(),
-            serviceType: booking.type === 'Offline' ? 'BookingOffline' : 'BookingOnline'
+            serviceType: booking.type === 'Offline' ? 'BookingOffline' : 'BookingOnline',
+            source: 'your_booking'
           }
         });
       } else {
@@ -331,9 +335,9 @@ const YourBooking = () => {
       // Kiểm tra điều kiện hủy lịch theo loại booking
       let canCancel = false;
       if (booking.type === 'Online') {
-        canCancel = booking.status.trim() === 'Pending' || booking.status.trim() === 'PendingConfirm';
+        canCancel = booking.status.trim() === 'Chờ xử lý' || booking.status.trim() === 'Đang xử lý';
       } else if (booking.type === 'Offline') {
-        canCancel = booking.status.trim() === 'Pending';
+        canCancel = booking.status.trim() === 'Chờ xử lý';
       }
 
       if (!canCancel) {
@@ -469,6 +473,32 @@ const YourBooking = () => {
     }
   };
 
+  const getShortStatusText = (status) => {
+    switch(status.trim()) {
+      case 'ContractConfirmedByManager': return 'Quản lý xác nhận HĐ';
+      case 'ContractConfirmedByCustomer': return 'KH xác nhận HĐ';
+      case 'VerifyingOTP': return 'Đang xác thực OTP';
+      case 'VerifiedOTP': return 'Đã xác thực OTP';
+      case 'FirstPaymentPending': return 'Chờ thanh toán lần 1';
+      case 'FirstPaymentPendingConfirm': return 'Chờ xác nhận TT lần 1';
+      case 'FirstPaymentSuccess': return 'Đã thanh toán lần 1';
+      case 'DocumentRejectedByManager': return 'Quản lý từ chối HS';
+      case 'DocumentRejectedByCustomer': return 'KH từ chối HS';
+      case 'DocumentConfirmedByManager': return 'Quản lý duyệt HS';
+      case 'DocumentConfirmedByCustomer': return 'KH duyệt HS';
+      case 'AttachmentRejected': return 'Từ chối biên bản';
+      case 'AttachmentConfirmed': return 'Đã duyệt biên bản';
+      case 'VerifyingOTPAttachment': return 'Xác thực OTP BB';
+      case 'VerifiedOTPAttachment': return 'Đã xác thực BB';
+      case 'SecondPaymentPending': return 'Chờ thanh toán lần 2';
+      case 'SecondPaymentPendingConfirm': return 'Chờ xác nhận TT lần 2';
+      case 'Completed': return 'Hoàn thành';
+      case 'Pending': return 'Chờ xử lý';
+      case 'Canceled': return 'Đã hủy';
+      default: return status;
+    }
+  };
+
   const renderBookingItem = ({ item }) => {
     // Log để kiểm tra dữ liệu
     console.log('Booking item:', {
@@ -479,35 +509,35 @@ const YourBooking = () => {
     
     // Điều kiện hiển thị nút thanh toán cho Online và Offline
     const showPaymentButton = 
-      (item.type === 'Online' && item.status.trim() === 'Pending') ||
-      (item.type === 'Offline' && (item.status.trim() === 'VerifiedOTP' || 
-                                   item.status.trim() === 'VerifiedOTPAttachment'));
+      (item.type === 'Online' && item.status.trim() === 'Chờ xử lý') ||
+      (item.type === 'Offline' && (item.status.trim() === 'Đã xác thực OTP' || 
+                                   item.status.trim() === 'Đã xác thực BB'));
     
     // Điều kiện hiển thị nút hủy lịch - cập nhật theo yêu cầu mới
     const showCancelButton = 
-      (item.type === 'Online' && (item.status.trim() === 'Pending' || item.status.trim() === 'PendingConfirm')) ||
-      (item.type === 'Offline' && item.status.trim() === 'Pending');
+      (item.type === 'Online' && (item.status.trim() === 'Chờ xử lý' || item.status.trim() === 'Đang xử lý')) ||
+      (item.type === 'Offline' && item.status.trim() === 'Chờ xử lý');
 
     // Điều kiện hiển thị nút xem hợp đồng cho Offline
     const isOffline = item.type === 'Offline';
-    const isConfirmedByManager = item.status.trim() === 'ContractConfirmedByManager';
-    const isConfirmedByCustomer = item.status.trim() === 'ContractConfirmedByCustomer';
-    const isVerifyingOTP = item.status.trim() === 'VerifyingOTP';
-    const isVerifiedOTP = item.status.trim() === 'VerifiedOTP';
-    const isFirstPaymentPending = item.status.trim() === 'FirstPaymentPending';
-    const isFirstPaymentPendingConfirm = item.status.trim() === 'FirstPaymentPendingConfirm';
-    const isFirstPaymentSuccess = item.status.trim() === 'FirstPaymentSuccess';
-    const isDocumentRejectedByManager = item.status.trim() === 'DocumentRejectedByManager';
-    const isDocumentRejectedByCustomer = item.status.trim() === 'DocumentRejectedByCustomer';
-    const isDocumentConfirmedByManager = item.status.trim() === 'DocumentConfirmedByManager';
-    const isDocumentConfirmedByCustomer = item.status.trim() === 'DocumentConfirmedByCustomer';
-    const isAttachmentRejected = item.status.trim() === 'AttachmentRejected';
-    const isAttachmentConfirmed = item.status.trim() === 'AttachmentConfirmed';
-    const isVerifyingOTPAttachment = item.status.trim() === 'VerifyingOTPAttachment';
-    const isVerifiedOTPAttachment = item.status.trim() === 'VerifiedOTPAttachment';
-    const isSecondPaymentPending = item.status.trim() === 'SecondPaymentPending';
-    const isSecondPaymentPendingConfirm = item.status.trim() === 'SecondPaymentPendingConfirm';
-    const isCompleted = item.status.trim() === 'Completed';
+    const isConfirmedByManager = item.status.trim() === 'Quản lý xác nhận HĐ';
+    const isConfirmedByCustomer = item.status.trim() === 'KH xác nhận HĐ';
+    const isVerifyingOTP = item.status.trim() === 'Đang xác thực OTP';
+    const isVerifiedOTP = item.status.trim() === 'Đã xác thực OTP';
+    const isFirstPaymentPending = item.status.trim() === 'Chờ thanh toán lần 1';
+    const isFirstPaymentPendingConfirm = item.status.trim() === 'Chờ xác nhận TT lần 1';
+    const isFirstPaymentSuccess = item.status.trim() === 'Đã thanh toán lần 1';
+    const isDocumentRejectedByManager = item.status.trim() === 'Quản lý từ chối HS';
+    const isDocumentRejectedByCustomer = item.status.trim() === 'KH từ chối HS';
+    const isDocumentConfirmedByManager = item.status.trim() === 'Quản lý duyệt HS';
+    const isDocumentConfirmedByCustomer = item.status.trim() === 'KH duyệt HS';
+    const isAttachmentRejected = item.status.trim() === 'Từ chối biên bản';
+    const isAttachmentConfirmed = item.status.trim() === 'Đã duyệt biên bản';
+    const isVerifyingOTPAttachment = item.status.trim() === 'Xác thực OTP BB';
+    const isVerifiedOTPAttachment = item.status.trim() === 'Đã xác thực BB';
+    const isSecondPaymentPending = item.status.trim() === 'Chờ thanh toán lần 2';
+    const isSecondPaymentPendingConfirm = item.status.trim() === 'Chờ xác nhận TT lần 2';
+    const isCompleted = item.status.trim() === 'Hoàn thành';
     
     const showContractButton = 
       isOffline && (isConfirmedByManager || isConfirmedByCustomer || isVerifyingOTP || 
@@ -527,24 +557,41 @@ const YourBooking = () => {
     const showAttachmentButton = isOffline && (isAttachmentConfirmed || 
       isVerifyingOTPAttachment || isVerifiedOTPAttachment ||
       isSecondPaymentPending || isSecondPaymentPendingConfirm || isCompleted ||
-      item.status.trim() === 'DocumentConfirmedByCustomer');
+      item.status.trim() === 'Khách hàng đãđã duyệt biên bản');
 
     // Chỉ cho phép xem chi tiết cho các trạng thái đã từ chối
     const isRejectedStatus = 
       item.type === 'Offline' && 
-      (item.status.trim() === 'ContractRejectedByMaster' ||
-       item.status.trim() === 'ContractRejectedByCustomer');
+      (item.status.trim() === 'Quản lý từ chối HĐ' ||
+       item.status.trim() === 'Khách hàng từ chối HĐ');
 
-    const getStatusText = (status) => {
-      // Translate status codes to Vietnamese
-      switch(status.trim().toLowerCase()) {
-        case 'pending': return 'Đang chờ';
-        case 'confirmed': return 'Đã xác nhận';
-        case 'completed': return 'Hoàn thành';
-        case 'canceled': return 'Đã hủy';
-        case 'verifiedotp': return 'Đã xác thực OTP';
-        case 'verifiedotpattachment': return 'Đã xác thực biên bản';
-        default: return status;
+    const getStatusColor = (status) => {
+      switch (status.toLowerCase()) {
+        case 'paid': return '#4CAF50';
+        case 'confirmed': return '#2196F3';
+        case 'pending': return '#FFA726';
+        case 'canceled': return '#F44336';
+        case 'contractrejectedbymaster': return '#FF5252';
+        case 'contractrejectedbycustomer': return '#FF5252';
+        case 'contractconfirmedbymaster': return '#009688';
+        case 'contractconfirmedbycustomer': return '#009688';
+        case 'verifyingotp': return '#FFA726';
+        case 'verifiedotp': return '#FFA726';
+        case 'firstpaymentpending': return '#FFA726';
+        case 'firstpaymentpendingconfirm': return '#FFA726';
+        case 'firstpaymentsuccess': return '#FFA726';
+        case 'documentrejectedbymanager': return '#FF5252';
+        case 'documentrejectedbycustomer': return '#FF5252';
+        case 'documentconfirmedbymanager': return '#009688';
+        case 'documentconfirmedbycustomer': return '#009688';
+        case 'attachmentrejected': return '#FFA726';
+        case 'attachmentconfirmed': return '#009688';
+        case 'verifyingotpattachment': return '#FFA726';
+        case 'verifiedotpattachment': return '#009688';
+        case 'secondpaymentpending': return '#FFA726';
+        case 'secondpaymentpendingconfirm': return '#FFA726';
+        case 'completed': return '#4CAF50';
+        default: return '#999';
       }
     };
 
@@ -573,7 +620,7 @@ const YourBooking = () => {
             styles.statusTag,
             { backgroundColor: getStatusColor(item.status) }
           ]}>
-            <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+            <Text style={styles.statusText}>{getShortStatusText(item.status)}</Text>
           </View>
         </LinearGradient>
         
@@ -851,95 +898,124 @@ const YourBooking = () => {
 
   const OnlineBookingDetailModal = ({ booking, onClose }) => (
     <View style={styles.bookingDetailSection}>
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Mã đặt lịch:</Text>
-        <Text style={styles.detailValue}>{booking?.bookingOnlineId || 'Không có'}</Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Loại tư vấn:</Text>
-        <Text style={styles.detailValue}>{booking?.type}</Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Trạng thái:</Text>
-        <View style={styles.statusContainer}>
-          <Text style={[
-            styles.statusTag,
-            { backgroundColor: getStatusColor(booking?.status) }
-          ]}>
-            {booking?.status}
-          </Text>
+      {/* Header with booking type badge */}
+      <View style={styles.detailHeader}>
+        <View style={styles.typeBadge}>
+          <Ionicons name="videocam" size={16} color="#FFFFFF" />
+          <Text style={styles.typeBadgeText}>Tư vấn Online</Text>
+        </View>
+        <View style={[
+          styles.statusBadge,
+          { backgroundColor: getStatusColor(booking?.status) }
+        ]}>
+          <Text style={styles.statusBadgeText}>{booking?.status}</Text>
         </View>
       </View>
 
-      <View style={styles.separator} />
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Khách hàng:</Text>
-        <Text style={styles.detailValue}>{booking?.customerName}</Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Email:</Text>
-        <Text style={styles.detailValue}>{booking?.customerEmail}</Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Master:</Text>
-        <Text style={styles.detailValue}>{booking?.masterName || 'Chưa có Master'}</Text>
-      </View>
-
-      <View style={styles.separator} />
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Giá:</Text>
-        <Text style={styles.priceValue}>
-          {booking?.price ? `${booking.price.toLocaleString('vi-VN')} VNĐ` : 'Chưa có giá'}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Ngày:</Text>
-        <Text style={styles.detailValue}>
-          {formatDate(booking?.bookingDate)}
-        </Text>
-      </View>
-
-      {booking?.startTime && booking?.endTime && (
+      {/* Main Info Section */}
+      <View style={styles.detailCard}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Thời gian:</Text>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Mã đặt lịch:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.bookingOnlineId || 'Không có'}</Text>
+        </View>
+
+        <View style={styles.separator} />
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="person-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Khách hàng:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.customerName}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Email:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.customerEmail}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="person-circle-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Master:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.masterName || 'Chưa có Master'}</Text>
+        </View>
+
+        <View style={styles.separator} />
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="cash-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Giá:</Text>
+          </View>
+          <Text style={styles.priceValue}>
+            {booking?.price ? `${booking.price.toLocaleString('vi-VN')} VNĐ` : 'Chưa có giá'}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Ngày:</Text>
+          </View>
           <Text style={styles.detailValue}>
-            {booking.startTime.substring(0, 5)} - {booking.endTime.substring(0, 5)}
+            {formatDate(booking?.bookingDate)}
           </Text>
         </View>
-      )}
 
+        {booking?.startTime && booking?.endTime && (
+          <View style={styles.detailRow}>
+            <View style={styles.detailLabelContainer}>
+              <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.detailLabel}>Thời gian:</Text>
+            </View>
+            <Text style={styles.detailValue}>
+              {booking.startTime.substring(0, 5)} - {booking.endTime.substring(0, 5)}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Meeting Link Section */}
       {booking?.linkMeet && (
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Link Meet:</Text>
+        <View style={styles.linkCard}>
+          <View style={styles.linkHeader}>
+            <Ionicons name="videocam" size={20} color={COLORS.primary} />
+            <Text style={styles.linkHeaderText}>Link Cuộc Họp</Text>
+          </View>
           <TouchableOpacity 
             onPress={() => Linking.openURL(booking.linkMeet)}
-            style={styles.linkContainer}
+            style={styles.linkButton}
           >
-            <Text style={styles.linkText}>Nhấn để mở link</Text>
+            <Text style={styles.linkButtonText}>Tham gia buổi tư vấn</Text>
+            <Ionicons name="open-outline" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       )}
 
-      <View style={styles.separator} />
-
-      <View style={styles.descriptionContainer}>
-        <Text style={styles.detailLabel}>Mô tả:</Text>
+      {/* Description Section */}
+      <View style={styles.descriptionCard}>
+        <View style={styles.descriptionHeader}>
+          <Ionicons name="document-text-outline" size={20} color={COLORS.primary} />
+          <Text style={styles.descriptionHeaderText}>Chi tiết yêu cầu</Text>
+        </View>
         <Text style={styles.descriptionText}>{booking?.description || 'Chưa có mô tả'}</Text>
       </View>
 
+      {/* Master Note Section */}
       {booking?.masterNote && (
-        <View style={styles.masterNoteContainer}>
-          <Text style={styles.masterNoteLabel}>
-            <Ionicons name="document-text-outline" size={16} color="#666" />
-            {" "}Ghi chú của Master
-          </Text>
+        <View style={styles.masterNoteCard}>
+          <View style={styles.masterNoteHeader}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.masterNoteHeaderText}>Ghi chú của Master</Text>
+          </View>
           <Text style={styles.masterNoteText}>{booking.masterNote}</Text>
         </View>
       )}
@@ -948,70 +1024,93 @@ const YourBooking = () => {
 
   const OfflineBookingDetailModal = ({ booking, onClose }) => (
     <View style={styles.bookingDetailSection}>
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Mã đặt lịch:</Text>
-        <Text style={styles.detailValue}>{booking?.bookingOfflineId || 'Không có'}</Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Loại tư vấn:</Text>
-        <Text style={styles.detailValue}>{booking?.type}</Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Trạng thái:</Text>
-        <View style={styles.statusContainer}>
-          <Text style={[
-            styles.statusTag,
-            { backgroundColor: getStatusColor(booking?.status) }
-          ]}>
-            {booking?.status}
-          </Text>
+      {/* Header with booking type badge */}
+      <View style={styles.detailHeader}>
+        <View style={[styles.typeBadge, styles.offlineTypeBadge]}>
+          <Ionicons name="business" size={16} color="#FFFFFF" />
+          <Text style={styles.typeBadgeText}>Tư vấn Offline</Text>
+        </View>
+        <View style={[
+          styles.statusBadge,
+          { backgroundColor: getStatusColor(booking?.status) }
+        ]}>
+          <Text style={styles.statusBadgeText}>{booking?.status}</Text>
         </View>
       </View>
 
-      <View style={styles.separator} />
+      {/* Main Info Section */}
+      <View style={styles.detailCard}>
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Mã đặt lịch:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.bookingOfflineId || 'Không có'}</Text>
+        </View>
 
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Khách hàng:</Text>
-        <Text style={styles.detailValue}>{booking?.customerName}</Text>
+        <View style={styles.separator} />
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="person-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Khách hàng:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.customerName}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Email:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.customerEmail}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="person-circle-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Master:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.masterName || 'Chưa có Master'}</Text>
+        </View>
+
+        <View style={styles.separator} />
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="cash-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Giá:</Text>
+          </View>
+          <Text style={styles.priceValue}>
+            {booking?.selectedPrice ? `${parseFloat(booking.selectedPrice).toLocaleString('vi-VN')} VNĐ` : 'Chưa có giá'}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Ngày:</Text>
+          </View>
+          <Text style={styles.detailValue}>
+            {formatDate(booking?.bookingDate)}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <Ionicons name="location-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.detailLabel}>Địa điểm:</Text>
+          </View>
+          <Text style={styles.detailValue}>{booking?.location || 'Chưa có địa điểm'}</Text>
+        </View>
       </View>
 
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Email:</Text>
-        <Text style={styles.detailValue}>{booking?.customerEmail}</Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Master:</Text>
-        <Text style={styles.detailValue}>{booking?.masterName || 'Chưa có Master'}</Text>
-      </View>
-
-      <View style={styles.separator} />
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Giá:</Text>
-        <Text style={styles.priceValue}>
-          {booking?.selectedPrice ? `${parseFloat(booking.selectedPrice).toLocaleString('vi-VN')} VNĐ` : 'Chưa có giá'}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Ngày:</Text>
-        <Text style={styles.detailValue}>
-          {formatDate(booking?.bookingDate)}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Địa điểm:</Text>
-        <Text style={styles.detailValue}>{booking?.location || 'Chưa có địa điểm'}</Text>
-      </View>
-
-      <View style={styles.separator} />
-
-      <View style={styles.descriptionContainer}>
-        <Text style={styles.detailLabel}>Mô tả:</Text>
+      {/* Description Section */}
+      <View style={styles.descriptionCard}>
+        <View style={styles.descriptionHeader}>
+          <Ionicons name="document-text-outline" size={20} color={COLORS.primary} />
+          <Text style={styles.descriptionHeaderText}>Chi tiết yêu cầu</Text>
+        </View>
         <Text style={styles.descriptionText}>{booking?.description || 'Chưa có mô tả'}</Text>
       </View>
     </View>
@@ -1026,30 +1125,40 @@ const YourBooking = () => {
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalTitleContainer}>
-              <Ionicons 
-                name={selectedBooking?.type === 'Online' ? "videocam" : "business"} 
-                size={24} 
-                color={COLORS.primary} 
-                style={styles.modalHeaderIcon}
-              />
-              <Text style={styles.modalTitle}>
-                Chi tiết {selectedBooking?.type === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline'}
-              </Text>
+          {/* Enhanced Modal Header */}
+          <LinearGradient
+            colors={[COLORS.primaryDark, COLORS.primary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.modalHeaderGradient}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleContainer}>
+                <Ionicons 
+                  name={selectedBooking?.type === 'Online' ? "videocam" : "business"} 
+                  size={24} 
+                  color={COLORS.white} 
+                />
+                <Text style={styles.modalTitle}>
+                  Chi tiết {selectedBooking?.type === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline'}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setBookingDetailVisible(false)}
+                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+              >
+                <Ionicons name="close" size={24} color={COLORS.white} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={() => setBookingDetailVisible(false)}
-            >
-              <Ionicons name="close" size={24} color={COLORS.text.secondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.modalDivider} />
+          </LinearGradient>
 
           {selectedBooking && (
-            <ScrollView style={styles.bookingDetailScroll}>
+            <ScrollView 
+              style={styles.bookingDetailScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.bookingDetailContent}
+            >
               {selectedBooking.type === 'Online' ? (
                 <OnlineBookingDetailModal 
                   booking={selectedBooking}
@@ -1063,6 +1172,16 @@ const YourBooking = () => {
               )}
             </ScrollView>
           )}
+          
+          {/* Action Button at Bottom */}
+          <View style={styles.modalFooter}>
+            <TouchableOpacity 
+              style={styles.modalCloseButton}
+              onPress={() => setBookingDetailVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -1241,15 +1360,17 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
-    elevation: 2,
+    elevation: 5,
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,
+    zIndex: 9,
   },
   selectListContainer: {
-    zIndex: 2,
+    zIndex: 10,
     position: 'relative',
+    elevation: 5,
   },
   selectList: {
     backgroundColor: COLORS.white,
@@ -1301,12 +1422,12 @@ const styles = StyleSheet.create({
     padding: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
-    elevation: 4,
+    elevation: 10,
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    zIndex: 3,
+    zIndex: 11,
   },
   dropdownItem: {
     padding: 12,
@@ -1331,6 +1452,7 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: 16,
     paddingBottom: 120, // Extra padding for TabBar
+    zIndex: 1,
   },
   bookingCard: {
     backgroundColor: COLORS.white,
@@ -1525,138 +1647,282 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
+    borderRadius: 16,
+    width: '95%',
+    maxHeight: '90%',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  modalHeaderGradient: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
   },
   modalTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  modalHeaderIcon: {
-    marginRight: 12,
-  },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text.primary,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    marginLeft: 10,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalDivider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginHorizontal: 20,
-  },
   bookingDetailScroll: {
+    maxHeight: Platform.OS === 'ios' ? '74%' : '72%',
+  },
+  bookingDetailContent: {
+    paddingBottom: 20,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  bookingDetailSection: {
     padding: 20,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2196F3',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    maxWidth: '60%',
+  },
+  offlineTypeBadge: {
+    backgroundColor: '#8B0000',
+  },
+  typeBadgeText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  statusBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    maxWidth: '40%',
+  },
+  statusBadgeText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  detailCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  detailLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '40%',
   },
   detailLabel: {
     fontSize: 14,
     color: COLORS.text.secondary,
-    flex: 1,
+    marginLeft: 8,
   },
   detailValue: {
     fontSize: 14,
     color: COLORS.text.primary,
-    flex: 2,
+    fontWeight: '500',
     textAlign: 'right',
+    width: '60%',
+  },
+  priceValue: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: 'bold',
+    textAlign: 'right',
+    width: '60%',
   },
   separator: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
     marginVertical: 8,
   },
-  priceValue: {
-    fontSize: 14,
-    color: COLORS.text.primary,
+  linkCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  linkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  linkHeaderText: {
+    fontSize: 16,
     fontWeight: '600',
-    flex: 2,
-    textAlign: 'right',
+    marginLeft: 8,
+    color: COLORS.text.primary,
   },
-  linkContainer: {
-    backgroundColor: COLORS.primaryLight,
+  linkButton: {
+    backgroundColor: '#2196F3',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 8,
   },
-  linkText: {
+  linkButtonText: {
     color: COLORS.white,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginRight: 8,
   },
-  paymentButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+  descriptionCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  cancelButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+  descriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  bookingDetailContent: {
-    padding: 0,
-  },
-  bookingDetailSection: {
-    gap: 16,
-  },
-  statusContainer: {
-    flex: 2,
-    alignItems: 'flex-end',
-  },
-  descriptionContainer: {
-    marginTop: 8,
+  descriptionHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    color: COLORS.text.primary,
   },
   descriptionText: {
     fontSize: 14,
-    color: COLORS.text.primary,
-    marginTop: 8,
-    lineHeight: 20,
+    color: COLORS.text.secondary,
+    lineHeight: 22,
   },
-  masterNoteContainer: {
-    marginTop: 16,
-    padding: 12,
+  masterNoteCard: {
     backgroundColor: '#FFF0F0',
-    borderRadius: 8,
+    borderRadius: 12,
+    padding: 16,
     borderLeftWidth: 3,
     borderLeftColor: COLORS.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  masterNoteLabel: {
-    fontSize: 14,
-    color: COLORS.text.primary,
-    fontWeight: '600',
-    marginBottom: 8,
+  masterNoteHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  masterNoteHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    color: COLORS.text.primary,
   },
   masterNoteText: {
     fontSize: 14,
     color: COLORS.text.primary,
-    lineHeight: 20,
+    lineHeight: 22,
   },
 });
 

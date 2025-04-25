@@ -893,7 +893,7 @@ export default function OnlineScheduleScreen() {
                 // Chuyển đến màn hình thanh toán với thông tin booking
                 router.push({
                   pathname: '/(tabs)/online_checkout',
-                  params: { 
+                  params: {
                     bookingId: bookingId,
                     customerInfo: JSON.stringify(customerInfo),
                     scheduleInfo: JSON.stringify({
@@ -901,7 +901,8 @@ export default function OnlineScheduleScreen() {
                       startTime: selectedStartTime,
                       endTime: selectedEndTime,
                       price: price
-                    })
+                    }),
+                    source: 'online_schedule'
                   }
                 });
               }

@@ -408,7 +408,7 @@ export default function Workshop() {
                   <View style={styles.sectionHeader}>
                     <View style={styles.sectionTitleContainer}>
                       <Ionicons name="search" size={scale(18)} color="#8B0000" />
-                      <Text style={styles.sectionTitle}>Search Results</Text>
+                      <Text style={styles.sectionTitle}>Kết quả tìm kiếm</Text>
                     </View>
                   </View>
                   
