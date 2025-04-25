@@ -54,19 +54,16 @@ const getDirectVideoUrl = (url) => {
   try {
     if (!url) return null;
     
-    // Nếu URL đã là embed thì thử chuyển đổi sang direct URL cho iOS
-    if (Platform.OS === 'ios' && url.includes('/embed/')) {
-      // Đây là ví dụ - bạn cần xác định cấu trúc URL trực tiếp của nhà cung cấp mediadelivery.net
-      const urlParts = url.split('/');
-      const videoId = urlParts[urlParts.length - 1].split('?')[0];
-      if (videoId) {
-        return `https://media.mediadelivery.net/stream/${videoId}`;
+    // Convert iframe.mediadelivery.net URLs to direct CDN URLs
+    if (url.includes('iframe.mediadelivery.net/embed')) {
+      // Extract the video ID parts from the URL
+      const match = url.match(/iframe\.mediadelivery\.net\/embed\/(\d+)\/([a-zA-Z0-9-]+)/);
+      if (match && match.length === 3) {
+        const videoId = match[2];
+        
+        // Use hardcoded library ID with video ID
+        return `https://vz-2fab5d8b-8fd.b-cdn.net/${videoId}/playlist.m3u8`;
       }
-    }
-    
-    // Nếu là URL play thì chuyển sang embed cho Android
-    if (Platform.OS === 'android' && url.includes('/play/')) {
-      return url.replace('/play/', '/embed/');
     }
     
     return url;
@@ -80,37 +77,31 @@ const getDirectVideoUrl = (url) => {
 const processVideoUrl = (url) => {
   if (!url) return null;
   
-  // Đảm bảo sử dụng HTTPS
+  // Convert iframe.mediadelivery.net URLs to direct CDN URLs
+  if (url.includes('iframe.mediadelivery.net/embed')) {
+    // Extract the video ID parts from the URL
+    const match = url.match(/iframe\.mediadelivery\.net\/embed\/(\d+)\/([a-zA-Z0-9-]+)/);
+    if (match && match.length === 3) {
+      const videoId = match[2];
+      
+      // Use hardcoded library ID with video ID
+      return `https://vz-2fab5d8b-8fd.b-cdn.net/${videoId}/playlist.m3u8`;
+    }
+  }
+  
+  // Ensure HTTPS but don't add cache buster
   let processedUrl = url;
   if (processedUrl.startsWith('http:')) {
     processedUrl = processedUrl.replace('http:', 'https:');
   }
   
-  // Đặc biệt cho iOS, thử chuyển đổi URL embed thành URL trực tiếp nếu có thể
-  if (Platform.OS === 'ios') {
-    // Nếu URL chứa 'iframe.mediadelivery.net/embed', thử chuyển đổi
-    if (processedUrl.includes('iframe.mediadelivery.net/embed')) {
-      // Thử lấy ID từ URL embed và tạo URL trực tiếp
-      const urlParts = processedUrl.split('/');
-      const videoId = urlParts[urlParts.length - 1].split('?')[0];
-      if (videoId) {``
-        // Đây là ví dụ cách tạo URL trực tiếp - điều chỉnh theo cấu trúc của dịch vụ của bạn
-        processedUrl = `https://media.mediadelivery.net/stream/${videoId}`;
-      }
-    }
-  }
-  
-  // Thêm timestamp để tránh cache
-  processedUrl = `${processedUrl}${processedUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
-  
   return processedUrl;
 };
 
-const VideoPlayer = ({ videoUrl, onComplete }) => {
+const VideoPlayer = ({ videoUrl, onComplete, videoRef }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const videoRef = useRef(null);
   const [videoStatus, setVideoStatus] = useState(null);
   const hasShownCompletionAlert = useRef(false);
   const retryCount = useRef(0);
@@ -123,31 +114,30 @@ const VideoPlayer = ({ videoUrl, onComplete }) => {
     // Clean and normalize the URL
     let url = videoUrl.trim();
     
-    // Ensure HTTPS
+    // Convert to direct CDN URL if it's from mediadelivery.net
+    if (url.includes('iframe.mediadelivery.net/embed')) {
+      const match = url.match(/iframe\.mediadelivery\.net\/embed\/(\d+)\/([a-zA-Z0-9-]+)/);
+      if (match && match.length === 3) {
+        const videoId = match[2];
+        
+        // Use hardcoded library ID with video ID
+        url = `https://vz-2fab5d8b-8fd.b-cdn.net/${videoId}/playlist.m3u8`;
+        console.log('Converted URL to direct CDN URL:', url);
+      }
+    }
+    
+    // Ensure HTTPS but don't add cache buster
     if (url.startsWith('http:')) {
       url = url.replace('http:', 'https:');
     }
     
-    // For Cloudinary URLs, optimize for mobile playback
-    if (url.includes('cloudinary.com')) {
-      // Extract the base URL and file path
-      const urlParts = url.split('/upload/');
-      if (urlParts.length === 2) {
-        // Add optimization parameters for Cloudinary
-        url = `${urlParts[0]}/upload/q_auto,f_auto,fl_progressive/` + urlParts[1];
-      }
-    }
-    
-    // Add cache buster
-    const cacheBuster = `_cb=${Date.now()}`;
-    url = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
-    
-    console.log('Optimized video URL:', url);
+    console.log('Final video URL:', url);
     return url;
   }, [videoUrl]);
 
   // Reset when URL changes
   useEffect(() => {
+    // Reset all state variables on URL change
     hasShownCompletionAlert.current = false;
     retryCount.current = 0;
     setError(false);
@@ -155,21 +145,27 @@ const VideoPlayer = ({ videoUrl, onComplete }) => {
     
     console.log('Video URL changed to:', videoUrl);
     
-    // Add a slight delay before loading to avoid race conditions
-    const loadTimer = setTimeout(() => {
-      if (videoRef.current) {
-        videoRef.current.loadAsync(
-          { uri: processedVideoUrl },
-          { shouldPlay: true },
-          false
-        ).catch(err => {
-          console.error('Error in initial video load:', err);
-        });
-      }
-    }, 1000);
+    // Unload any previous video first
+    if (videoRef.current) {
+      videoRef.current.unloadAsync().then(() => {
+        // After unloading, wait a moment then load the new video
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.loadAsync(
+              { uri: processedVideoUrl },
+              { shouldPlay: true },
+              false
+            ).catch(err => {
+              console.error('Error in initial video load:', err);
+            });
+          }
+        }, 300); // Small delay to ensure unload completes
+      }).catch(error => {
+        console.error('Error unloading previous video:', error);
+      });
+    }
     
     return () => {
-      clearTimeout(loadTimer);
       if (videoRef.current) {
         videoRef.current.unloadAsync();
       }
@@ -260,6 +256,7 @@ const VideoPlayer = ({ videoUrl, onComplete }) => {
   return (
     <View style={styles.container}>
       <Video
+        key={`video-${processedVideoUrl}`}
         ref={videoRef}
         style={styles.video}
         source={{
@@ -961,16 +958,25 @@ export default function CourseVideoScreen() {
       rawUrl = rawUrl.trim();
     }
     
-    // For iOS, ensure we use HTTPS
+    // Convert to direct CDN URL if it's from mediadelivery.net
+    if (rawUrl.includes('iframe.mediadelivery.net/embed')) {
+      const match = rawUrl.match(/iframe\.mediadelivery\.net\/embed\/(\d+)\/([a-zA-Z0-9-]+)/);
+      if (match && match.length === 3) {
+        const videoId = match[2];
+        
+        // Use hardcoded library ID with video ID
+        rawUrl = `https://vz-2fab5d8b-8fd.b-cdn.net/${videoId}/playlist.m3u8`;
+        console.log('Converted to direct CDN URL:', rawUrl);
+      }
+    }
+    
+    // For iOS, ensure we use HTTPS but don't add cache buster
     if (Platform.OS === 'ios' && rawUrl.startsWith('http:')) {
       rawUrl = rawUrl.replace('http:', 'https:');
     }
     
-    // Add cache buster
-    const processedUrl = rawUrl + '?cb=' + Date.now();
-    
     // Log the URL only once
-    console.log(`[${Platform.OS}] Processing video URL:`, processedUrl);
+    console.log(`[${Platform.OS}] Processing video URL:`, rawUrl);
     
     // If on iOS, show the HTTPS note only once
     if (Platform.OS === 'ios' && !hasShownIOSNote.current) {
@@ -979,9 +985,8 @@ export default function CourseVideoScreen() {
     }
     
     // Set the URL to state
-    setVideoUrl(processedUrl);
+    setVideoUrl(rawUrl);
     setVideoLoaded(false);
-    
   }, [chapterData]);
 
   // Function to render the video player or error message
@@ -999,6 +1004,7 @@ export default function CourseVideoScreen() {
       <VideoPlayer 
         videoUrl={videoUrl} 
         onComplete={updateProgress}
+        videoRef={videoRef}
       />
     );
   };
@@ -1089,20 +1095,53 @@ export default function CourseVideoScreen() {
     }
   };
 
-  // Hook to handle screen navigation
+  // Enhanced useFocusEffect to completely refresh the page and restart video
   useFocusEffect(
     useCallback(() => {
-      console.log('Screen focused - preparing video');
+      console.log('Screen gained focus - completely refreshing video content');
       
-      // When screen gains focus, reset retry count to enable fresh start
-      setRetryCount(0);
+      // Reset all state
       setVideoError(false);
+      setVideoLoaded(false);
+      hasShownCompletionAlert.current = false;
+      setChapterData(null); // Clear chapter data to force a complete refresh
       
+      // Reset all related references
+      currentVideoUrl.current = '';
+      hasLoggedVideoUrl.current = false;
+      
+      // Force reload chapter data with a slight delay
+      setTimeout(() => {
+        if (chapterId) {
+          console.log('Reloading chapter data and video from scratch');
+          fetchChapterData();
+        }
+      }, 300);
+      
+      // When user navigates away
       return () => {
-        console.log('Navigating away - stopping video playback');
-        // Any additional cleanup needed when screen loses focus
+        console.log('Screen lost focus - fully stopping and unloading video');
+        
+        // Fully stop and unload the video when leaving
+        if (videoRef.current) {
+          try {
+            // Chain these promises to ensure operations complete in sequence
+            (async () => {
+              try {
+                await videoRef.current.pauseAsync();
+                await videoRef.current.stopAsync();
+                await videoRef.current.unloadAsync();
+                console.log('Video successfully stopped and unloaded');
+              } catch (e) {
+                console.log('Error in video cleanup sequence:', e);
+              }
+            })();
+          } catch (error) {
+            console.log('Error initiating video cleanup:', error);
+          }
+        }
       };
-    }, [])
+    }, [chapterId])
   );
 
   // Reload data when screen gains focus
@@ -1215,6 +1254,22 @@ export default function CourseVideoScreen() {
         [{ text: "OK" }]
       );
     }
+  };
+
+  const navigateToChapter = (chapter) => {
+    if (videoRef.current) {
+      videoRef.current.stopAsync().catch(e => console.log('Error stopping video:', e));
+    }
+    
+    router.replace({
+      pathname: '/(tabs)/course_video',
+      params: {
+        courseId,
+        chapterId: chapter.chapterId,
+        enrollCourseId,
+        shouldRefresh: Date.now()
+      }
+    });
   };
 
   return (
