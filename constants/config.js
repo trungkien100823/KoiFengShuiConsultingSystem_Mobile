@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 //const DEV_API_URL = 'http://192.168.0.44:5261';
-const DEV_API_URL = 'http://192.168.1.24:5261';
+const DEV_API_URL = 'http://192.168.1.12:5261';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
