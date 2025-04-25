@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,8 @@ import {
   FlatList,
   KeyboardAvoidingView,
   StatusBar,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -117,6 +118,7 @@ export default function MenuScreen() {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
 
   const [tabDropdownVisible, setTabDropdownVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleImageError = (itemId) => {
     // Tăng số lần thử lại cho item này
@@ -1274,6 +1276,27 @@ export default function MenuScreen() {
     }
   };
 
+  // Add a refresh function that reloads your data
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    
+    // Call all your data fetching functions here
+    Promise.all([
+      fetchDestinyOptions(),
+      fetchColorOptions(),
+      fetchShapeOptions(),
+      // Add any other data fetching functions
+    ])
+    .then(() => {
+      console.log('All data refreshed successfully');
+      setRefreshing(false);
+    })
+    .catch(error => {
+      console.error('Error refreshing data:', error);
+      setRefreshing(false);
+    });
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['right', 'left']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
@@ -1447,6 +1470,16 @@ export default function MenuScreen() {
               <ScrollView 
                 style={styles.mainContent}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={['#8B0000']} // Android
+                    tintColor="#8B0000" // iOS
+                    title="Refreshing..." // iOS
+                    titleColor="#8B0000" // iOS
+                  />
+                }
               >
                 {isLoading ? (
                   <View style={styles.loadingContainer}>

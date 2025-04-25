@@ -12,7 +12,8 @@ import {
   ImageBackground,
   StatusBar,
   Animated,
-  Platform
+  Platform,
+  RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation } from 'expo-router';
@@ -42,6 +43,7 @@ export default function ConsultingScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const scrollX = React.useRef(new Animated.Value(0)).current;
   const [isFocused, setIsFocused] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Hàm xử lý tìm kiếm
   const handleSearch = (text) => {
@@ -183,6 +185,20 @@ export default function ConsultingScreen() {
     );
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    
+    fetchConsultants()
+      .then(() => {
+        console.log('Data refreshed successfully');
+        setRefreshing(false);
+      })
+      .catch(error => {
+        console.error('Error refreshing data:', error);
+        setRefreshing(false);
+      });
+  }, []);
+
   return (
     <ImageBackground 
       source={require('../../assets/images/feng shui.png')}
@@ -213,7 +229,17 @@ export default function ConsultingScreen() {
             </View>
           </View>
 
-          <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false} refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#8B0000']}
+              tintColor="#FFFFFF"
+              title="Refreshing..."
+              titleColor="#FFFFFF"
+              progressBackgroundColor="rgba(255, 255, 255, 0.2)"
+            />
+          }>
             {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
             {searchQuery.trim() !== '' && (
               <View style={styles.searchResultsContainer}>

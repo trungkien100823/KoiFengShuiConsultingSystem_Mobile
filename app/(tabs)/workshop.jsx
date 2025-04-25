@@ -13,7 +13,8 @@ import {
   Dimensions,
   ImageBackground,
   Platform,
-  StatusBar
+  StatusBar,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -201,6 +202,7 @@ export default function Workshop() {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [featuredWorkshop, setFeaturedWorkshop] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
 
   // Hàm xử lý tìm kiếm
@@ -349,6 +351,23 @@ export default function Workshop() {
     </TouchableOpacity>
   );
 
+  // Add this function to handle refresh
+  const handleRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    
+    // Call your existing fetchWorkshops function
+    fetchWorkshops()
+      .then(() => {
+        console.log('Workshop data refreshed successfully');
+      })
+      .catch(error => {
+        console.error('Error refreshing workshop data:', error);
+      })
+      .finally(() => {
+        setRefreshing(false);
+      });
+  }, []);
+
   return (
     <ImageBackground 
       source={require('../../assets/images/feng shui.png')} 
@@ -393,6 +412,17 @@ export default function Workshop() {
             <ScrollView 
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  colors={['#8B0000']} // Android
+                  tintColor="#FFFFFF" // iOS
+                  title="Đang làm mới..." // iOS
+                  titleColor="#FFFFFF" // iOS
+                  progressBackgroundColor="rgba(255, 255, 255, 0.2)" // Android
+                />
+              }
             >
               {/* Featured Workshop */}
               {!loading && featuredWorkshop && (

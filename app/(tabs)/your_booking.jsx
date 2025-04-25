@@ -13,6 +13,7 @@ import {
   Linking,
   StatusBar,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import axios from 'axios';
@@ -1306,6 +1307,17 @@ const YourBooking = () => {
               <Text style={styles.emptyText}>Bạn chưa có lịch đặt tư vấn nào. Vui lòng đặt lịch tư vấn mới để xem tại đây.</Text>
             </View>
           )}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refetch}
+              colors={['#8B0000']}
+              tintColor="#FFFFFF"
+              title="Đang làm mới..."
+              titleColor="#FFFFFF"
+              progressBackgroundColor="rgba(255, 255, 255, 0.2)"
+            />
+          }
         />
       )}
 

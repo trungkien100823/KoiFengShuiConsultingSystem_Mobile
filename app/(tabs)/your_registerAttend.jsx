@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   StatusBar,
   Dimensions,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +39,7 @@ const YourRegisterAttend = () => {
   const [statusTypes, setStatusTypes] = useState([
     { id: 'all', label: 'Tất cả' }
   ]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -465,6 +467,20 @@ const YourRegisterAttend = () => {
     }
   };
 
+  const handleRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      setTickets([]);
+      console.log('Refreshing ticket data...');
+      await fetchTickets(selectedStatus);
+    } catch (error) {
+      console.error('Error during refresh:', error);
+      Alert.alert('Thông báo', 'Đã có lỗi xảy ra khi làm mới dữ liệu');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [selectedStatus]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#8B0000" translucent={true} />
@@ -609,8 +625,17 @@ const YourRegisterAttend = () => {
               </TouchableOpacity>
             </View>
           }
-          refreshing={loading}
-          onRefresh={() => fetchTickets(selectedStatus)}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#8B0000']}
+              tintColor="#8B0000"
+              title="Đang làm mới..."
+              titleColor="#8B0000"
+              progressBackgroundColor="rgba(255, 255, 255, 0.8)"
+            />
+          }
         />
       )}
 

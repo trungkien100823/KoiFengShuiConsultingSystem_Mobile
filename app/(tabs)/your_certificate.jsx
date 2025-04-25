@@ -143,10 +143,18 @@ export default function YourCertificateScreen() {
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    checkAuthAndFetchCertificates();
-  };
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      setCertificates([]);
+      console.log('Refreshing certificates data...');
+      await checkAuthAndFetchCertificates();
+    } catch (error) {
+      console.error('Error during refresh:', error);
+      Alert.alert('Thông báo', 'Đã có lỗi xảy ra khi làm mới dữ liệu');
+      setRefreshing(false);
+    }
+  }, []);
 
   const filteredCertificates = certificates.filter(cert =>
     cert.courseName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -267,6 +275,9 @@ export default function YourCertificateScreen() {
             onRefresh={onRefresh}
             colors={['#8B0000']}
             tintColor="#8B0000"
+            title="Đang làm mới..."
+            titleColor="#8B0000"
+            progressBackgroundColor="rgba(255, 255, 255, 0.8)"
           />
         }
       >

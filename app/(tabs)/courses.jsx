@@ -14,7 +14,8 @@ import {
   Alert,
   Dimensions,
   ImageBackground,
-  Platform
+  Platform,
+  RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -38,6 +39,7 @@ export default function CoursesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [courseDetails, setCourseDetails] = useState(null);
   const [masterInfo, setMasterInfo] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Hàm xử lý tìm kiếm - cập nhật searchQuery ngay khi gõ
   const handleSearch = (text) => {
@@ -84,6 +86,45 @@ export default function CoursesScreen() {
       return { data: { isSuccess: false, data: [] } };
     }
   };
+
+  const handleRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    
+    const reloadData = async () => {
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
+          console.log('Token không tồn tại, chuyển hướng đến trang đăng nhập');
+          navigation.navigate('login');
+          return;
+        }
+
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        };
+
+        const [bestSellerRes, categoriesRes, topRatedRes] = await Promise.all([
+          fetchData(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.bestSellerCourse}`, config),
+          fetchData(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.getAllCategory}`, config),
+          fetchData(`${API_CONFIG.baseURL}${API_CONFIG.endpoints.sortByRating}`, config)
+        ]);
+
+        setFeaturedCourses(processApiResponse(bestSellerRes));
+        setCategories(processApiResponse(categoriesRes));
+        setTopCourses(processApiResponse(topRatedRes));
+        
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+      } finally {
+        setRefreshing(false);
+      }
+    };
+    
+    reloadData();
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -308,7 +349,20 @@ export default function CoursesScreen() {
               <ActivityIndicator size="large" color="#FF9999" />
             </View>
           ) : (
-            <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              style={styles.scrollContent} 
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  colors={['#8B0000']}
+                  tintColor="#FFFFFF"
+                  title="Đang làm mới..."
+                  titleColor="#FFFFFF"
+                />
+              }
+            >
               {/* Hiển thị kết quả tìm kiếm khi có từ khóa */}
               {searchQuery.trim() !== '' && (
                 <View style={styles.sectionContainer}>
