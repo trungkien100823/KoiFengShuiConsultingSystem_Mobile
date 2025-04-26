@@ -25,12 +25,10 @@ export default function PaymentWebView() {
   const webViewRef = useRef(null);
 
   const decodedPaymentUrl = decodeURIComponent(paymentUrl || '');
-  console.log('Loading payment URL:', decodedPaymentUrl);
+  
 
   const handleNavigationStateChange = async (navState) => {
     const currentUrl = navState.url.toLowerCase();
-    console.log('Current URL:', currentUrl);
-    console.log('OrderId received:', orderId);
     
     // Xử lý khi thanh toán thành công
     if (currentUrl.includes('success')) {
@@ -49,8 +47,7 @@ export default function PaymentWebView() {
           return;
         }
 
-        console.log('Đang gọi API cập nhật trạng thái đơn hàng:', `${API_CONFIG.baseURL}/api/Order/update-to-PENDINGCONFIRM/${orderId}`);
-
+        
         // Gọi API để cập nhật trạng thái đơn hàng
         const response = await axios.put(
           `${API_CONFIG.baseURL}/api/Order/update-to-PENDINGCONFIRM/${orderId}`,
@@ -63,10 +60,9 @@ export default function PaymentWebView() {
           }
         );
 
-        console.log('Kết quả cập nhật trạng thái:', response.data);
+        
 
         if (response.data && response.data.isSuccess) {
-          console.log('Đã cập nhật trạng thái đơn hàng thành công');
           
           // Đợi 5 giây rồi chuyển màn hình
           setTimeout(() => {
@@ -121,7 +117,6 @@ export default function PaymentWebView() {
     // Kiểm tra domain cho các URL khác
     const isAllowedDomain = allowedDomains.some(domain => url.includes(domain));
     if (!isAllowedDomain) {
-      console.log('Blocked URL:', url);
       return false;
     }
 

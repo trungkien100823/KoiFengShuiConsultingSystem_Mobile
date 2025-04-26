@@ -93,8 +93,6 @@ export default function OfflineBookingScreen() {
           }
 
           const allMasters = mastersResponse.data.data;
-          console.log('Tổng số master:', allMasters.length);
-          console.log('Danh sách master:', allMasters.map(m => m.masterId));
 
           // Bước 2: Lấy lịch trình của các master
           const schedulesResponse = await axios.get(
@@ -143,11 +141,6 @@ export default function OfflineBookingScreen() {
 
             // Log thông tin lịch theo ngày
             for (const [date, masters] of Object.entries(mastersByDatesMap)) {
-              console.log(`Ngày ${date}:`);
-              console.log(`- Số master có lịch Offline: ${masters.offline.size}`);
-              console.log(`- Số master có lịch Online: ${masters.online.size}`);
-              console.log(`- Tổng số master có lịch: ${masters.both.size}`);
-              console.log(`- Master có lịch: `, [...masters.both]);
             }
 
             // Kiểm tra từng ngày và đánh dấu ngày không khả dụng nếu tất cả master đều có lịch
@@ -155,9 +148,6 @@ export default function OfflineBookingScreen() {
               // Chỉ khi tất cả master đều có lịch vào ngày này
               if (masters.both.size === allMasters.length) {
                 unavailableDatesMap[date] = true;
-                console.log(`Ngày ${date} bị bôi đen vì tất cả ${masters.both.size}/${allMasters.length} master đều có lịch`);
-              } else {
-                console.log(`Ngày ${date} không bị bôi đen vì chỉ có ${masters.both.size}/${allMasters.length} master có lịch`);
               }
             }
 

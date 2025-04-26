@@ -67,7 +67,6 @@ export default function ConsultingScreen() {
       const response = await fetch(`${API_CONFIG.baseURL}/api/Master/get-all`);
       
       const responseData = await response.json();
-      console.log("API Response:", responseData);
       
       if (responseData.isSuccess && Array.isArray(responseData.data)) {
         setConsultants(responseData.data);
@@ -85,7 +84,6 @@ export default function ConsultingScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      console.log('Screen focused - fetching consultants...');
       let isActive = true;
 
       const loadData = async () => {

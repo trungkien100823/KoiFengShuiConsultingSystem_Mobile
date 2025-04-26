@@ -147,7 +147,6 @@ export default function MenuScreen() {
       
       // Sử dụng đúng URL API mà bạn đã cung cấp
       const apiUrl = `${API_CONFIG.baseURL}/api/KoiVariety/get-all-elements`;
-      console.log(`Gọi API elements từ: ${apiUrl}`);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -167,7 +166,6 @@ export default function MenuScreen() {
         }
         
         const responseText = await response.text();
-        console.log('Dữ liệu trả về từ API:', responseText);
         
         const elements = JSON.parse(responseText);
         
@@ -208,7 +206,6 @@ export default function MenuScreen() {
     try {
       setFetchingFilterOptions(true);
       const apiUrl = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.colorsByElement.replace('{element}', element)}`;
-      console.log(`Gọi API màu sắc theo mệnh từ: ${apiUrl}`);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -226,9 +223,7 @@ export default function MenuScreen() {
         throw new Error(`API trả về mã lỗi ${response.status}`);
       }
       
-      const responseText = await response.text();
-      console.log('Dữ liệu màu sắc theo mệnh:', responseText);
-      
+      const responseText = await response.text();      
       const colors = JSON.parse(responseText);
       
       if (colors && Array.isArray(colors) && colors.length > 0) {
@@ -268,9 +263,7 @@ export default function MenuScreen() {
       setApiErrors(prev => ({ ...prev, color: false }));
       
       // Sử dụng đúng URL API mà bạn đã cung cấp
-      const apiUrl = `${API_CONFIG.baseURL}/api/KoiVariety/get-all-colors`;
-      console.log(`Gọi API màu sắc từ: ${apiUrl}`);
-      
+      const apiUrl = `${API_CONFIG.baseURL}/api/KoiVariety/get-all-colors`;      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
@@ -288,9 +281,7 @@ export default function MenuScreen() {
           throw new Error(`API trả về mã lỗi ${response.status}`);
         }
         
-        const responseText = await response.text();
-        console.log('Dữ liệu trả về từ API:', responseText);
-        
+        const responseText = await response.text();        
         const data = JSON.parse(responseText);
         
         if (data && Array.isArray(data) && data.length > 0) {
@@ -646,7 +637,6 @@ export default function MenuScreen() {
         
         // Lấy dữ liệu từ userKoi API cho tab Đề xuất
         const userKoiData = await koiAPI.getUserKoi();
-        console.log('Đề xuất: Tải dữ liệu từ userKoi API khi chuyển tab');
         setDisplayData(userKoiData);
       } else if (tab === 'Koi') {
         // Nếu trước đó đang ở tab Pond, reset filter màu sắc và mệnh về mặc định
@@ -717,9 +707,7 @@ export default function MenuScreen() {
         }
       });
       
-      const responseText = await response.text();
-      console.log('API Response:', responseText);
-      
+      const responseText = await response.text();      
       let responseData;
       try {
         responseData = JSON.parse(responseText);
@@ -776,18 +764,14 @@ export default function MenuScreen() {
       // Chuyển đổi mảng màu sắc thành chuỗi phân cách bằng dấu phẩy
       const colorEnums = colors.map(color => getOriginalColorEnum(color)).join(',');
       const apiUrl = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.compatibleElements}?colors=${colorEnums}`;
-      
-      console.log(`Gọi API tương thích màu sắc-mệnh: ${apiUrl}`);
-      
+            
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
         throw new Error(`API responded with status ${response.status}`);
       }
       
-      const data = await response.json();
-      console.log('Kết quả tương thích màu sắc-mệnh:', data);
-      
+      const data = await response.json();      
       if (data) {
         if (data.elements && Array.isArray(data.elements)) {
           setSelectedCompatibleElements(data.elements);
@@ -829,16 +813,12 @@ export default function MenuScreen() {
       
       // Nếu là tab Đề xuất, xử lý khác biệt
       if (selectedTab === 'Recommendation') {
-        console.log('fetchFilteredKoi được gọi trong tab Đề xuất');
-        console.log('filterOptions.color:', filterOptions.color);
-        console.log('multipleColors:', multipleColors);
+
         
         // Nếu chọn "Tất cả" hoặc không chọn màu nào
         if (filterOptions.color === 'Tất cả' || multipleColors.length === 0) {
           // Sử dụng API userKoi để lấy dữ liệu đề xuất mặc định
-          console.log('Gọi API userKoi vì chọn "Tất cả" hoặc không có màu nào được chọn');
           const userKoiData = await koiAPI.getUserKoi();
-          console.log('Đề xuất: Tải lại dữ liệu từ userKoi API');
           setDisplayData(userKoiData);
           return; // Thoát khỏi hàm ngay sau khi setDisplayData
         } 
@@ -861,23 +841,18 @@ export default function MenuScreen() {
             selectedColors = selectedColors.filter(color => color);
             
             if (selectedColors.length === 0) {
-              console.log('Đề xuất: Không có màu hợp lệ, sử dụng userKoi API');
               const userKoiData = await koiAPI.getUserKoi();
               setDisplayData(userKoiData);
               return;
             }
             
-            console.log(`Đề xuất: Tìm theo ${selectedColors.length} màu:`, selectedColors);
             
             // Sử dụng hàm fetchKoiByColor mới với mảng màu
             const result = await fetchKoiByColor(selectedColors);
-            console.log('Kết quả trả về từ fetchKoiByColor:', result);
             
             if (result.isSuccess && result.data && result.data.length > 0) {
-              console.log(`Tìm thấy ${result.data.length} cá Koi với các màu đã chọn`);
               setDisplayData(result.data);
             } else {
-              console.log('Không tìm thấy cá theo màu');
               // Không gọi lại API userKoi nữa, chỉ hiển thị mảng rỗng
               setDisplayData([]);
               
@@ -888,7 +863,6 @@ export default function MenuScreen() {
               );
             }
           } catch (colorError) {
-            console.error('Lỗi khi lọc cá theo màu:', colorError);
             
             // Không gọi API userKoi, chỉ hiển thị mảng rỗng
             setDisplayData([]);
@@ -932,7 +906,6 @@ export default function MenuScreen() {
           url += '?' + params.toString();
         }
         
-        console.log('Gọi API lọc cá Koi:', url);
         
         const response = await fetch(url, {
           headers: {
@@ -1074,13 +1047,11 @@ export default function MenuScreen() {
     if (selectedTab === 'Recommendation') {
       // Kiểm tra lại nếu đã chọn "Tất cả" (không có màu nào được chọn)
       if (multipleColors.length === 0) {
-        console.log('Đề xuất: Chọn "Tất cả" - gọi API userKoi');
         // Gọi trực tiếp hàm để lấy dữ liệu từ userKoi
         const fetchRecommendation = async () => {
           try {
             setIsLoading(true);
             const data = await koiAPI.getUserKoi();
-            console.log('Đề xuất: Tải lại dữ liệu từ userKoi API (chọn Tất cả)');
             setDisplayData(data);
           } catch (error) {
             console.error('Error fetching recommendation:', error);
@@ -1115,7 +1086,6 @@ export default function MenuScreen() {
           setIsLoading(true);
           // Lấy dữ liệu từ userKoi API
           const data = await koiAPI.getUserKoi();
-          console.log('Đề xuất: Tải dữ liệu từ userKoi API khi khởi tạo');
           setDisplayData(data);
         } catch (error) {
           console.error('Error fetching recommendation:', error);
@@ -1143,7 +1113,6 @@ export default function MenuScreen() {
   // Thêm useEffect cho navigation focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('Màn hình Menu được focus - Tải lại dữ liệu');
       
       // Re-fetch dữ liệu dựa trên tab hiện tại
       if (selectedTab === 'Recommendation') {
@@ -1153,7 +1122,6 @@ export default function MenuScreen() {
             setIsLoading(true);
             // Lấy dữ liệu từ userKoi API
             const data = await koiAPI.getUserKoi();
-            console.log('Đề xuất: Tải lại dữ liệu từ userKoi API khi screen focus');
             setDisplayData(data);
           } catch (error) {
             console.error('Error fetching recommendation:', error);

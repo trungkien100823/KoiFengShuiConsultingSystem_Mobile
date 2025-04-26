@@ -324,7 +324,6 @@ export default function Workshop() {
   // Refresh data khi focus vào màn hình
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('Màn hình được focus - Tải lại dữ liệu');
       fetchWorkshops();
     });
 

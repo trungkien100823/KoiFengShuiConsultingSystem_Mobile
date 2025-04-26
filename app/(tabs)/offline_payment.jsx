@@ -116,10 +116,6 @@ export default function OfflinePaymentScreen() {
     try {
       const paymentPhase = params.status === 'VerifiedOTP' ? 1 : 2;
       
-      console.log('Payment params:', params);
-      console.log('ServiceId:', params.serviceId);
-      console.log('ServiceType:', params.serviceType);
-      console.log('PaymentPhase:', paymentPhase);
 
       // Xác định loại dịch vụ từ enum
       const serviceTypeEnum = 
@@ -127,16 +123,16 @@ export default function OfflinePaymentScreen() {
           ? paymentService.SERVICE_TYPES.BOOKING_OFFLINE 
           : paymentService.SERVICE_TYPES.BOOKING_ONLINE;
       
-      console.log('ServiceTypeEnum:', serviceTypeEnum);
+      
       
       // Quay lại cách dùng createPaymentUrl nhưng KHÔNG truyền tham số options
-      console.log('Sử dụng createPaymentUrl với options trống');
+      
       const result = await paymentService.createPaymentUrl(
         params.serviceId,
         serviceTypeEnum
       );
       
-      console.log('Payment result:', result);
+      
       
       if (result.success) {
         // Kiểm tra và sử dụng kết quả
@@ -144,8 +140,6 @@ export default function OfflinePaymentScreen() {
           throw new Error('Không nhận được URL thanh toán từ API');
         }
         
-        console.log('Payment URL:', result.paymentUrl);
-        console.log('Order ID:', result.orderId);
         
         // Chuyển hướng đến trang thanh toán
         router.push({

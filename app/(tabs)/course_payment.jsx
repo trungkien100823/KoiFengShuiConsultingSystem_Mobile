@@ -30,9 +30,6 @@ const scale = size => Math.round(BASE_SIZE * (size / 375));
 export default function CoursePaymentScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
-  
-  // Log để debug
-  console.log('Payment Screen Params:', params);
 
   // Payment method state
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('VietQR');
@@ -51,13 +48,8 @@ export default function CoursePaymentScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('Payment screen is focused - re-fetching data');
       setIsLoadingUser(true);
       fetchCurrentUser();
-      return () => {
-        // Cleanup khi màn hình mất focus
-        console.log('Payment screen lost focus');
-      };
     }, [])
   );
 

@@ -90,7 +90,7 @@ export default function CourseChapterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const courseId = params?.courseId;
-  console.log('CourseChapterScreen - Received params:', params);
+  
   
   const [courseInfo, setCourseInfo] = useState({
     courseName: '',
@@ -134,7 +134,6 @@ export default function CourseChapterScreen() {
   const loadCompletionData = async () => {
     const currentTime = Date.now();
     if (currentTime - lastLoadTime.current < 3000) {
-      console.log('Đã tải dữ liệu tiến độ gần đây, bỏ qua');
       return;
     }
     lastLoadTime.current = currentTime;
@@ -142,14 +141,14 @@ export default function CourseChapterScreen() {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
-        console.log('Không tìm thấy token, không thể tải dữ liệu tiến độ');
+        
         return;
       }
 
       // Lấy enrollCourseId từ API hoặc state
       const enrollCourseId = courseInfo.enrollCourseId;
       if (!enrollCourseId) {
-        console.log('Không tìm thấy enrollCourseId, không thể tải dữ liệu tiến độ');
+        
         return;
       }
 
@@ -183,7 +182,7 @@ export default function CourseChapterScreen() {
   // Hàm tải dữ liệu hoàn thành từ bộ nhớ cục bộ
   const loadLocalCompletionData = async () => {
     try {
-      console.log('Đang tải dữ liệu hoàn thành từ bộ nhớ cục bộ');
+      
       
       // Load completed chapters
       const savedChapters = await AsyncStorage.getItem('completedLessons');
@@ -220,7 +219,7 @@ export default function CourseChapterScreen() {
         );
         
         if (allCompleted) {
-          console.log('Tất cả chapter đã hoàn thành, tự động cập nhật tiến độ 100%');
+          
           setCurrentProgress(100);
           setCourseCompleted(true);
           
@@ -267,7 +266,7 @@ export default function CourseChapterScreen() {
         if (!isActive) return;
         
         if (!courseId) {
-          console.log('CourseChapterScreen - No courseId available');
+          
           setIsLoading(false);
           return;
         }
@@ -281,7 +280,7 @@ export default function CourseChapterScreen() {
             return;
           }
 
-          console.log('CourseChapterScreen - Fetching course details for courseId:', courseId);
+          
           
           // Gọi API lấy thông tin khóa học
           const courseResponse = await axios.get(
@@ -294,11 +293,11 @@ export default function CourseChapterScreen() {
             }
           );
 
-          console.log('Kết quả API get-details-for-mobile:', JSON.stringify(courseResponse.data, null, 2));
+         
 
           if (courseResponse.data?.isSuccess && courseResponse.data.data) {
             const courseData = courseResponse.data.data;
-            console.log('EnrollCourseId từ API:', courseData.enrollCourseId);
+            
 
             // Lưu thông tin khóa học vào state với kiểm tra null/undefined
             setCourseInfo({
@@ -318,18 +317,17 @@ export default function CourseChapterScreen() {
             // Kiểm tra đăng ký khóa học
             const hasEnrollCourseId = !!courseData.enrollCourseId;
             setIsRegistered(hasEnrollCourseId);
-            console.log('Trạng thái đăng ký:', hasEnrollCourseId ? 'Đã đăng ký' : 'Chưa đăng ký');
+            
 
             if (hasEnrollCourseId) {
-              console.log('Người dùng đã đăng ký khóa học, lấy danh sách enrollchapters');
               await fetchChapters(courseId, token, courseData.enrollCourseId);
             } else {
-              console.log('Người dùng chưa đăng ký khóa học này');
+              Alert.alert('Người dùng chưa đăng ký khóa học này');
               setChapters([]);
               setCurrentProgress(0);
             }
           } else {
-            console.log('Không lấy được thông tin khóa học:', courseResponse.data?.message);
+            
             Alert.alert(
               "Lỗi",
               "Không thể tải thông tin khóa học. Vui lòng thử lại sau.",
@@ -368,11 +366,11 @@ export default function CourseChapterScreen() {
   const fetchChapters = async (courseId, token, enrollCourseId) => {
     try {
       if (!enrollCourseId) {
-        console.log('fetchChapters - Không có enrollCourseId, không thể lấy danh sách chapter');
+        
         return false;
       }
 
-      console.log('Đang gọi API get-enroll-chapters-by với enrollCourseId:', enrollCourseId);
+      
       const enrollChaptersResponse = await axios.get(
         `${API_CONFIG.baseURL}/api/RegisterCourse/get-enroll-chapters-by/${enrollCourseId}`,
         {
@@ -385,7 +383,7 @@ export default function CourseChapterScreen() {
       
       if (enrollChaptersResponse.data?.isSuccess && enrollChaptersResponse.data.data) {
         const enrollChapters = enrollChaptersResponse.data.data;
-        console.log('Kết quả API enrollChapters:', enrollChaptersResponse.data);
+        
 
         if (Array.isArray(enrollChapters)) {
           const formattedChapters = enrollChapters.map(enrollChapter => ({
@@ -401,7 +399,7 @@ export default function CourseChapterScreen() {
           // Sắp xếp chapter theo orderNumber
           formattedChapters.sort((a, b) => (a.orderNumber || 0) - (b.orderNumber || 0));
 
-          console.log('Danh sách chapter đã format:', formattedChapters);
+          
           setChapters(formattedChapters);
 
           // Tính toán tiến độ dựa trên số chapter đã hoàn thành
@@ -413,7 +411,6 @@ export default function CourseChapterScreen() {
           
           return true;
         } else {
-          console.log('Dữ liệu chapter không phải là mảng:', enrollChapters);
           return false;
         }
       }
@@ -447,7 +444,7 @@ export default function CourseChapterScreen() {
           return;
         }
         
-        console.log('Kiểm tra đăng ký khóa học bằng chapterId đầu tiên:', firstChapterId);
+        
         
         try {
           // Gọi API lấy thông tin chapter để kiểm tra đăng ký
@@ -487,7 +484,7 @@ export default function CourseChapterScreen() {
       const allDone = chapters.every(chapter => chapter.status === "Done");
       
       if (allDone) {
-        console.log('Tất cả chapter có status = "Done", tự động cập nhật tiến độ 100%');
+        
         
         // Cập nhật state
         setCurrentProgress(100);
@@ -510,8 +507,6 @@ export default function CourseChapterScreen() {
               percentage: 100
             };
             await AsyncStorage.setItem('completedCourses', JSON.stringify(coursesObj));
-            
-            console.log('Đã lưu trạng thái hoàn thành khóa học vào AsyncStorage');
           } catch (error) {
             console.error('Lỗi khi lưu trạng thái hoàn thành:', error);
           }
@@ -523,11 +518,10 @@ export default function CourseChapterScreen() {
   // Sửa lại handleChapterClick để lấy chapterId từ chapter được chọn và gọi API get-chapter trước khi chuyển màn hình
   const handleChapterClick = async (chapter) => {
     if (!chapter || !chapter.chapterId) {
-      console.log('Chapter không hợp lệ');
       return;
     }
 
-    console.log('Người dùng nhấn vào chapter:', chapter);
+    
 
     try {
       const token = await AsyncStorage.getItem('accessToken');
@@ -548,7 +542,6 @@ export default function CourseChapterScreen() {
 
       // Gọi API get-chapter để lấy thông tin video
       try {
-        console.log('Đang gọi API get-chapter với chapterId:', chapter.chapterId);
         const chapterResponse = await axios.get(
           `${API_CONFIG.baseURL}/api/Chapter/get-chapter/${chapter.chapterId}`,
           {
@@ -558,8 +551,6 @@ export default function CourseChapterScreen() {
             }
           }
         );
-
-        console.log('Kết quả API get-chapter:', chapterResponse.data);
 
         if (chapterResponse.data?.isSuccess && chapterResponse.data.data) {
           const chapterData = chapterResponse.data.data;
@@ -624,7 +615,7 @@ export default function CourseChapterScreen() {
       })();
     }
     
-    console.log('Chuyển hướng đến lesson với enrollCourseId:', enrollCourseId);
+    
     
     router.push({
       pathname: '/(tabs)/course_video',
@@ -656,7 +647,7 @@ export default function CourseChapterScreen() {
       return;
     }
     
-    console.log('Navigating to quiz for course:', courseId);
+    
     
     router.push({
       pathname: '/(tabs)/course_quiz_start',
@@ -673,12 +664,6 @@ export default function CourseChapterScreen() {
     // Chỉ trả về true khi TẤT CẢ chapter có status là Done
     const allDone = chapters.every(chapter => chapter.status === EnrollChapterStatus.Done);
     
-    console.log('Kiểm tra hoàn thành khóa học:', {
-      allDone,
-      currentProgress,
-      chapters: chapters.map(c => ({id: c.chapterId, status: c.status}))
-    });
-    
     return allDone;
   };
 
@@ -693,10 +678,6 @@ export default function CourseChapterScreen() {
           !allChaptersCompleted && styles.disabledExamContainer
         ]}
         onPress={() => {
-          console.log('Button Bài kiểm tra cuối khóa được nhấn');
-          console.log('Trạng thái đăng ký:', isRegistered);
-          console.log('Đã hoàn thành tất cả chương:', allChaptersCompleted);
-          console.log('Phần trăm từ API:', currentProgress);
           
           if (!isRegistered) {
             Alert.alert(
@@ -893,7 +874,6 @@ export default function CourseChapterScreen() {
       );
     });
   }, [chapters, isRegistered, handleChapterClick]);
-  console.log(chapters);
   // Sửa lại phần hiển thị thông tin khóa học
   const renderCourseInfo = () => {
     return (

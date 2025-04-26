@@ -131,8 +131,6 @@ export default function YourOrderScreen() {
   const handlePayment = async (order) => {
     try {
       // Log để debug
-      console.log('Order object received:', order);
-      console.log('Order ID:', order.id);
 
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
@@ -158,8 +156,6 @@ export default function YourOrderScreen() {
         
         if (fullOrderInfo && fullOrderInfo.paymentReference) {
           // Log toàn bộ thông tin order để debug
-          console.log('Full order info:', fullOrderInfo);
-          console.log('Order ID to be passed:', fullOrderInfo.orderId);
           
           router.push({
             pathname: '/payment_webview',

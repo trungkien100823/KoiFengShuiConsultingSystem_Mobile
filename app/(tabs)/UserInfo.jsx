@@ -33,7 +33,6 @@ export default function UserInfo() {
     const checkForUpdates = async () => {
       const profileUpdated = await AsyncStorage.getItem('profileUpdated');
       if (profileUpdated === 'true') {
-        console.log('Profile was updated, refreshing user info');
         loadUserInfo();
       }
     };
@@ -73,7 +72,6 @@ export default function UserInfo() {
         }
       );
       
-      console.log('User data response:', response.data);
       
       if (response.data) {
         const userData = response.data;

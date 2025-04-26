@@ -3,28 +3,42 @@ import { API_CONFIG } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const authAPI = {
-  register: async (registerData) => {
+  register: async (formData) => {
     try {
-      console.log('Register data:', registerData);
+      console.log('Register formData:', formData);
+      
+      const config = {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json',
+        },
+        timeout: 60000,
+      };
+      
+      console.log('Register request to:', `${API_CONFIG.baseURL}/api/Account/register`);
+      console.log('Register config:', config);
       
       const response = await axios.post(
-        `${API_CONFIG.baseURL}${API_CONFIG.endpoints.register}`,
-        registerData
+        `${API_CONFIG.baseURL}/api/Account/register`, 
+        formData,
+        config
       );
-
-      console.log('Register response:', response.data);
       
-      if (response.data) {
-        return {
-          success: true,
-          accessToken: response.data,
-          message: 'Đăng ký thành công!'
-        };
-      }
-      throw new Error('Đăng ký thất bại');
+      console.log('Register response status:', response.status);
+      return response;
     } catch (error) {
-      console.error('Register error:', error);
-      throw error.response?.data || error.message;
+      console.error('Register error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack?.substring(0, 150),
+        response: error.response ? {
+          status: error.response.status,
+          data: error.response.data
+        } : null,
+        request: error.request ? 'Request made but no response received' : null
+      });
+      
+      throw error;
     }
   },
 

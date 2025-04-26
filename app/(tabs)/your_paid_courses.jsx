@@ -53,9 +53,9 @@ export default function YourPaidCoursesScreen() {
         return;
       }
 
-      console.log('Fetching paid courses...');
+      
       const apiUrl = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getPaidCourses}`;
-      console.log('API URL:', apiUrl);
+      
       
       // Gọi API để lấy danh sách khóa học đã mua
       const coursesResponse = await axios.get(
@@ -67,22 +67,11 @@ export default function YourPaidCoursesScreen() {
         }
       );
       
-      console.log('Status code:', coursesResponse.status);
-      console.log('Course response data:', coursesResponse.data);
 
       if (coursesResponse.data && coursesResponse.data.isSuccess) {
         const courses = coursesResponse.data.data || [];
-        console.log('Courses found:', courses.length);
-        console.log('Course details:', courses);
         
         setPaidCourses(courses);
-        
-        if (courses.length === 0) {
-          console.log('API trả về thành công nhưng không có khóa học');
-        }
-      } else {
-        console.log('API trả về không thành công:', coursesResponse.data);
-        setPaidCourses([]);
       }
     } catch (error) {
       console.error('Lỗi khi tải danh sách khóa học:', error);
@@ -101,8 +90,6 @@ export default function YourPaidCoursesScreen() {
           'Thông báo',
           'Không thể tải danh sách khóa học. Vui lòng thử lại sau.'
         );
-      } else {
-        console.log('Không tìm thấy khóa học (404), hiển thị danh sách trống');
       }
       
       // Hiển thị danh sách trống trong trường hợp lỗi
@@ -121,12 +108,6 @@ export default function YourPaidCoursesScreen() {
   const handleCoursePress = (course) => {
     // Lấy trạng thái thanh toán từ khóa học
     const paymentStatus = course.paymentStatus || 'Paid';
-    
-    console.log('handleCoursePress called with:', {
-      courseId: course.courseId,
-      courseName: course.courseName,
-      paymentStatus: paymentStatus
-    });
     
     // Nếu đã thanh toán, chuyển đến trang chi tiết khóa học
     if (paymentStatus === 'Paid') {
@@ -159,12 +140,7 @@ export default function YourPaidCoursesScreen() {
       // Lấy trạng thái thanh toán từ course
       const paymentStatus = course.paymentStatus || '';
       
-      console.log('cancelCourse called with:', {
-        courseId: course.courseId,
-        courseName: course.courseName,
-        paymentStatus: paymentStatus,
-        orderId: course.orderId
-      });
+     
       
       // Kiểm tra trạng thái có thể hủy không
       const canCancel = paymentStatus === 'Pending';
@@ -203,12 +179,12 @@ export default function YourPaidCoursesScreen() {
                   return;
                 }
                 
-                console.log('Hủy khóa học với courseId:', course.courseId);
+                
                 
                 try {
                   // Gọi API hủy đơn hàng theo endpoint [HttpPut("cancel/{id}")]
                   const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.cancelOrder.replace('{id}', course.courseId)}`;
-                  console.log('Gọi API URL:', url);
+                  
                   
                   const cancelResponse = await axios.put(
                     url,
@@ -224,7 +200,7 @@ export default function YourPaidCoursesScreen() {
                     }
                   );
                   
-                  console.log('Cancel course response:', cancelResponse.data);
+                  
                   
                   if (cancelResponse.data && cancelResponse.data.isSuccess) {
                     setTimeout(() => {
