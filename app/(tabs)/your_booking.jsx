@@ -669,18 +669,32 @@ const YourBooking = () => {
           return;
         }
 
-        
-
-        router.push({
-          pathname: '/(tabs)/offline_payment',
-          params: {
-            serviceId: booking.id,
-            packageName: bookingDetail.packageName || 'Gói tư vấn phong thủy',
-            selectedPrice: selectedPrice,
-            status: booking.status.trim(),
-            serviceType: booking.type === 'Offline' ? 'BookingOffline' : 'BookingOnline'
-          }
-        });
+        // Navigate to different payment pages based on booking type
+        if (booking.type === 'Online') {
+          router.replace({
+            pathname: '/(tabs)/online_checkout',
+            params: {
+              bookingId: booking.id,
+              packageName: bookingDetail.packageName || 'Gói tư vấn phong thủy online',
+              selectedPrice: selectedPrice,
+              status: booking.status.trim(),
+              serviceType: 'BookingOnline',
+              returnTo: 'your_booking'
+            }
+          });
+        } else {
+          router.replace({
+            pathname: '/(tabs)/offline_payment',
+            params: {
+              serviceId: booking.id,
+              packageName: bookingDetail.packageName || 'Gói tư vấn phong thủy',
+              selectedPrice: selectedPrice,
+              status: booking.status.trim(),
+              serviceType: 'BookingOffline',
+              returnTo: 'your_booking'
+            }
+          });
+        }
       } else {
         throw new Error('Không thể lấy thông tin chi tiết booking');
       }
