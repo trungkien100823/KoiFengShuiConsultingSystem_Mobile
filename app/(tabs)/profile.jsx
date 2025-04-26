@@ -70,8 +70,6 @@ export default function ProfileScreen() {
             }
           );
           
-          console.log('User data response:', response.data);
-          
           if (response.data && response.data.fullName) {
             setUser(response.data);
           } else if (response.data && response.data.data && response.data.data.fullName) {
@@ -85,7 +83,6 @@ export default function ProfileScreen() {
           console.error('Error fetching user profile:', error);
           
           if (error.response && error.response.data && error.response.data.fullName) {
-            console.log('Found user data in error response, using it anyway');
             setUser(error.response.data);
           }
         } finally {
@@ -198,7 +195,7 @@ export default function ProfileScreen() {
             {user ? (
               <View style={styles.userInfoContainer}>
                 <Image 
-                  source={user.avatar || require('../../assets/images/default-avatar.png')} 
+                  source={user.imageUrl ? { uri: user.imageUrl } : require('../../assets/images/default-avatar.png')} 
                   style={styles.avatar} 
                 />
                 <View style={styles.userInfoTextContainer}>

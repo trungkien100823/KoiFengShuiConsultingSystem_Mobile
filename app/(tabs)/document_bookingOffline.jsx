@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
-  ImageBackground,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,9 +18,9 @@ import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { getAuthToken } from '../../services/authService';
 import { WebView } from 'react-native-webview';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const windowWidth = Dimensions.get('window').width;
-const windowHeight = Dimensions.get('window').height;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const DocumentBookingOffline = () => {
   const router = useRouter();
@@ -34,6 +35,7 @@ const DocumentBookingOffline = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingDetailVisible, setBookingDetailVisible] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (params.id && isFirstLoad) {
@@ -53,6 +55,23 @@ const DocumentBookingOffline = () => {
   useEffect(() => {
     console.log('Current document status:', bookingStatus);
   }, [bookingStatus]);
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchBookingData();
+      if (bookingStatus && documentUrl) {
+        Alert.alert("Thành công", "Đã cập nhật dữ liệu mới");
+      }
+    } catch (error) {
+      if (!bookingStatus || !documentUrl) {
+        console.error('Error refreshing data:', error);
+        Alert.alert("Lỗi", "Không thể cập nhật dữ liệu. Vui lòng thử lại sau.");
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const fetchBookingData = async () => {
     try {
@@ -402,8 +421,13 @@ const DocumentBookingOffline = () => {
     if (!documentUrl) {
       return (
         <View style={styles.noDocumentContainer}>
-          <Ionicons name="document-outline" size={60} color="#666" />
-          <Text style={styles.noDocumentText}>Không tìm thấy hồ sơ</Text>
+          <View style={styles.noDocumentIconContainer}>
+            <Ionicons name="document-outline" size={64} color="#8B0000" />
+          </View>
+          <Text style={styles.noDocumentTitle}>Không tìm thấy hồ sơ</Text>
+          <Text style={styles.noDocumentSubtitle}>
+            Vui lòng thử lại sau hoặc liên hệ với chúng tôi để được hỗ trợ
+          </Text>
         </View>
       );
     }
@@ -539,37 +563,55 @@ const DocumentBookingOffline = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ImageBackground
-        source={require('../../assets/images/feng shui.png')} 
-        style={styles.backgroundImage}
-        resizeMode="cover"
+      <StatusBar barStyle="light-content" backgroundColor="#590000" />
+      
+      {/* Enhanced Gradient Header */}
+      <LinearGradient
+        colors={['#590000', '#8B0000', '#AA1E23']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)/your_booking')}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
-            <Text style={styles.backButtonText}>Quay lại</Text>
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView style={styles.safeAreaHeader}>
+          <View style={styles.headerContainer}>
+            <View style={styles.headerContent}>
+              <TouchableOpacity 
+                style={styles.backButtonContainer}
+                onPress={() => router.push('/(tabs)/your_booking')}
+              >
+                <View style={styles.backButtonInner}>
+                  <Ionicons name="chevron-back" size={24} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+              
+              <View style={styles.titleContainer}>
+                <Text style={styles.headerTitle}>Hồ sơ phong thủy</Text>
+                <Text style={styles.headerSubtitle}>Xem và xác nhận hồ sơ</Text>
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
-        {/* Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={styles.pageTitle}>Hồ sơ phong thủy</Text>
-        </View>
-
-        {/* Document Display Section */}
-        <View style={styles.documentContainer}>
+      {/* Main Content */}
+      <View style={styles.mainContent}>
+        {/* Document Display */}
+        <View style={styles.documentWrapper}>
           {renderDocument()}
         </View>
 
         {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          {renderActionButtons()}
-        </View>
-      </ImageBackground>
+        {renderActionButtons() && (
+          <View style={styles.actionContainer}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.9)', '#fff']}
+              style={styles.actionGradient}
+            >
+              {renderActionButtons()}
+            </LinearGradient>
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 };
@@ -577,113 +619,178 @@ const DocumentBookingOffline = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
   },
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-    backgroundColor: 'rgba(139, 0, 0, 0.3)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 8,
-    borderRadius: 20,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#FFF',
-    marginLeft: 5,
-  },
-  titleSection: {
-    padding: 20,
-    backgroundColor: 'rgba(139, 0, 0, 0.3)',
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  documentContainer: {
-    flex: 1,
-    margin: 0,
-    padding: 0,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    overflow: 'hidden',
+  headerGradient: {
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 8,
+  },
+  safeAreaHeader: {
+    backgroundColor: 'transparent',
+  },
+  headerContainer: {
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+  },
+  headerContent: {
+    height: Platform.OS === 'ios' ? 88 : 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  backButtonContainer: {
+    marginRight: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  backButtonInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  titleContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  mainContent: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  documentWrapper: {
+    flex: 1,
+    margin: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  webViewContainer: {
+    flex: 1,
+    backgroundColor: '#FFF',
+  },
+  webView: {
+    flex: 1,
+  },
+  webViewLoadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 20,
   },
   loadingText: {
-    marginTop: 15,
+    marginTop: 12,
     fontSize: 16,
-    color: '#8B0000',
-    fontWeight: '600',
+    color: '#666',
+    textAlign: 'center',
   },
   noDocumentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 20,
   },
-  noDocumentText: {
+  noDocumentIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(139, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  noDocumentTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  noDocumentSubtitle: {
     fontSize: 16,
-    color: '#8B0000',
-    marginTop: 10,
-    fontWeight: '600',
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
   },
-  buttonContainer: {
-    padding: 15,
-    backgroundColor: 'rgba(139, 0, 0, 0.3)',
-    backdropFilter: 'blur(10px)',
+  actionContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  actionGradient: {
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 15,
+    gap: 12,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 15,
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  rejectButton: {
-    backgroundColor: '#8B0000',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   approveButton: {
-    backgroundColor: '#006400',
+    backgroundColor: '#059669',
+  },
+  rejectButton: {
+    backgroundColor: '#DC2626',
   },
   buttonIcon: {
     marginRight: 8,
@@ -692,35 +799,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  webView: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    margin: 0,
-    padding: 0,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  webViewContainer: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    margin: 0,
-    padding: 0,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  webViewLoadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
 });
 

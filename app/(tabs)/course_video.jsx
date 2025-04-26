@@ -122,7 +122,6 @@ const VideoPlayer = ({ videoUrl, onComplete, videoRef }) => {
         
         // Use hardcoded library ID with video ID
         url = `https://vz-2fab5d8b-8fd.b-cdn.net/${videoId}/playlist.m3u8`;
-        console.log('Converted URL to direct CDN URL:', url);
       }
     }
     
@@ -131,7 +130,6 @@ const VideoPlayer = ({ videoUrl, onComplete, videoRef }) => {
       url = url.replace('http:', 'https:');
     }
     
-    console.log('Final video URL:', url);
     return url;
   }, [videoUrl]);
 
@@ -142,8 +140,6 @@ const VideoPlayer = ({ videoUrl, onComplete, videoRef }) => {
     retryCount.current = 0;
     setError(false);
     setLoading(true);
-    
-    console.log('Video URL changed to:', videoUrl);
     
     // Unload any previous video first
     if (videoRef.current) {
@@ -966,22 +962,12 @@ export default function CourseVideoScreen() {
         
         // Use hardcoded library ID with video ID
         rawUrl = `https://vz-2fab5d8b-8fd.b-cdn.net/${videoId}/playlist.m3u8`;
-        console.log('Converted to direct CDN URL:', rawUrl);
       }
     }
     
     // For iOS, ensure we use HTTPS but don't add cache buster
     if (Platform.OS === 'ios' && rawUrl.startsWith('http:')) {
       rawUrl = rawUrl.replace('http:', 'https:');
-    }
-    
-    // Log the URL only once
-    console.log(`[${Platform.OS}] Processing video URL:`, rawUrl);
-    
-    // If on iOS, show the HTTPS note only once
-    if (Platform.OS === 'ios' && !hasShownIOSNote.current) {
-      console.log('Note: iOS requires HTTPS for media playback by default.');
-      hasShownIOSNote.current = true;
     }
     
     // Set the URL to state
@@ -1079,8 +1065,6 @@ export default function CourseVideoScreen() {
         ...prevData,
         videoWithCacheBuster: newUrlWithCacheBuster
       }));
-      
-      console.log('Đã tạo URL video mới với cache buster:', newUrlWithCacheBuster);
     }
     
     // Tăng số lần retry
@@ -1192,7 +1176,6 @@ export default function CourseVideoScreen() {
   useEffect(() => {
     // Reset biến khi chapterId thay đổi
     hasShownCompletionAlert.current = false;
-    console.log('Reset hasShownCompletionAlert do chapterId thay đổi:', chapterId);
   }, [chapterId]);
 
   const handleVideoComplete = async () => {

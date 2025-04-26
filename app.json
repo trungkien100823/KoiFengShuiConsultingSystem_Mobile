@@ -45,5 +45,10 @@
     "experiments": {
       "typedRoutes": true
     }
+  },
+  "dependencies": {
+    "expo-linear-gradient": "~12.3.0",
+    "expo-blur": "~12.3.0",
+    "moti": "^0.25.3"
   }
 }

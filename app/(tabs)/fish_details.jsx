@@ -114,8 +114,6 @@ export default function FishDetails() {
 
   const handleShapeSelect = async (val) => {
     try {
-      console.log('Giá trị được chọn:', val);
-      console.log('Danh sách hình dạng hiện có:', pondShapes);
       
       // Nếu val rỗng hoặc là giá trị mặc định hoặc là "all"
       if (!val || val === "Chọn hình dạng hồ" || val === "all") {
@@ -125,14 +123,13 @@ export default function FishDetails() {
         
         // Gọi API lấy tất cả hồ
         const allPonds = await pondAPI.getAllPonds();
-        console.log('Tất cả các hồ:', allPonds);
         setPondsByShape(allPonds);
         return;
       }
 
       // Xử lý khi chọn hình dạng cụ thể - tìm theo key thay vì value
       const selectedShape = pondShapes.find(shape => shape.key === val);
-      console.log('Hình dạng được chọn:', selectedShape);
+      
 
       if (selectedShape) {
         setSelectedShape(selectedShape.value);
@@ -140,14 +137,14 @@ export default function FishDetails() {
 
         try {
           // Gọi API để lấy danh sách hồ theo hình dạng
-          console.log('Gọi API với shapeId:', selectedShape.key);
+          
           const ponds = await pondAPI.getPondByShape(selectedShape.key);
-          console.log('API Response - Danh sách hồ theo hình dạng:', ponds);
+          
           
           if (Array.isArray(ponds) && ponds.length > 0) {
             setPondsByShape(ponds);
           } else {
-            console.log('Không có hồ nào được tìm thấy cho hình dạng này');
+            
             setPondsByShape([]);
             Alert.alert(
               "Thông báo", 
@@ -182,12 +179,6 @@ export default function FishDetails() {
   };
 
   const handlePondSelect = (pond) => {
-    console.log('Chi tiết hồ được chọn:', {
-      id: pond.koiPondId,
-      name: pond.pondName,
-      element: pond.element,
-      shape: pond.shapeName
-    });
     setSelectedPond(pond.koiPondId);
     setSelectedPondDetails(pond);
   };
@@ -246,7 +237,6 @@ export default function FishDetails() {
         fishCount: parseInt(fishCount)
       };
 
-      console.log('Dữ liệu gửi đi:', calculationData);
 
       // Gọi API tính toán
       const headers = await getAuthHeaders();
@@ -256,12 +246,8 @@ export default function FishDetails() {
         { headers }
       );
 
-      console.log('Kết quả từ API:', response.data);
 
       if (response.data && response.data.isSuccess) {
-        console.log('Response data:', response.data); // Debug log
-        console.log('Compatibility score:', response.data.data.compatibilityScore); // Debug log
-
         router.push({
           pathname: '/(tabs)/calculation_result',
           params: {
@@ -317,14 +303,11 @@ export default function FishDetails() {
     // Nếu không có timestamp thì đang chuyển từ menu
     // Nếu có timestamp thì đang chuyển từ calculation_result
     const isFromMenu = !params.timestamp;
-    console.log('Params changed, source:', isFromMenu ? 'menu' : 'calculation_result');
     
     if (isFromMenu) {
-      console.log('Đang reset form vì chuyển từ menu...');
       resetForm();
       setIsNavigatingFromMenu(true);
     } else {
-      console.log('Không reset form vì quay lại từ calculation_result');
       setIsNavigatingFromMenu(false);
     }
   }, [params.id, params.koiVarietyId, params.timestamp]);
@@ -334,7 +317,7 @@ export default function FishDetails() {
     const fetchKoiDetails = async () => {
       try {
         const koiId = params.id || params.koiVarietyId;
-        console.log('Params received:', params);
+        
 
         if (!koiId) {
           console.error('No Koi ID in params:', params);
@@ -343,7 +326,7 @@ export default function FishDetails() {
         }
 
         const response = await koiAPI.getKoiWithColor(koiId);
-        console.log('API Response:', response);
+        
         
         if (response && response.isSuccess && response.data) {
           setKoiDetails(response.data);
@@ -405,7 +388,7 @@ export default function FishDetails() {
           }))
         ];
         setPondShapes(formattedShapes);
-        console.log('Đã lấy được danh sách hình dạng:', formattedShapes);
+        
       } catch (error) {
         console.error('Lỗi khi lấy danh sách hình dạng:', error);
         Alert.alert(
@@ -425,7 +408,6 @@ export default function FishDetails() {
       try {
         // Gọi API lấy tất cả hồ
         const allPonds = await pondAPI.getAllPonds();
-        console.log('Tất cả các hồ khi load màn hình:', allPonds);
         
         if (allPonds.length > 0) {
           setPondsByShape(allPonds);

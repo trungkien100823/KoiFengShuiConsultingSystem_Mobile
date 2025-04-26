@@ -61,7 +61,6 @@ export default function OfflinePackageScreen() {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('Màn hình Offline Package được focus - Tải lại dữ liệu');
       fetchConsultingPackages();
     });
 
@@ -109,7 +108,6 @@ export default function OfflinePackageScreen() {
       const response = await retryRequest(makeRequest);
 
       if (response.data && response.data.isSuccess) {
-        console.log('API Response:', response.data.data);
         setConsultingPackages(response.data.data);
       } else {
         throw new Error(response.data?.message || 'Không thể lấy danh sách gói tư vấn');

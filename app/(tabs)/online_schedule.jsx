@@ -179,15 +179,6 @@ const isConnected = () => {
 // Sửa lại interceptor của apiClient
 apiClient.interceptors.response.use(
   response => response,
-  async error => {
-    console.log('API Error:', error.message);
-    
-    if (error.message === 'Network Error' || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
-      console.log('Có thể là lỗi kết nối, tiếp tục thử lại bằng lựa chọn khác');
-    }
-    
-    return Promise.reject(error);
-  }
 );
 
 export default function OnlineScheduleScreen() {
@@ -364,7 +355,6 @@ export default function OnlineScheduleScreen() {
         // Nếu lỗi là do mạng hoặc timeout, thử lại
         if (retryCount < MAX_RETRIES) {
           retryCount++;
-          console.log(`Đang thử lại lần ${retryCount}/${MAX_RETRIES}...`);
           
           // Tăng timeout mỗi lần retry
           setTimeout(() => {
@@ -400,7 +390,6 @@ export default function OnlineScheduleScreen() {
       }
       
       // Nếu không có cache, sử dụng dữ liệu dự phòng
-      console.log('Sử dụng dữ liệu dự phòng');
       const fallbackData = FALLBACK_SCHEDULE_DATA.filter(item => item.masterId === masterId);
       setMasterSchedules(fallbackData);
       processScheduleDataForSelectedMaster(fallbackData, masterId);
@@ -544,10 +533,6 @@ export default function OnlineScheduleScreen() {
     const bookingsForDay = unavailableTimes[selectedDate] || [];
     
     // Debug: Log các loại lịch cho ngày đã chọn
-    if (debugMode) {
-      console.log(`[Debug] Các loại lịch cho ngày ${selectedDate}:`, 
-        bookingsForDay.map(b => ({time: `${b.startTime}-${b.endTime}`, type: b.type})));
-    }
     
     // Kiểm tra từng khung giờ cố định
     const timeOptions = startTimeOptions.map(timeOption => {
@@ -658,9 +643,6 @@ export default function OnlineScheduleScreen() {
     );
     
     if (allTimeSlotsUnavailable) {
-      if (debugMode) {
-        console.log(`[Debug] Phát hiện ngày ${selectedDate} không còn khung giờ khả dụng nào, đánh dấu ngày này là không khả dụng`);
-      }
       
       // Cập nhật state để đánh dấu ngày không khả dụng
       setUnavailableDates(prev => ({
@@ -704,17 +686,10 @@ export default function OnlineScheduleScreen() {
       null;
       
     if (!formattedDate || !unavailableTimes[formattedDate]) {
-      console.log(`[Debug] Không có dữ liệu lịch cho ngày ${formattedDate}`);
       return;
     }
     
     const slots = unavailableTimes[formattedDate];
-    console.log(`[Debug] Chi tiết slot ${timeOption.key} - Ngày ${formattedDate}:`);
-    console.log(`- Trạng thái: ${timeOption.isAvailable ? 'Khả dụng' : 'Không khả dụng'}`);
-    console.log(`- Đã đặt: ${timeOption.isBooked ? 'Có' : 'Không'}`);
-    console.log(`- Loại lịch: ${timeOption.type || 'Không xác định'}`);
-    console.log(`- Master đã chọn: ${customerInfo?.masterId || 'Không có'}`);
-    
     // Kiểm tra xem slot này có khớp với slot nào đã đặt không
     const matchingSlots = slots.filter(slot => {
       const slotStart = slot.startTime.substring(0, 5);
@@ -736,26 +711,19 @@ export default function OnlineScheduleScreen() {
     });
     
     if (matchingSlots.length > 0) {
-      console.log(`- Chồng lấp với ${matchingSlots.length} slots:`);
       matchingSlots.forEach((slot, index) => {
         const isSameMaster = slot.isSameMaster || false;
         const masterIds = slot.masterId ? Array.isArray(slot.masterId) ? 
                           slot.masterId.join(', ') : slot.masterId : 'Không xác định';
-        
-        console.log(`  ${index + 1}. ${slot.startTime} - ${slot.endTime}`);
-        console.log(`     Master: ${masterIds}`);
-        console.log(`     Loại lịch: ${slot.type || 'Không xác định'}`);
-        console.log(`     Cùng master đã chọn: ${isSameMaster ? 'Có' : 'Không'}`);
       });
       
       
       // Hiển thị cảnh báo nếu có slot cùng master mà không bị vô hiệu hóa
       const hasSameMasterSlot = matchingSlots.some(slot => slot.isSameMaster);
       if (hasSameMasterSlot && timeOption.isAvailable) {
-        console.warn(`[CẢNH BÁO] Slot ${timeOption.key} có chồng lấp với lịch cùng master nhưng vẫn được đánh dấu là khả dụng!`);
+        Alert.alert(`[CẢNH BÁO] Slot ${timeOption.key} có chồng lấp với lịch cùng master nhưng vẫn được đánh dấu là khả dụng!`);
       }
     } else {
-      console.log(`- Không chồng lấp với slot nào đã đặt`);
     }
     
     // Hiển thị thông báo dễ hiểu cho người dùng nếu cần
@@ -814,10 +782,6 @@ export default function OnlineScheduleScreen() {
     // Sử dụng endTime mới từ khung giờ cố định
     const formattedEndTime = endTime.includes(':00') ? endTime.substring(0, 5) : endTime;
     setSelectedEndTime(formattedEndTime);
-    
-    if (debugMode) {
-      console.log(`[Debug] Đã chọn khung giờ: ${formattedStartTime} - ${formattedEndTime}`);
-    }
   };
   
   // Thêm hàm handleSubmit để xử lý khi người dùng nhấn nút xác nhận đặt lịch
@@ -860,8 +824,6 @@ export default function OnlineScheduleScreen() {
         modifiedDate: new Date().toISOString()
       };
 
-      console.log('Booking data:', bookingData);
-
       // Gọi API tạo booking
       const response = await axios.post(
         `${API_CONFIG.baseURL}/api/Booking/create`,
@@ -874,14 +836,9 @@ export default function OnlineScheduleScreen() {
         }
       );
 
-      console.log('API Response:', response.data);
-
       if (response.data && response.data.isSuccess) {
         const bookingId = response.data.data.bookingOnlineId;
         const price = response.data.data.price;
-        console.log('BookingId before redirect:', bookingId);
-        console.log('Price from response:', price);
-        
         // Hiển thị thông báo thành công
         Alert.alert(
           "Thành công",
@@ -935,41 +892,18 @@ export default function OnlineScheduleScreen() {
     });
     setSelectedStartTime(null);
     setSelectedEndTime(null);
-    
-    if (debugMode) {
-      console.log(`[Debug] Đã chọn ngày: ${dateString} (ISO: ${isoDate})`);
-      
-      // Kiểm tra dữ liệu lịch cụ thể cho ngày đã chọn
-      const bookingsForDay = unavailableTimes[isoDate] || [];
-      console.log(`[Debug] Dữ liệu lịch cho ngày ${isoDate}:`, JSON.stringify(bookingsForDay, null, 2));
-      
-      // Kiểm tra đặc biệt cho lịch Online
-      const onlineBookings = bookingsForDay.filter(booking => booking.type === "Online");
-      console.log(`[Debug] Lịch Online cho ngày ${isoDate}:`, JSON.stringify(onlineBookings, null, 2));
-      
-      // Kiểm tra lịch Workshop
-      const workshopBookings = bookingsForDay.filter(booking => booking.type === "Workshop");
-      console.log(`[Debug] Lịch Workshop cho ngày ${isoDate}:`, JSON.stringify(workshopBookings, null, 2));
-    }
+  
   };
 
   // Định nghĩa thời gian dịch vụ mặc định (60 phút)
   const serviceTime = 60;
 
   // Thêm hàm để kiểm tra loại kết nối mạng
-  const logDebugInfo = () => {
-    if (debugMode) {
-      console.log('Thông tin debug:');
-      console.log('API URL:', API_CONFIG.baseURL);
-      console.log('Master ID:', customerInfo?.masterId);
-      console.log('Timeout:', API_CONFIG.timeoutDuration || API_TIMEOUT);
-    }
-  };
+  
 
   // Thêm hàm processScheduleDataForSelectedMaster vào đây để có thể truy cập state
   const processScheduleDataForSelectedMaster = (scheduleData, masterId) => {
     if (!Array.isArray(scheduleData) || scheduleData.length === 0) {
-      console.log('Không có dữ liệu lịch để xử lý');
       setLoadingSchedules(false);
       return;
     }
@@ -981,10 +915,7 @@ export default function OnlineScheduleScreen() {
     // Khởi tạo đối tượng để theo dõi từng khung giờ cho mỗi ngày
     const timeSlotsByDate = {};
     
-    if (debugMode) {
-      console.log(`[Debug] processScheduleDataForSelectedMaster - Tổng số lịch: ${scheduleData.length}`);
-      console.log(`[Debug] processScheduleDataForSelectedMaster - masterId: ${masterId}`);
-    }
+    
     
     // Xử lý từng mục lịch
     scheduleData.forEach(schedule => {
@@ -995,21 +926,7 @@ export default function OnlineScheduleScreen() {
       const selectedMasterId = masterId ? masterId.trim() : '';
       const isSameMaster = currentMasterId === selectedMasterId;
       
-      if (debugMode && schedule.type === 'Online') {
-        console.log(`[Debug] Xử lý lịch Online - Date: ${scheduleDate}, Time: ${schedule.startTime}-${schedule.endTime}`);
-        console.log(`[Debug] masterId từ lịch: "${currentMasterId}" (${currentMasterId.length} ký tự)`);
-        console.log(`[Debug] masterId được chọn: "${selectedMasterId}" (${selectedMasterId.length} ký tự)`);
-        console.log(`[Debug] isSameMaster: ${isSameMaster}`);
-        
-        // Kiểm tra chi tiết từng ký tự trong chuỗi để tìm lỗi khi so sánh
-        for (let i = 0; i < Math.max(currentMasterId.length, selectedMasterId.length); i++) {
-          const char1 = i < currentMasterId.length ? currentMasterId.charCodeAt(i) : null;
-          const char2 = i < selectedMasterId.length ? selectedMasterId.charCodeAt(i) : null;
-          if (char1 !== char2) {
-            console.log(`[Debug] Khác nhau tại vị trí ${i}: '${currentMasterId[i]}' (${char1}) vs '${selectedMasterId[i]}' (${char2})`);
-          }
-        }
-      }
+      
       
       // Khởi tạo cấu trúc theo dõi khung giờ cho ngày này nếu chưa có
       if (!timeSlotsByDate[scheduleDate]) {
@@ -1032,10 +949,7 @@ export default function OnlineScheduleScreen() {
         });
         
         // Log thông tin debug
-        if (debugMode) {
-          console.log(`[Debug] Đánh dấu ngày ${scheduleDate} là không khả dụng do có lịch Offline cả ngày`);
-        }
-        return; // Tiếp tục với mục lịch tiếp theo
+       
       }
       
       // Xử lý các loại lịch khác (Online, Workshop...) hoặc lịch Offline có thời gian cụ thể
@@ -1096,9 +1010,6 @@ export default function OnlineScheduleScreen() {
       
       if (allSlotsUnavailable) {
         unavailableDatesMap[date] = true;
-        if (debugMode) {
-          console.log(`[Debug] Đánh dấu ngày ${date} là không khả dụng do tất cả khung giờ đều đã bận`);
-        }
       }
     });
     
@@ -1108,20 +1019,7 @@ export default function OnlineScheduleScreen() {
     setLoadingSchedules(false);
     
     // Log debug thông tin 
-    if (debugMode) {
-      console.log(`[Debug] Các ngày không khả dụng:`, Object.keys(unavailableDatesMap));
-      console.log(`[Debug] Tổng số ngày không khả dụng: ${Object.keys(unavailableDatesMap).length}`);
-      
-      // In ra chi tiết các lịch Online
-      Object.keys(unavailableTimesMap).forEach(date => {
-        const onlineBookings = unavailableTimesMap[date].filter(b => b.type === 'Online');
-        if (onlineBookings.length > 0) {
-          console.log(`[Debug] Lịch Online ngày ${date}:`, JSON.stringify(onlineBookings, null, 2));
-        }
-      });
-    }
-  };
-
+  }
   // Thêm hàm fetchAllMastersInfo vào đây để có thể truy cập state
   const fetchAllMastersInfo = async () => {
     try {
@@ -1234,7 +1132,6 @@ export default function OnlineScheduleScreen() {
         
         // Cách 2: Nếu không lấy được qua API chung, thử lấy lịch cho từng Master
         if (!schedulesFound && mastersList.length > 0) {
-          console.log('Đang sử dụng phương án dự phòng: lấy lịch của từng master');
           
           const allSchedules = [];
           for (const master of mastersList) {
@@ -1271,7 +1168,6 @@ export default function OnlineScheduleScreen() {
         
         // Nếu không lấy được dữ liệu, thông báo cho người dùng
         if (!schedulesData.length) {
-          console.log('Không thể lấy lịch từ API. Tất cả các ngày và khung giờ sẽ được hiển thị là khả dụng.');
         }
         
       } catch (schedulesError) {
@@ -1308,7 +1204,6 @@ export default function OnlineScheduleScreen() {
     
     // Nếu không có dữ liệu lịch hoặc không có master, không có ngày/khung giờ nào bị vô hiệu hóa
     if (schedulesData.length === 0 || mastersList.length === 0) {
-      console.log('Không có dữ liệu lịch hoặc không có master, tất cả ngày và khung giờ sẽ khả dụng');
       setUnavailableDates({});
       setUnavailableTimes({});
       setLoadingSchedules(false);
@@ -1504,34 +1399,18 @@ export default function OnlineScheduleScreen() {
       // Workshop buổi sáng ảnh hưởng đến CẢ 2 slots buổi sáng (07:00-09:15 và 09:30-11:45)
       if (startTimePart === '07:00') {
         affectedSlots.push('07:00', '09:30');
-        
-        if (debugMode) {
-          console.log(`[Debug] Workshop buổi sáng từ 07:00-09:15 sẽ ảnh hưởng đến cả khung giờ 09:30-11:45`);
-        }
       } 
       // Workshop bắt đầu lúc 9:30 cũng ảnh hưởng đến cả buổi sáng (bao gồm 07:00-09:15)
       else if (startTimePart === '09:30') {
         affectedSlots.push('07:00', '09:30');
-        
-        if (debugMode) {
-          console.log(`[Debug] Workshop bắt đầu 09:30 sẽ ảnh hưởng đến cả khung giờ 07:00-09:15`);
-        }
       }
       // Workshop buổi chiều ảnh hưởng đến CẢ 2 slots buổi chiều (12:30-14:45 và 15:00-17:15)
       else if (startTimePart === '12:30') {
         affectedSlots.push('12:30', '15:00');
-        
-        if (debugMode) {
-          console.log(`[Debug] Workshop buổi chiều từ 12:30-14:45 sẽ ảnh hưởng đến cả khung giờ 15:00-17:15`);
-        }
       }
       // Workshop bắt đầu lúc 15:00 cũng ảnh hưởng đến cả buổi chiều (bao gồm 12:30-14:45)
       else if (startTimePart === '15:00') {
         affectedSlots.push('12:30', '15:00');
-        
-        if (debugMode) {
-          console.log(`[Debug] Workshop bắt đầu 15:00 sẽ ảnh hưởng đến cả khung giờ 12:30-14:45`);
-        }
       }
     } else {
       // Đối với các lịch khác, chỉ ảnh hưởng đến slot tương ứng

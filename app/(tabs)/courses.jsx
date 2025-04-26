@@ -79,7 +79,6 @@ export default function CoursesScreen() {
   const fetchData = async (url, config) => {
     try {
       const response = await fetchWithRetry(url, config);
-      console.log('API Response:', url, response.data);
       return response;
     } catch (error) {
       console.error('API Error:', url, error.response?.data || error.message);
@@ -95,7 +94,7 @@ export default function CoursesScreen() {
         const token = await AsyncStorage.getItem('accessToken');
         if (!token) {
           console.log('Token không tồn tại, chuyển hướng đến trang đăng nhập');
-          navigation.navigate('login');
+          navigation.navigate('/(tabs)/Login');
           return;
         }
 
@@ -133,7 +132,7 @@ export default function CoursesScreen() {
         const token = await AsyncStorage.getItem('accessToken');
         if (!token) {
           console.log('Token không tồn tại, chuyển hướng đến trang đăng nhập');
-          navigation.navigate('login');
+          navigation.navigate('/(tabs)/Login');
           return;
         }
 
@@ -165,7 +164,6 @@ export default function CoursesScreen() {
     };
 
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('Màn hình Courses được focus - Tải lại dữ liệu');
       loadData();
     });
 

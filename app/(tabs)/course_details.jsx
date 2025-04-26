@@ -63,7 +63,6 @@ export default function CourseDetailsScreen() {
 
   const loadCourseDetails = async () => {
     try {
-      console.log('Loading course details for courseId:', courseId);
       setIsLoading(true);
       const token = await AsyncStorage.getItem('accessToken');
       const config = {
@@ -74,19 +73,11 @@ export default function CourseDetailsScreen() {
       };
 
       const url = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.getCourseById.replace('{id}', courseId)}`;
-      console.log('API URL:', url);
       
       const response = await axios.get(url, config);
-      console.log('Full API Response:', response.data);
 
       if (response.data?.isSuccess) {
         const courseData = response.data.data;
-        console.log('Course Data from API:', {
-          courseId: courseData.courseId,
-          courseName: courseData.courseName,
-          introduction: courseData.introduction,
-          description: courseData.description
-        });
 
         const processedCourse = {
           id: courseData.courseId,
@@ -105,32 +96,21 @@ export default function CourseDetailsScreen() {
           description: courseData.description,
           categoryName: courseData.categoryName
         };
-
-        console.log('Processed Learning Items:', {
-          original: courseData.introduction,
-          processed: processedCourse.learning
-        });
         
         setCourseDetails(processedCourse);
 
         // Nếu có masterId thì mới gọi API lấy thông tin master
         if (courseData.masterId) {
           try {
-            // Thêm log để debug
-            console.log('Calling Master API for masterId:', courseData.masterId);
             
             const masterResponse = await axios.get(
               `${API_CONFIG.baseURL}/api/Master/${courseData.masterId}`,
               config
             );
 
-            // Log response từ API master
-            console.log('Master API Response:', masterResponse.data);
 
             if (masterResponse.data?.isSuccess) {
               const masterData = masterResponse.data.data;
-              // Log masterData để kiểm tra
-              console.log('Processed Master Data:', masterData);
               
               setMasterInfo({
                 name: masterData.masterName ?? 'Chưa có tên',
@@ -157,17 +137,6 @@ export default function CourseDetailsScreen() {
       } else {
         throw new Error('Không thể tải thông tin khóa học');
       }
-
-      console.log('Course API Response:', {
-        rawResponse: response.data,
-        courseData: response.data.data,
-        hasCalculatedFields: {
-          rating: response.data.data.rating,
-          enrolledStudents: response.data.data.enrolledStudents,
-          totalChapters: response.data.data.totalChapters,
-          totalDuration: response.data.data.totalDuration
-        }
-      });
     } catch (error) {
       console.error('Lỗi:', error);
       Alert.alert('Lỗi', 'Không thể tải thông tin khóa học');

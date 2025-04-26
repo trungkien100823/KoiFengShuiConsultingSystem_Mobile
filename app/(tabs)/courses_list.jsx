@@ -55,8 +55,6 @@ export default function CoursesListScreen() {
           config
         );
 
-        console.log('API Response:', response.data);
-
         if (response.data?.isSuccess) {
           const processedCourses = response.data.data.map(course => ({
             id: course.courseId,

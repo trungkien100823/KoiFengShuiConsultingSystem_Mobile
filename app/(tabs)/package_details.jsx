@@ -60,7 +60,6 @@ export default function PackageDetailsScreen() {
         }
       );
 
-      console.log('Package details response:', response.data);
 
       if (response.data && response.data.isSuccess) {
         setPackageDetails({

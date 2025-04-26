@@ -47,23 +47,17 @@ const WorkshopDetailsScreen = () => {
       setLoading(true);
       setError(null);
       
-      console.log('Đang gọi API workshop với ID:', workshopId);
-      
       // Fetch workshop details from the correct API endpoint
       const response = await workshopDetailsService.getWorkshopDetails(workshopId);
       
-      console.log('Workshop details response:', JSON.stringify(response));
       
       if (response && response.isSuccess) {
         // Extract data from the response
         const workshopDetails = response.data;
-        console.log('Workshop data extracted:', JSON.stringify(workshopDetails));
         
         // Format date if startDate exists
         if (workshopDetails.startDate) {
-          console.log('Found startDate:', workshopDetails.startDate);
           const formattedDate = formatDate(workshopDetails.startDate);
-          console.log('Formatted date result:', formattedDate);
           workshopDetails.formattedDate = formattedDate;
         }
         
@@ -97,7 +91,6 @@ const WorkshopDetailsScreen = () => {
   // Thay thế useEffect bằng useFocusEffect
   useFocusEffect(
     useCallback(() => {
-      console.log('Màn hình được focus, đang fetch dữ liệu...');
       fetchData();
     }, [workshopId, imageId])
   );
@@ -113,12 +106,10 @@ const WorkshopDetailsScreen = () => {
     if (!dateString) return null;
     
     try {
-      console.log('Formatting date string:', dateString);
       
       const date = new Date(dateString);
       
       if (isNaN(date.getTime())) {
-        console.log('Date không hợp lệ, trả về nguyên mẫu:', dateString);
         return dateString;
       }
       
@@ -257,7 +248,7 @@ const WorkshopDetailsScreen = () => {
                 <Ionicons name="people" size={18} color="#8B0000" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Sức chứa</Text>
+                <Text style={styles.detailLabel}>Sức chứa còn trống</Text>
                 <Text style={styles.detailValue}>{displayWorkshop.capacity || 0} người</Text>
               </View>
             </View>

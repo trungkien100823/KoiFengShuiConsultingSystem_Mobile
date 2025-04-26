@@ -216,7 +216,7 @@ export default function RegisterScreen() {
         [
           {
             text: 'OK',
-            onPress: () => router.push('/login')
+            onPress: () => router.push('/(tabs)/Login')
           }
         ]
       );

@@ -12,8 +12,8 @@ import {
   ScrollView,
   Linking,
   StatusBar,
+  Dimensions,
   Platform,
-  RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import axios from 'axios';
@@ -22,35 +22,417 @@ import { getAuthToken } from '../../services/authService';
 import CustomTabBar from '../../components/ui/CustomTabBar';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { paymentService } from '../../constants/paymentService';
-import { LinearGradient } from 'expo-linear-gradient';
 
-const COLORS = {
-  primary: '#8B0000', // Wine red
-  primaryDark: '#590000',
-  primaryLight: '#AA1E23',
-  primaryGlow: '#D40000',
-  accent: '#D4AF37', // Gold accent
-  white: '#FFFFFF',
-  offWhite: '#F9F9F9',
-  background: '#F8F8F8',
-  card: '#FFFFFF',
-  text: {
-    primary: '#1A1A1A',
-    secondary: '#666666',
-    tertiary: '#999999',
-    light: '#FFFFFF',
-  },
-  status: {
-    pending: '#FFA726',
-    confirmed: '#2196F3',
-    paid: '#4CAF50',
-    canceled: '#F44336',
-    rejected: '#FF5252',
-    success: '#009688',
-  },
-  border: 'rgba(139, 0, 0, 0.1)',
-  shadow: 'rgba(0, 0, 0, 0.12)',
-};
+// Get screen dimensions for responsive design
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const isSmallDevice = SCREEN_WIDTH < 375;
+
+// Create a separate BookingItem component before the main YourBooking component
+const BookingItem = React.memo(({ 
+  item, 
+  onViewBooking, 
+  onPayment, 
+  onCancel, 
+  navigation,
+  formatDate,
+  getStatusColor,
+  getStatusColorWithOpacity
+}) => {
+  const showPaymentButton = 
+    (item.type === 'Online' && item.status.trim() === 'Pending') ||
+    (item.type === 'Offline' && (item.status.trim() === 'VerifiedOTP' || 
+                                item.status.trim() === 'VerifiedOTPAttachment'));
+  
+  const showCancelButton = 
+    (item.type === 'Online' && (item.status.trim() === 'Pending' || item.status.trim() === 'PendingConfirm')) ||
+    (item.type === 'Offline' && item.status.trim() === 'Pending');
+
+  const showContractButton = 
+    item.type === 'Offline' && (item.status.trim() === 'ContractConfirmedByManager' ||
+    item.status.trim() === 'ContractConfirmedByCustomer' || item.status.trim() === 'VerifyingOTP' || 
+    item.status.trim() === 'VerifiedOTP' || item.status.trim() === 'FirstPaymentPending' || 
+    item.status.trim() === 'FirstPaymentPendingConfirm' || item.status.trim() === 'FirstPaymentSuccess' ||
+    item.status.trim() === 'DocumentRejectedByManager' || item.status.trim() === 'DocumentRejectedByCustomer' ||
+    item.status.trim() === 'DocumentConfirmedByManager' || item.status.trim() === 'DocumentConfirmedByCustomer' ||
+    item.status.trim() === 'AttachmentRejected' || item.status.trim() === 'AttachmentConfirmed' ||
+    item.status.trim() === 'VerifyingOTPAttachment' || item.status.trim() === 'VerifiedOTPAttachment' ||
+    item.status.trim() === 'SecondPaymentPending' || item.status.trim() === 'SecondPaymentPendingConfirm' ||
+    item.status.trim() === 'Completed');
+
+  const showDocumentButton = item.type === 'Offline' && (item.status.trim() === 'DocumentConfirmedByManager' || 
+    item.status.trim() === 'DocumentConfirmedByCustomer' || item.status.trim() === 'AttachmentRejected' ||
+    item.status.trim() === 'AttachmentConfirmed' || item.status.trim() === 'VerifyingOTPAttachment' || 
+    item.status.trim() === 'VerifiedOTPAttachment' || item.status.trim() === 'SecondPaymentPending' ||
+    item.status.trim() === 'SecondPaymentPendingConfirm' || item.status.trim() === 'Completed');
+
+  const showAttachmentButton = item.type === 'Offline' && (item.status.trim() === 'AttachmentConfirmed' || 
+    item.status.trim() === 'VerifyingOTPAttachment' || item.status.trim() === 'VerifiedOTPAttachment' ||
+    item.status.trim() === 'SecondPaymentPending' || item.status.trim() === 'SecondPaymentPendingConfirm' ||
+    item.status.trim() === 'Completed' || item.status.trim() === 'DocumentConfirmedByCustomer');
+
+  const isRejectedStatus = 
+    item.type === 'Offline' && 
+    (item.status.trim() === 'ContractRejectedByMaster' ||
+      item.status.trim() === 'ContractRejectedByCustomer');
+
+  return (
+    <View style={styles.bookingCard}>
+      <View style={styles.cardHeader}>
+        <View style={styles.typeInfoContainer}>
+          <View style={[
+            styles.typeIcon, 
+            {backgroundColor: item.type === 'Online' ? '#4a6fa5' : '#4d9078'}
+          ]}>
+            <Ionicons 
+              name={item.type === 'Online' ? 'videocam' : 'business'} 
+              size={isSmallDevice ? 18 : 22} 
+              color="#FFF" 
+            />
+          </View>
+          <View>
+            <Text style={styles.typeText}>
+              {item.type === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline'}
+            </Text>
+            <Text style={styles.idText}>ID: {item.id}</Text>
+          </View>
+        </View>
+        <View style={[
+          styles.statusBadge,
+          { backgroundColor: getStatusColorWithOpacity(item.status) }
+        ]}>
+          <View style={[
+            styles.statusDot,
+            { backgroundColor: getStatusColor(item.status) }
+          ]} />
+          <Text style={[
+            styles.statusText,
+            { color: getStatusColor(item.status) }
+          ]}>
+            {item.status}
+          </Text>
+        </View>
+      </View>
+
+      <TouchableOpacity 
+        style={styles.cardBody}
+        onPress={() => onViewBooking(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.infoSection}>
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={isSmallDevice ? 16 : 18} color="#666" />
+            <Text style={styles.infoLabel}>Ngày:</Text>
+            <Text style={styles.infoValue}>{formatDate(item.bookingDate)}</Text>
+          </View>
+
+          {item.masterName && (
+            <View style={styles.infoRow}>
+              <Ionicons name="person-outline" size={isSmallDevice ? 16 : 18} color="#666" />
+              <Text style={styles.infoLabel}>Master:</Text>
+              <Text style={styles.infoValue}>{item.masterName}</Text>
+            </View>
+          )}
+        </View>
+
+        {isRejectedStatus && (
+          <View style={styles.warningContainer}>
+            <Ionicons name="alert-circle" size={isSmallDevice ? 18 : 20} color="#f44336" />
+            <Text style={styles.warningText}>Nhấn để xem chi tiết lý do từ chối</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {(showContractButton || showDocumentButton || showAttachmentButton || 
+        showPaymentButton || showCancelButton) && (
+        <View style={styles.cardActions}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.actionsScrollContent}
+          >
+            {showContractButton && (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.contractButton]}
+                onPress={() => navigation.push({
+                  pathname: '/(tabs)/contract_bookingOffline',
+                  params: { id: item.id }
+                })}
+              >
+                <Ionicons name="document-text" size={isSmallDevice ? 16 : 18} color="#FFF" />
+                <Text style={styles.actionButtonText}>Hợp đồng</Text>
+              </TouchableOpacity>
+            )}
+
+            {showDocumentButton && (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.documentButton]}
+                onPress={() => navigation.push({
+                  pathname: '/(tabs)/document_bookingOffline',
+                  params: { id: item.id }
+                })}
+              >
+                <Ionicons name="folder" size={isSmallDevice ? 16 : 18} color="#FFF" />
+                <Text style={styles.actionButtonText}>Hồ sơ</Text>
+              </TouchableOpacity>
+            )}
+
+            {showAttachmentButton && (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.attachmentButton]}
+                onPress={() => navigation.push({
+                  pathname: '/(tabs)/attachment_bookingOffline',
+                  params: { id: item.id }
+                })}
+              >
+                <Ionicons name="clipboard" size={isSmallDevice ? 16 : 18} color="#FFF" />
+                <Text style={styles.actionButtonText}>Biên bản</Text>
+              </TouchableOpacity>
+            )}
+
+            {showPaymentButton && (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.paymentButton]}
+                onPress={() => onPayment(item)}
+              >
+                <Ionicons name="wallet" size={isSmallDevice ? 16 : 18} color="#FFF" />
+                <Text style={styles.actionButtonText}>Thanh toán</Text>
+              </TouchableOpacity>
+            )}
+
+            {showCancelButton && (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={() => onCancel(item)}
+              >
+                <Ionicons name="close-circle" size={isSmallDevice ? 16 : 18} color="#FFF" />
+                <Text style={styles.actionButtonText}>Hủy lịch</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+});
+
+const OnlineBookingDetailModal = ({ booking, getStatusColor, formatDate }) => (
+  <View style={styles.modalDetailContainer}>
+    <View style={styles.modalDetailSection}>
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="bookmark-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Mã đặt lịch:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.bookingOnlineId || booking?.id || 'Không có'}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="videocam-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Loại tư vấn:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.type}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="information-circle-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Trạng thái:</Text>
+        <View style={[
+          styles.statusBadgeSmall,
+          { backgroundColor: getStatusColor(booking?.status) + '20' }
+        ]}>
+          <View style={[
+            styles.statusDot,
+            { backgroundColor: getStatusColor(booking?.status) }
+          ]} />
+          <Text style={[
+            styles.statusTextSmall,
+            { color: getStatusColor(booking?.status) }
+          ]}>
+            {booking?.status}
+          </Text>
+        </View>
+      </View>
+    </View>
+
+    <View style={styles.modalDivider} />
+
+    <View style={styles.modalDetailSection}>
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="person-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Khách hàng:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.customerName}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="mail-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Email:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.customerEmail}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="person-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Master:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.masterName || 'Chưa có Master'}</Text>
+      </View>
+    </View>
+
+    <View style={styles.modalDivider} />
+
+    <View style={styles.modalDetailSection}>
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="cash-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Giá:</Text>
+        <Text style={styles.modalDetailPrice}>
+          {booking?.price ? `${booking.price.toLocaleString('vi-VN')} VNĐ` : 'Chưa có giá'}
+        </Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="calendar-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Ngày:</Text>
+        <Text style={styles.modalDetailValue}>{formatDate(booking?.bookingDate)}</Text>
+      </View>
+
+      {booking?.startTime && booking?.endTime && (
+        <View style={styles.modalDetailRow}>
+          <Ionicons name="time-outline" size={18} color="#8B0000" />
+          <Text style={styles.modalDetailLabel}>Thời gian:</Text>
+          <Text style={styles.modalDetailValue}>
+            {booking.startTime.substring(0, 5)} - {booking.endTime.substring(0, 5)}
+          </Text>
+        </View>
+      )}
+
+      {booking?.linkMeet && (
+        <View style={styles.modalDetailRow}>
+          <Ionicons name="link-outline" size={18} color="#8B0000" />
+          <Text style={styles.modalDetailLabel}>Link Meet:</Text>
+          <TouchableOpacity 
+            onPress={() => Linking.openURL(booking.linkMeet)}
+            style={styles.linkButton}
+          >
+            <Text style={styles.linkButtonText}>Nhấn để mở link</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+
+    <View style={styles.modalDivider} />
+
+    <View style={styles.modalDetailSection}>
+      <View style={styles.modalDescriptionContainer}>
+        <View style={styles.modalDescriptionHeader}>
+          <Ionicons name="document-text-outline" size={18} color="#8B0000" />
+          <Text style={styles.modalDescriptionLabel}>Mô tả:</Text>
+        </View>
+        <Text style={styles.modalDescriptionText}>{booking?.description || 'Chưa có mô tả'}</Text>
+      </View>
+
+      {booking?.masterNote && (
+        <View style={styles.modalMasterNoteContainer}>
+          <View style={styles.modalDescriptionHeader}>
+            <Ionicons name="chatbubbles-outline" size={18} color="#8B0000" />
+            <Text style={styles.modalDescriptionLabel}>Ghi chú của Master:</Text>
+          </View>
+          <Text style={styles.modalDescriptionText}>{booking.masterNote}</Text>
+        </View>
+      )}
+    </View>
+  </View>
+);
+
+const OfflineBookingDetailModal = ({ booking, getStatusColor, formatDate }) => (
+  <View style={styles.modalDetailContainer}>
+    <View style={styles.modalDetailSection}>
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="bookmark-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Mã đặt lịch:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.bookingOfflineId || booking?.id || 'Không có'}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="business-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Loại tư vấn:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.type}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="information-circle-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Trạng thái:</Text>
+        <View style={[
+          styles.statusBadgeSmall,
+          { backgroundColor: getStatusColor(booking?.status) + '20' }
+        ]}>
+          <View style={[
+            styles.statusDot,
+            { backgroundColor: getStatusColor(booking?.status) }
+          ]} />
+          <Text style={[
+            styles.statusTextSmall,
+            { color: getStatusColor(booking?.status) }
+          ]}>
+            {booking?.status}
+          </Text>
+        </View>
+      </View>
+    </View>
+
+    <View style={styles.modalDivider} />
+
+    <View style={styles.modalDetailSection}>
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="person-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Khách hàng:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.customerName}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="mail-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Email:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.customerEmail}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="person-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Master:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.masterName || 'Chưa có Master'}</Text>
+      </View>
+    </View>
+
+    <View style={styles.modalDivider} />
+
+    <View style={styles.modalDetailSection}>
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="cash-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Giá:</Text>
+        <Text style={styles.modalDetailPrice}>
+          {booking?.selectedPrice ? `${parseFloat(booking.selectedPrice).toLocaleString('vi-VN')} VNĐ` : 'Chưa có giá'}
+        </Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="calendar-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Ngày:</Text>
+        <Text style={styles.modalDetailValue}>{formatDate(booking?.bookingDate)}</Text>
+      </View>
+
+      <View style={styles.modalDetailRow}>
+        <Ionicons name="location-outline" size={18} color="#8B0000" />
+        <Text style={styles.modalDetailLabel}>Địa điểm:</Text>
+        <Text style={styles.modalDetailValue}>{booking?.location || 'Chưa có địa điểm'}</Text>
+      </View>
+    </View>
+
+    <View style={styles.modalDivider} />
+
+    <View style={styles.modalDetailSection}>
+      <View style={styles.modalDescriptionContainer}>
+        <View style={styles.modalDescriptionHeader}>
+          <Ionicons name="document-text-outline" size={18} color="#8B0000" />
+          <Text style={styles.modalDescriptionLabel}>Mô tả:</Text>
+        </View>
+        <Text style={styles.modalDescriptionText}>{booking?.description || 'Chưa có mô tả'}</Text>
+      </View>
+    </View>
+  </View>
+);
 
 const YourBooking = () => {
   const router = useRouter();
@@ -178,12 +560,6 @@ const YourBooking = () => {
       );
 
       if (response.data && response.data.isSuccess) {
-        // Log chi tiết dữ liệu từ API
-        console.log('API Response data:', {
-          firstItem: response.data.data[0],
-          totalItems: response.data.data.length,
-          dataStructure: Object.keys(response.data.data[0])
-        });
         
         // Đảm bảo dữ liệu mới được set
         setBookings([]);
@@ -256,9 +632,9 @@ const YourBooking = () => {
       // Kiểm tra điều kiện thanh toán cho từng loại booking
       const isOnlinePaymentAllowed = booking.type === 'Online' && booking.status.trim() === 'Pending';
       const isOfflineFirstPaymentAllowed = booking.type === 'Offline' && 
-        (booking.status.trim() === 'Xác thực OTP' || booking.status.trim() === 'Đã xác thực OTP');
+        (booking.status.trim() === 'VerifiedOTP' || booking.status.trim() === 'VerifiedOTPAttachment');
       const isOfflineSecondPaymentAllowed = booking.type === 'Offline' && 
-        booking.status.trim() === 'Chờ thanh toán lần 2';
+        booking.status.trim() === 'SecondPaymentPending';
 
       if (!isOnlinePaymentAllowed && !isOfflineFirstPaymentAllowed && !isOfflineSecondPaymentAllowed) {
         Alert.alert('Thông báo', 'Booking không ở trạng thái cho phép thanh toán');
@@ -283,8 +659,6 @@ const YourBooking = () => {
         }
       );
 
-      console.log('Booking detail response:', response.data);
-
       if (response.data && response.data.isSuccess) {
         const bookingDetail = response.data.data;
         const selectedPrice = bookingDetail.finalPrice || bookingDetail.price || bookingDetail.selectedPrice || bookingDetail.totalPrice;
@@ -295,29 +669,16 @@ const YourBooking = () => {
           return;
         }
 
-        console.log('Booking Detail:', JSON.stringify(bookingDetail, null, 2));
-        console.log('Package Name:', bookingDetail.packageName);
-
-        console.log('Chuyển sang màn hình thanh toán với thông tin:', {
-          serviceId: booking.id,
-          bookingOnlineId: booking.type === 'Online' ? booking.id : null,
-          packageName: bookingDetail.packageName || 'Gói tư vấn phong thủy',
-          selectedPrice: selectedPrice,
-          status: booking.status.trim(),
-          serviceType: booking.type === 'Offline' ? 'BookingOffline' : 'BookingOnline',
-          source: 'your_booking'
-        });
+        
 
         router.push({
-          pathname: booking.type === 'Online' ? '/(tabs)/online_checkout' : '/(tabs)/offline_payment',
+          pathname: '/(tabs)/offline_payment',
           params: {
             serviceId: booking.id,
-            bookingOnlineId: booking.type === 'Online' ? booking.id : null,
             packageName: bookingDetail.packageName || 'Gói tư vấn phong thủy',
             selectedPrice: selectedPrice,
             status: booking.status.trim(),
-            serviceType: booking.type === 'Offline' ? 'BookingOffline' : 'BookingOnline',
-            source: 'your_booking'
+            serviceType: booking.type === 'Offline' ? 'BookingOffline' : 'BookingOnline'
           }
         });
       } else {
@@ -336,9 +697,9 @@ const YourBooking = () => {
       // Kiểm tra điều kiện hủy lịch theo loại booking
       let canCancel = false;
       if (booking.type === 'Online') {
-        canCancel = booking.status.trim() === 'Chờ xử lý' || booking.status.trim() === 'Đang xử lý';
+        canCancel = booking.status.trim() === 'Pending' || booking.status.trim() === 'PendingConfirm';
       } else if (booking.type === 'Offline') {
-        canCancel = booking.status.trim() === 'Chờ xử lý';
+        canCancel = booking.status.trim() === 'Pending';
       }
 
       if (!canCancel) {
@@ -449,8 +810,6 @@ const YourBooking = () => {
     if (!dateString) return 'Chưa có ngày';
     
     try {
-      // Log để kiểm tra giá trị đầu vào
-      console.log('Date string received:', dateString);
       
       // Parse ngày từ định dạng YYYY-MM-DD
       const [year, month, day] = dateString.split('-');
@@ -474,254 +833,14 @@ const YourBooking = () => {
     }
   };
 
-  const getShortStatusText = (status) => {
-    switch(status.trim()) {
-      case 'ContractConfirmedByManager': return 'Quản lý xác nhận HĐ';
-      case 'ContractConfirmedByCustomer': return 'KH xác nhận HĐ';
-      case 'VerifyingOTP': return 'Đang xác thực OTP';
-      case 'VerifiedOTP': return 'Đã xác thực OTP';
-      case 'FirstPaymentPending': return 'Chờ thanh toán lần 1';
-      case 'FirstPaymentPendingConfirm': return 'Chờ xác nhận TT lần 1';
-      case 'FirstPaymentSuccess': return 'Đã thanh toán lần 1';
-      case 'DocumentRejectedByManager': return 'Quản lý từ chối HS';
-      case 'DocumentRejectedByCustomer': return 'KH từ chối HS';
-      case 'DocumentConfirmedByManager': return 'Quản lý duyệt HS';
-      case 'DocumentConfirmedByCustomer': return 'KH duyệt HS';
-      case 'AttachmentRejected': return 'Từ chối biên bản';
-      case 'AttachmentConfirmed': return 'Đã duyệt biên bản';
-      case 'VerifyingOTPAttachment': return 'Xác thực OTP BB';
-      case 'VerifiedOTPAttachment': return 'Đã xác thực BB';
-      case 'SecondPaymentPending': return 'Chờ thanh toán lần 2';
-      case 'SecondPaymentPendingConfirm': return 'Chờ xác nhận TT lần 2';
-      case 'Completed': return 'Hoàn thành';
-      case 'Pending': return 'Chờ xử lý';
-      case 'Canceled': return 'Đã hủy';
-      default: return status;
-    }
-  };
-
-  const renderBookingItem = ({ item }) => {
-    // Log để kiểm tra dữ liệu
-    console.log('Booking item:', {
-      id: item.id,
-      type: item.type,
-      bookingDate: item.bookingDate
-    });
-    
-    // Điều kiện hiển thị nút thanh toán cho Online và Offline
-    const showPaymentButton = 
-      (item.type === 'Online' && item.status.trim() === 'Chờ xử lý') ||
-      (item.type === 'Offline' && (item.status.trim() === 'Đã xác thực OTP' || 
-                                   item.status.trim() === 'Đã xác thực BB'));
-    
-    // Điều kiện hiển thị nút hủy lịch - cập nhật theo yêu cầu mới
-    const showCancelButton = 
-      (item.type === 'Online' && (item.status.trim() === 'Chờ xử lý' || item.status.trim() === 'Đang xử lý')) ||
-      (item.type === 'Offline' && item.status.trim() === 'Chờ xử lý');
-
-    // Điều kiện hiển thị nút xem hợp đồng cho Offline
-    const isOffline = item.type === 'Offline';
-    const isConfirmedByManager = item.status.trim() === 'Quản lý xác nhận HĐ';
-    const isConfirmedByCustomer = item.status.trim() === 'KH xác nhận HĐ';
-    const isVerifyingOTP = item.status.trim() === 'Đang xác thực OTP';
-    const isVerifiedOTP = item.status.trim() === 'Đã xác thực OTP';
-    const isFirstPaymentPending = item.status.trim() === 'Chờ thanh toán lần 1';
-    const isFirstPaymentPendingConfirm = item.status.trim() === 'Chờ xác nhận TT lần 1';
-    const isFirstPaymentSuccess = item.status.trim() === 'Đã thanh toán lần 1';
-    const isDocumentRejectedByManager = item.status.trim() === 'Quản lý từ chối HS';
-    const isDocumentRejectedByCustomer = item.status.trim() === 'KH từ chối HS';
-    const isDocumentConfirmedByManager = item.status.trim() === 'Quản lý duyệt HS';
-    const isDocumentConfirmedByCustomer = item.status.trim() === 'KH duyệt HS';
-    const isAttachmentRejected = item.status.trim() === 'Từ chối biên bản';
-    const isAttachmentConfirmed = item.status.trim() === 'Đã duyệt biên bản';
-    const isVerifyingOTPAttachment = item.status.trim() === 'Xác thực OTP BB';
-    const isVerifiedOTPAttachment = item.status.trim() === 'Đã xác thực BB';
-    const isSecondPaymentPending = item.status.trim() === 'Chờ thanh toán lần 2';
-    const isSecondPaymentPendingConfirm = item.status.trim() === 'Chờ xác nhận TT lần 2';
-    const isCompleted = item.status.trim() === 'Hoàn thành';
-    
-    const showContractButton = 
-      isOffline && (isConfirmedByManager || isConfirmedByCustomer || isVerifyingOTP || 
-      isVerifiedOTP || isFirstPaymentPending || isFirstPaymentPendingConfirm || 
-      isFirstPaymentSuccess || isDocumentRejectedByManager || isDocumentRejectedByCustomer ||
-      isDocumentConfirmedByManager || isDocumentConfirmedByCustomer || isAttachmentRejected ||
-      isAttachmentConfirmed || isVerifyingOTPAttachment || isVerifiedOTPAttachment ||
-      isSecondPaymentPending || isSecondPaymentPendingConfirm || isCompleted);
-
-    // Điều kiện hiển thị nút xem hồ sơ
-    const showDocumentButton = isOffline && (isDocumentConfirmedByManager || 
-      isDocumentConfirmedByCustomer || isAttachmentRejected ||
-      isAttachmentConfirmed || isVerifyingOTPAttachment || isVerifiedOTPAttachment ||
-      isSecondPaymentPending || isSecondPaymentPendingConfirm || isCompleted);
-
-    // Điều kiện hiển thị nút xem biên bản cho Offline
-    const showAttachmentButton = isOffline && (isAttachmentConfirmed || 
-      isVerifyingOTPAttachment || isVerifiedOTPAttachment ||
-      isSecondPaymentPending || isSecondPaymentPendingConfirm || isCompleted ||
-      item.status.trim() === 'Khách hàng đãđã duyệt biên bản');
-
-    // Chỉ cho phép xem chi tiết cho các trạng thái đã từ chối
-    const isRejectedStatus = 
-      item.type === 'Offline' && 
-      (item.status.trim() === 'Quản lý từ chối HĐ' ||
-       item.status.trim() === 'Khách hàng từ chối HĐ');
-
-    const getStatusColor = (status) => {
-      switch (status.toLowerCase()) {
-        case 'paid': return '#4CAF50';
-        case 'confirmed': return '#2196F3';
-        case 'pending': return '#FFA726';
-        case 'canceled': return '#F44336';
-        case 'contractrejectedbymaster': return '#FF5252';
-        case 'contractrejectedbycustomer': return '#FF5252';
-        case 'contractconfirmedbymaster': return '#009688';
-        case 'contractconfirmedbycustomer': return '#009688';
-        case 'verifyingotp': return '#FFA726';
-        case 'verifiedotp': return '#FFA726';
-        case 'firstpaymentpending': return '#FFA726';
-        case 'firstpaymentpendingconfirm': return '#FFA726';
-        case 'firstpaymentsuccess': return '#FFA726';
-        case 'documentrejectedbymanager': return '#FF5252';
-        case 'documentrejectedbycustomer': return '#FF5252';
-        case 'documentconfirmedbymanager': return '#009688';
-        case 'documentconfirmedbycustomer': return '#009688';
-        case 'attachmentrejected': return '#FFA726';
-        case 'attachmentconfirmed': return '#009688';
-        case 'verifyingotpattachment': return '#FFA726';
-        case 'verifiedotpattachment': return '#009688';
-        case 'secondpaymentpending': return '#FFA726';
-        case 'secondpaymentpendingconfirm': return '#FFA726';
-        case 'completed': return '#4CAF50';
-        default: return '#999';
-      }
-    };
-
-    return (
-      <View style={styles.bookingCard}>
-        {/* Enhanced Card Header with Type and Status */}
-        <LinearGradient
-          colors={[COLORS.primaryDark, COLORS.primary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.cardHeader}
-        >
-          <View style={styles.cardTypeContainer}>
-            <View style={styles.iconCircle}>
-              <Ionicons 
-                name={item.type === 'Online' ? "videocam" : "business"} 
-                size={16} 
-                color={COLORS.white}
-              />
-            </View>
-            <Text style={styles.cardType}>
-              {item.type === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline'}
-            </Text>
-          </View>
-          <View style={[
-            styles.statusTag,
-            { backgroundColor: getStatusColor(item.status) }
-          ]}>
-            <Text style={styles.statusText}>{getShortStatusText(item.status)}</Text>
-          </View>
-        </LinearGradient>
-        
-        {/* Card Body with Details */}
-        <TouchableOpacity 
-          style={styles.cardBody}
-          onPress={() => handleViewBooking(item.id)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.infoRow}>
-            <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} style={styles.infoIcon} />
-            <Text style={styles.infoLabel}>Mã đặt lịch:</Text>
-            <Text style={styles.infoValue}>{item.id}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} style={styles.infoIcon} />
-            <Text style={styles.infoLabel}>Ngày đặt:</Text>
-            <Text style={styles.infoValue}>{formatDate(item.bookingDate)}</Text>
-          </View>
-          
-          {isRejectedStatus && (
-            <View style={styles.rejectedMessage}>
-              <Ionicons name="alert-circle" size={18} color={COLORS.status.rejected} />
-              <Text style={styles.rejectedText}>Nhấn để xem chi tiết từ chối</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        
-        {/* Card Actions */}
-        {(showContractButton || showDocumentButton || showAttachmentButton || 
-          showPaymentButton || showCancelButton) && (
-          <View style={styles.cardActions}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
-              {showContractButton && (
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.contractButton]}
-                  onPress={() => router.push({
-                    pathname: '/(tabs)/contract_bookingOffline',
-                    params: { id: item.id }
-                  })}
-                >
-                  <Ionicons name="document-text-outline" size={20} color={COLORS.white} />
-                  <Text style={styles.actionButtonText}>Hợp đồng</Text>
-                </TouchableOpacity>
-              )}
-
-              {showDocumentButton && (
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.documentButton]}
-                  onPress={() => router.push({
-                    pathname: '/(tabs)/document_bookingOffline',
-                    params: { id: item.id }
-                  })}
-                >
-                  <Ionicons name="folder-outline" size={20} color={COLORS.white} />
-                  <Text style={styles.actionButtonText}>Hồ sơ</Text>
-                </TouchableOpacity>
-              )}
-
-              {showAttachmentButton && (
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.attachmentButton]}
-                  onPress={() => router.push({
-                    pathname: '/(tabs)/attachment_bookingOffline',
-                    params: { id: item.id }
-                  })}
-                >
-                  <Ionicons name="clipboard-outline" size={20} color={COLORS.white} />
-                  <Text style={styles.actionButtonText}>Biên bản</Text>
-                </TouchableOpacity>
-              )}
-
-              {showPaymentButton && (
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.paymentButton]}
-                  onPress={() => handlePayment(item)}
-                >
-                  <Ionicons name="wallet-outline" size={20} color={COLORS.white} />
-                  <Text style={styles.actionButtonText}>Thanh toán</Text>
-                </TouchableOpacity>
-              )}
-              
-              {showCancelButton && (
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.cancelButton]}
-                  onPress={() => cancelBooking(item)}
-                >
-                  <Ionicons name="close-circle-outline" size={20} color={COLORS.white} />
-                  <Text style={styles.actionButtonText}>Hủy lịch</Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-    );
+  // Helper function to get status color with opacity
+  const getStatusColorWithOpacity = (status) => {
+    return getStatusColor(status) + '20'; // 20 is hex for 12% opacity
   };
 
   const getStatusColor = (status) => {
+    if (!status) return '#999';
+    
     switch (status.toLowerCase()) {
       case 'paid': return '#4CAF50';
       case 'confirmed': return '#2196F3';
@@ -751,577 +870,157 @@ const YourBooking = () => {
     }
   };
 
-  const SelectList = () => {
-    const displayText = selectedConsultType === 'all' ? 'Tất cả loại tư vấn' :
-                       selectedConsultType === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline';
-
+  // Render booking item using the separate component
+  const renderBookingItem = ({ item }) => {
     return (
-      <View style={styles.selectListContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.selectList,
-            openFilter && styles.selectListActive
-          ]}
-          onPress={() => setOpenFilter(!openFilter)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.selectListContent}>
-            <Ionicons 
-              name={selectedConsultType === 'Online' ? "videocam" : 
-                    selectedConsultType === 'Offline' ? "business" : "apps"} 
-              size={20} 
-              color={COLORS.primary}
-              style={styles.selectListIcon}
-            />
-            <Text style={styles.selectListText}>{displayText}</Text>
-          </View>
-          <View style={styles.selectListArrow}>
-            <Ionicons
-              name={openFilter ? "chevron-up" : "chevron-down"} 
-              size={20} 
-              color={COLORS.primary}
-            />
-          </View>
-        </TouchableOpacity>
-        
-        {openFilter && (
-          <View style={styles.dropdownContainer}>
-            <TouchableOpacity
-              style={[
-                styles.dropdownItem,
-                selectedConsultType === 'all' && styles.dropdownItemActive
-              ]}
-              onPress={() => {
-                setSelectedConsultType('all');
-                setOpenFilter(false);
-              }}
-            >
-              <Ionicons name="apps" size={20} color={selectedConsultType === 'all' ? COLORS.primary : COLORS.text.secondary} />
-              <Text style={[
-                styles.dropdownItemText,
-                selectedConsultType === 'all' && styles.dropdownItemTextActive
-              ]}>
-                Tất cả loại tư vấn
-              </Text>
-              {selectedConsultType === 'all' && (
-                <Ionicons name="checkmark" size={20} color={COLORS.primary} />
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.dropdownItem,
-                selectedConsultType === 'Online' && styles.dropdownItemActive
-              ]}
-              onPress={() => {
-                setSelectedConsultType('Online');
-                setOpenFilter(false);
-              }}
-            >
-              <Ionicons name="videocam" size={20} color={selectedConsultType === 'Online' ? COLORS.primary : COLORS.text.secondary} />
-              <Text style={[
-                styles.dropdownItemText,
-                selectedConsultType === 'Online' && styles.dropdownItemTextActive
-              ]}>
-                Tư vấn Online
-              </Text>
-              {selectedConsultType === 'Online' && (
-                <Ionicons name="checkmark" size={20} color={COLORS.primary} />
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.dropdownItem,
-                selectedConsultType === 'Offline' && styles.dropdownItemActive
-              ]}
-              onPress={() => {
-                setSelectedConsultType('Offline');
-                setOpenFilter(false);
-              }}
-            >
-              <Ionicons name="business" size={20} color={selectedConsultType === 'Offline' ? COLORS.primary : COLORS.text.secondary} />
-              <Text style={[
-                styles.dropdownItemText,
-                selectedConsultType === 'Offline' && styles.dropdownItemTextActive
-              ]}>
-                Tư vấn Offline
-              </Text>
-              {selectedConsultType === 'Offline' && (
-                <Ionicons name="checkmark" size={20} color={COLORS.primary} />
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+      <BookingItem
+        item={item}
+        onViewBooking={handleViewBooking}
+        onPayment={handlePayment}
+        onCancel={cancelBooking}
+        navigation={router}
+        formatDate={formatDate}
+        getStatusColor={getStatusColor}
+        getStatusColorWithOpacity={getStatusColorWithOpacity}
+      />
     );
   };
 
-  const FilterModal = () => (
-    <Modal
-      visible={modalVisible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={() => setModalVisible(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              {currentFilter === 'consultType' ? 'Chọn loại tư vấn' : 'Chọn trạng thái'}
-            </Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+  // Update the filter component with better responsiveness
+  const SelectList = () => (
+    <View style={styles.filterContainer}>
+      <View style={styles.filterTabsContainer}>
+        {consultTypeOptions.map((option) => (
+            <TouchableOpacity
+            key={option.id}
+              style={[
+              styles.filterTab,
+              selectedConsultType === option.id && styles.filterTabActive
+              ]}
+            onPress={() => setSelectedConsultType(option.id)}
+            >
+              <Text style={[
+              styles.filterTabText,
+              selectedConsultType === option.id && styles.filterTabTextActive
+              ]}>
+              {option.label}
+              </Text>
+            {selectedConsultType === option.id && (
+              <View style={styles.activeTabIndicator} />
+              )}
             </TouchableOpacity>
+        ))}
           </View>
-          
-          <FlatList
-            data={currentFilter === 'consultType' ? consultTypeOptions : consultTypeOptions}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.modalItem}
-                onPress={() => {
-                  currentFilter === 'consultType' 
-                    ? setSelectedConsultType(item.id)
-                    : setSelectedConsultType('all');
-                  setModalVisible(false);
-                }}
-              >
-                <Text style={styles.modalItemText}>{item.label}</Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
       </View>
-    </Modal>
-  );
+    );
 
-  const OnlineBookingDetailModal = ({ booking, onClose }) => (
-    <View style={styles.bookingDetailSection}>
-      {/* Header with booking type badge */}
-      <View style={styles.detailHeader}>
-        <View style={styles.typeBadge}>
-          <Ionicons name="videocam" size={16} color="#FFFFFF" />
-          <Text style={styles.typeBadgeText}>Tư vấn Online</Text>
-        </View>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: getStatusColor(booking?.status) }
-        ]}>
-          <Text style={styles.statusBadgeText}>{booking?.status}</Text>
-        </View>
-      </View>
-
-      {/* Main Info Section */}
-      <View style={styles.detailCard}>
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Mã đặt lịch:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.bookingOnlineId || 'Không có'}</Text>
-        </View>
-
-        <View style={styles.separator} />
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="person-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Khách hàng:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.customerName}</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Email:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.customerEmail}</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="person-circle-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Master:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.masterName || 'Chưa có Master'}</Text>
-        </View>
-
-        <View style={styles.separator} />
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="cash-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Giá:</Text>
-          </View>
-          <Text style={styles.priceValue}>
-            {booking?.price ? `${booking.price.toLocaleString('vi-VN')} VNĐ` : 'Chưa có giá'}
-          </Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Ngày:</Text>
-          </View>
-          <Text style={styles.detailValue}>
-            {formatDate(booking?.bookingDate)}
-          </Text>
-        </View>
-
-        {booking?.startTime && booking?.endTime && (
-          <View style={styles.detailRow}>
-            <View style={styles.detailLabelContainer}>
-              <Ionicons name="time-outline" size={18} color={COLORS.primary} />
-              <Text style={styles.detailLabel}>Thời gian:</Text>
-            </View>
-            <Text style={styles.detailValue}>
-              {booking.startTime.substring(0, 5)} - {booking.endTime.substring(0, 5)}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Meeting Link Section */}
-      {booking?.linkMeet && (
-        <View style={styles.linkCard}>
-          <View style={styles.linkHeader}>
-            <Ionicons name="videocam" size={20} color={COLORS.primary} />
-            <Text style={styles.linkHeaderText}>Link Cuộc Họp</Text>
-          </View>
-          <TouchableOpacity 
-            onPress={() => Linking.openURL(booking.linkMeet)}
-            style={styles.linkButton}
-          >
-            <Text style={styles.linkButtonText}>Tham gia buổi tư vấn</Text>
-            <Ionicons name="open-outline" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Description Section */}
-      <View style={styles.descriptionCard}>
-        <View style={styles.descriptionHeader}>
-          <Ionicons name="document-text-outline" size={20} color={COLORS.primary} />
-          <Text style={styles.descriptionHeaderText}>Chi tiết yêu cầu</Text>
-        </View>
-        <Text style={styles.descriptionText}>{booking?.description || 'Chưa có mô tả'}</Text>
-      </View>
-
-      {/* Master Note Section */}
-      {booking?.masterNote && (
-        <View style={styles.masterNoteCard}>
-          <View style={styles.masterNoteHeader}>
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.masterNoteHeaderText}>Ghi chú của Master</Text>
-          </View>
-          <Text style={styles.masterNoteText}>{booking.masterNote}</Text>
-        </View>
-      )}
-    </View>
-  );
-
-  const OfflineBookingDetailModal = ({ booking, onClose }) => (
-    <View style={styles.bookingDetailSection}>
-      {/* Header with booking type badge */}
-      <View style={styles.detailHeader}>
-        <View style={[styles.typeBadge, styles.offlineTypeBadge]}>
-          <Ionicons name="business" size={16} color="#FFFFFF" />
-          <Text style={styles.typeBadgeText}>Tư vấn Offline</Text>
-        </View>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: getStatusColor(booking?.status) }
-        ]}>
-          <Text style={styles.statusBadgeText}>{booking?.status}</Text>
-        </View>
-      </View>
-
-      {/* Main Info Section */}
-      <View style={styles.detailCard}>
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Mã đặt lịch:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.bookingOfflineId || 'Không có'}</Text>
-        </View>
-
-        <View style={styles.separator} />
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="person-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Khách hàng:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.customerName}</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Email:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.customerEmail}</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="person-circle-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Master:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.masterName || 'Chưa có Master'}</Text>
-        </View>
-
-        <View style={styles.separator} />
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="cash-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Giá:</Text>
-          </View>
-          <Text style={styles.priceValue}>
-            {booking?.selectedPrice ? `${parseFloat(booking.selectedPrice).toLocaleString('vi-VN')} VNĐ` : 'Chưa có giá'}
-          </Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Ngày:</Text>
-          </View>
-          <Text style={styles.detailValue}>
-            {formatDate(booking?.bookingDate)}
-          </Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <Ionicons name="location-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.detailLabel}>Địa điểm:</Text>
-          </View>
-          <Text style={styles.detailValue}>{booking?.location || 'Chưa có địa điểm'}</Text>
-        </View>
-      </View>
-
-      {/* Description Section */}
-      <View style={styles.descriptionCard}>
-        <View style={styles.descriptionHeader}>
-          <Ionicons name="document-text-outline" size={20} color={COLORS.primary} />
-          <Text style={styles.descriptionHeaderText}>Chi tiết yêu cầu</Text>
-        </View>
-        <Text style={styles.descriptionText}>{booking?.description || 'Chưa có mô tả'}</Text>
-      </View>
-    </View>
-  );
-
+  // Update the modal design
   const BookingDetailModal = () => (
     <Modal
       visible={bookingDetailVisible}
       transparent={true}
-      animationType="fade"
+      animationType="slide"
       onRequestClose={() => setBookingDetailVisible(false)}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* Enhanced Modal Header */}
-          <LinearGradient
-            colors={[COLORS.primaryDark, COLORS.primary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.modalHeaderGradient}
-          >
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleContainer}>
-                <Ionicons 
-                  name={selectedBooking?.type === 'Online' ? "videocam" : "business"} 
-                  size={24} 
-                  color={COLORS.white} 
-                />
-                <Text style={styles.modalTitle}>
-                  Chi tiết {selectedBooking?.type === 'Online' ? 'Tư vấn Online' : 'Tư vấn Offline'}
-                </Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => setBookingDetailVisible(false)}
-                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-              >
-                <Ionicons name="close" size={24} color={COLORS.white} />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-
-          {selectedBooking && (
-            <ScrollView 
-              style={styles.bookingDetailScroll}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.bookingDetailContent}
-            >
-              {selectedBooking.type === 'Online' ? (
-                <OnlineBookingDetailModal 
-                  booking={selectedBooking}
-                  onClose={() => setBookingDetailVisible(false)}
-                />
-              ) : (
-                <OfflineBookingDetailModal
-                  booking={selectedBooking}
-                  onClose={() => setBookingDetailVisible(false)}
-                />
-              )}
-            </ScrollView>
-          )}
-          
-          {/* Action Button at Bottom */}
-          <View style={styles.modalFooter}>
-            <TouchableOpacity 
-              style={styles.modalCloseButton}
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              Chi tiết đặt lịch {selectedBooking?.type}
+            </Text>
+              <TouchableOpacity
+              style={styles.closeButton}
               onPress={() => setBookingDetailVisible(false)}
             >
-              <Text style={styles.modalCloseButtonText}>Đóng</Text>
+              <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+        </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {selectedBooking?.type === 'Online' ? (
+              <OnlineBookingDetailModal 
+                booking={selectedBooking} 
+                getStatusColor={getStatusColor}
+                formatDate={formatDate}
+              />
+            ) : (
+              <OfflineBookingDetailModal 
+                booking={selectedBooking}
+                getStatusColor={getStatusColor}
+                formatDate={formatDate}
+              />
+            )}
+          </ScrollView>
+          
+          <TouchableOpacity 
+            style={styles.modalCloseButton}
+              onPress={() => setBookingDetailVisible(false)}
+            >
+            <Text style={styles.modalCloseButtonText}>Đóng</Text>
             </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Modal>
   );
 
-  // Thêm lại hàm forceRefresh
-  const forceRefresh = async () => {
-    try {
-      setLoading(true);
-      console.log('Đang xóa cache và tải lại dữ liệu...');
-      
-      // Xóa dữ liệu hiện tại
-      setBookings([]);
-      
-      // Tải lại toàn bộ dữ liệu
-      await initData();
-      
-      Alert.alert(
-        'Làm mới hoàn tất',
-        'Đã xóa bộ nhớ cache và tải lại dữ liệu mới nhất từ máy chủ.'
-      );
-    } catch (error) {
-      console.error('Lỗi khi làm mới dữ liệu:', error);
-      Alert.alert(
-        'Lỗi làm mới',
-        'Không thể làm mới dữ liệu. Vui lòng thử lại sau.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Cập nhật phần render để chỉ hiển thị loading cho fetchBookings
-  if (loading) {
+  // Keep the main return but with updated styling
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <View style={styles.loadingCard}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Đang tải lịch tư vấn...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={initData}
-        >
-          <Text style={styles.retryButtonText}>Thử lại</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  const header = (
+    <SafeAreaView style={[styles.container, { backgroundColor: '#8B0000' }]}>
+      <StatusBar 
+        barStyle="light-content" 
+        backgroundColor="#8B0000"
+        translucent={true}
+      />
+      
     <View style={styles.header}>
       <TouchableOpacity 
-        style={styles.backButton}
         onPress={() => router.push('/(tabs)/profile')}
+        style={styles.backButton}
       >
-        <Ionicons name="chevron-back" size={24} color={COLORS.white} />
+        <Ionicons name="arrow-back" size={24} color="#FFF" />
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>Lịch tư vấn của bạn</Text>
+      <Text style={styles.headerTitle}>Lịch tư vấn</Text>
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={refetch}
+        >
+          <Ionicons name="refresh" size={24} color="#FFF" />
+        </TouchableOpacity>
     </View>
-  );
-
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
       
-      {/* Elegant Header with Gradient */}
-      <LinearGradient
-        colors={[COLORS.primaryDark, COLORS.primary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)/profile')}
-          >
-            <Ionicons name="chevron-back" size={24} color={COLORS.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Lịch tư vấn của bạn</Text>
-        </View>
-      </LinearGradient>
-      
-      {/* Refined Filter Section */}
-      <View style={styles.filterSection}>
-        <SelectList />
-      </View>
+        <View style={{ flex: 1, backgroundColor: '#f5f7fa' }}>
+          <SelectList />
 
-      {/* Loading State */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Đang tải lịch tư vấn...</Text>
-          </View>
-        </View>
-      ) : (
-        /* Booking List with Elegant Cards */
-        <FlatList
-          data={filteredBookings}
-          renderItem={renderBookingItem}
-          keyExtractor={(item) => `${item.type}-${item.id}`}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          refreshing={isRefreshing}
-          onRefresh={refetch}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconContainer}>
-                <Ionicons name="calendar-outline" size={64} color={COLORS.white} />
-              </View>
-              <Text style={styles.emptyTitle}>Chưa có lịch tư vấn</Text>
-              <Text style={styles.emptyText}>Bạn chưa có lịch đặt tư vấn nào. Vui lòng đặt lịch tư vấn mới để xem tại đây.</Text>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#8B0000" />
+              <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
             </View>
+          ) : (
+          <FlatList
+            data={filteredBookings}
+            renderItem={renderBookingItem}
+            keyExtractor={(item) => `${item.type}-${item.id}`}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
+            refreshing={isRefreshing}
+            onRefresh={refetch}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyContainer}>
+                  <Ionicons 
+                    name="calendar-outline" 
+                    size={isSmallDevice ? 60 : 80} 
+                    color="#DDD" 
+                  />
+                <Text style={styles.emptyText}>
+                  Không có lịch đặt tư vấn nào
+                </Text>
+              </View>
+            )}
+          />
           )}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={refetch}
-              colors={['#8B0000']}
-              tintColor="#FFFFFF"
-              title="Đang làm mới..."
-              titleColor="#FFFFFF"
-              progressBackgroundColor="rgba(255, 255, 255, 0.2)"
-            />
-          }
-        />
-      )}
-
-      <FilterModal />
+        </View>
+      
       <BookingDetailModal />
       <CustomTabBar />
     </SafeAreaView>
@@ -1329,612 +1028,361 @@ const YourBooking = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  headerGradient: {
-    elevation: 4,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    backgroundColor: '#f5f7fa',
   },
   header: {
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 16,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    marginLeft: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  filterSection: {
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    elevation: 5,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    zIndex: 9,
-  },
-  selectListContainer: {
-    zIndex: 10,
-    position: 'relative',
-    elevation: 5,
-  },
-  selectList: {
-    backgroundColor: COLORS.white,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    elevation: 1,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  selectListActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: 'rgba(139, 0, 0, 0.05)',
-  },
-  selectListContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  selectListIcon: {
-    marginRight: 12,
-  },
-  selectListText: {
-    fontSize: 16,
-    color: COLORS.text.primary,
-    fontWeight: '500',
-  },
-  selectListArrow: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(139, 0, 0, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dropdownContainer: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    borderRadius: 10,
-    marginTop: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    elevation: 10,
-    shadowColor: COLORS.shadow,
+    backgroundColor: '#8B0000',
+    paddingHorizontal: isSmallDevice ? 12 : 16,
+    paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight + 16,
+    paddingBottom: 10,
+    elevation: 4,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    zIndex: 11,
   },
-  dropdownItem: {
-    padding: 12,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  dropdownItemActive: {
-    backgroundColor: 'rgba(139, 0, 0, 0.08)',
-  },
-  dropdownItemText: {
-    fontSize: 16,
-    color: COLORS.text.secondary,
-    marginLeft: 12,
-    flex: 1,
-  },
-  dropdownItemTextActive: {
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-  listContainer: {
-    padding: 16,
-    paddingBottom: 120, // Extra padding for TabBar
-    zIndex: 1,
-  },
-  bookingCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: 'hidden',
-    elevation: 4,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    borderWidth: Platform.OS === 'ios' ? 1 : 0,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  cardHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  cardTypeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  cardType: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  statusTag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    minWidth: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  statusText: {
-    color: COLORS.white,
-    fontSize: 12,
+  headerTitle: {
+    fontSize: isSmallDevice ? 18 : 20,
     fontWeight: 'bold',
+    color: '#FFF',
+    flex: 1,
     textAlign: 'center',
   },
-  cardBody: {
-    padding: 16,
-    backgroundColor: COLORS.white,
+  backButton: {
+    padding: 8,
   },
-  infoRow: {
+  refreshButton: {
+    padding: 8,
+  },
+  filterContainer: {
+    backgroundColor: '#fff',
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  filterTabsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    paddingHorizontal: isSmallDevice ? 8 : 16,
   },
-  infoIcon: {
-    marginRight: 8,
-    width: 22,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    width: 90,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: COLORS.text.primary,
-    fontWeight: '500',
+  filterTab: {
     flex: 1,
-  },
-  rejectedMessage: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(244, 67, 54, 0.08)',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
+    paddingVertical: 12,
+    position: 'relative',
   },
-  rejectedText: {
-    fontSize: 14,
-    color: COLORS.status.rejected,
-    marginLeft: 8,
+  filterTabActive: {
+    backgroundColor: 'transparent',
+  },
+  filterTabText: {
+    color: '#666',
+    fontSize: isSmallDevice ? 13 : 14,
     fontWeight: '500',
   },
-  cardActions: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    padding: 12,
+  filterTabTextActive: {
+    color: '#8B0000',
+    fontWeight: '700',
   },
-  actionsScroll: {
-    paddingRight: 8,
-    gap: 8,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 100,
-    marginRight: 8,
-  },
-  actionButtonText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  contractButton: {
-    backgroundColor: COLORS.primary,
-  },
-  documentButton: {
-    backgroundColor: COLORS.primaryLight,
-  },
-  attachmentButton: {
-    backgroundColor: COLORS.primaryDark,
-  },
-  paymentButton: {
-    backgroundColor: '#38A169', // Green
-  },
-  cancelButton: {
-    backgroundColor: '#E53E3E', // Red
+  activeTabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '25%',
+    right: '25%',
+    height: 3,
+    backgroundColor: '#8B0000',
+    borderRadius: 1.5,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-  },
-  loadingCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    width: '85%',
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
-    color: COLORS.text.secondary,
-    textAlign: 'center',
+    fontSize: isSmallDevice ? 14 : 16,
+    color: '#666',
+  },
+  listContainer: {
+    padding: isSmallDevice ? 12 : 16,
+    paddingBottom: 80, // Space for tab bar
+  },
+  bookingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: isSmallDevice ? 12 : 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  typeInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  typeIcon: {
+    width: isSmallDevice ? 36 : 40,
+    height: isSmallDevice ? 36 : 40,
+    borderRadius: isSmallDevice ? 18 : 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeText: {
+    fontSize: isSmallDevice ? 14 : 16,
+    fontWeight: '700',
+    color: '#333',
+  },
+  idText: {
+    fontSize: isSmallDevice ? 12 : 13,
+    color: '#666',
+    marginTop: 2,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: isSmallDevice ? 11 : 12,
+    fontWeight: '600',
+  },
+  cardBody: {
+    padding: isSmallDevice ? 12 : 16,
+  },
+  infoSection: {
+    gap: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoLabel: {
+    fontSize: isSmallDevice ? 13 : 14,
+    color: '#666',
+    width: 60,
+  },
+  infoValue: {
+    fontSize: isSmallDevice ? 13 : 14,
+    color: '#333',
+    fontWeight: '500',
+    flex: 1,
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffebee',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  warningText: {
+    color: '#f44336',
+    fontSize: isSmallDevice ? 13 : 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  cardActions: {
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingVertical: isSmallDevice ? 8 : 12,
+  },
+  actionsScrollContent: {
+    paddingHorizontal: isSmallDevice ? 12 : 16,
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: isSmallDevice ? 12 : 16,
+    paddingVertical: isSmallDevice ? 6 : 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: isSmallDevice ? 12 : 14,
+    fontWeight: '600',
+  },
+  contractButton: {
+    backgroundColor: '#4CAF50',
+  },
+  documentButton: {
+    backgroundColor: '#2196F3',
+  },
+  attachmentButton: {
+    backgroundColor: '#9C27B0',
+  },
+  paymentButton: {
+    backgroundColor: '#FF9800',
+  },
+  cancelButton: {
+    backgroundColor: '#F44336',
   },
   emptyContainer: {
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 32,
-    marginTop: 32,
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-    elevation: 3,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.text.primary,
-    marginBottom: 12,
+    height: SCREEN_HEIGHT * 0.5,
   },
   emptyText: {
-    fontSize: 16,
-    color: COLORS.text.secondary,
+    marginTop: 16,
+    fontSize: isSmallDevice ? 14 : 16,
+    color: '#666',
     textAlign: 'center',
-    lineHeight: 24,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
-  modalContent: {
-    backgroundColor: COLORS.white,
+  modalContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
     borderRadius: 16,
-    width: '95%',
-    maxHeight: '90%',
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  modalHeaderGradient: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  modalTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    marginLeft: 10,
+    fontSize: isSmallDevice ? 16 : 18,
+    fontWeight: '700',
+    color: '#333',
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 4,
   },
-  bookingDetailScroll: {
-    maxHeight: Platform.OS === 'ios' ? '74%' : '72%',
-  },
-  bookingDetailContent: {
-    paddingBottom: 20,
-  },
-  modalFooter: {
+  modalContent: {
     padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
-    alignItems: 'center',
+    maxHeight: SCREEN_HEIGHT * 0.5,
   },
   modalCloseButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    width: '100%',
+    padding: 16,
     alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
   modalCloseButtonText: {
-    color: COLORS.white,
+    color: '#8B0000',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  bookingDetailSection: {
-    padding: 20,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2196F3',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    maxWidth: '60%',
-  },
-  offlineTypeBadge: {
-    backgroundColor: '#8B0000',
-  },
-  typeBadgeText: {
-    color: COLORS.white,
-    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 6,
   },
-  statusBadge: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    maxWidth: '40%',
+  modalDetailContainer: {
+    flex: 1,
   },
-  statusBadgeText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  detailCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
+  modalDetailSection: {
     marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  detailLabelContainer: {
+  modalDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '40%',
+    marginBottom: 12,
+    gap: 8,
   },
-  detailLabel: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    marginLeft: 8,
+  modalDetailLabel: {
+    fontSize: isSmallDevice ? 13 : 14,
+    color: '#666',
+    width: 80,
   },
-  detailValue: {
-    fontSize: 14,
-    color: COLORS.text.primary,
+  modalDetailValue: {
+    fontSize: isSmallDevice ? 13 : 14,
+    color: '#333',
     fontWeight: '500',
-    textAlign: 'right',
-    width: '60%',
+    flex: 1,
   },
-  priceValue: {
-    fontSize: 16,
-    color: COLORS.primary,
-    fontWeight: 'bold',
-    textAlign: 'right',
-    width: '60%',
+  modalDetailPrice: {
+    fontSize: isSmallDevice ? 14 : 15,
+    color: '#8B0000',
+    fontWeight: '700',
+    flex: 1,
   },
-  separator: {
+  modalDivider: {
     height: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    marginVertical: 8,
+    backgroundColor: '#eee',
+    marginVertical: 12,
   },
-  linkCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  linkHeader: {
+  statusBadgeSmall: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
   },
-  linkHeaderText: {
-    fontSize: 16,
+  statusTextSmall: {
+    fontSize: isSmallDevice ? 10 : 11,
     fontWeight: '600',
-    marginLeft: 8,
-    color: COLORS.text.primary,
   },
   linkButton: {
     backgroundColor: '#2196F3',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
   },
   linkButtonText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: 8,
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
   },
-  descriptionCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  descriptionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  modalDescriptionContainer: {
     marginBottom: 12,
   },
-  descriptionHeaderText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-    color: COLORS.text.primary,
+  modalDescriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
   },
-  descriptionText: {
+  modalDescriptionLabel: {
     fontSize: 14,
-    color: COLORS.text.secondary,
-    lineHeight: 22,
+    fontWeight: '600',
+    color: '#666',
   },
-  masterNoteCard: {
-    backgroundColor: '#FFF0F0',
-    borderRadius: 12,
-    padding: 16,
+  modalDescriptionText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  modalMasterNoteContainer: {
+    backgroundColor: '#FFF9F9',
+    padding: 12,
+    borderRadius: 8,
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  masterNoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  masterNoteHeaderText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-    color: COLORS.text.primary,
-  },
-  masterNoteText: {
-    fontSize: 14,
-    color: COLORS.text.primary,
-    lineHeight: 22,
+    borderLeftColor: '#8B0000',
   },
 });
 
