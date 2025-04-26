@@ -27,6 +27,40 @@ import { paymentService } from '../../constants/paymentService';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const isSmallDevice = SCREEN_WIDTH < 375;
 
+// Helper function to convert status to Vietnamese
+const getStatusDisplayText = (status) => {
+  if (!status) return 'Không xác định';
+  
+  switch (status.toLowerCase()) {
+    case 'paid': return 'Đã thanh toán';
+    case 'confirmed': return 'Đã xác nhận';
+    case 'pending': return 'Chờ xác nhận';
+    case 'canceled': return 'Đã hủy';
+    case 'contractrejectedbymaster': return 'Hợp đồng bị từ chối';
+    case 'contractrejectedbycustomer': return 'Khách từ chối hợp đồng';
+    case 'contractconfirmedbymaster': return 'Master đã xác nhận hợp đồng';
+    case 'contractconfirmedbycustomer': return 'Khách đã xác nhận hợp đồng';
+    case 'verifyingotp': return 'Đang xác minh OTP';
+    case 'verifiedotp': return 'Đã xác minh OTP';
+    case 'firstpaymentpending': return 'Chờ thanh toán lần 1';
+    case 'firstpaymentpendingconfirm': return 'Chờ xác nhận thanh toán lần 1';
+    case 'firstpaymentsuccess': return 'Thanh toán lần 1 thành công';
+    case 'documentrejectedbymanager': return 'Quản lý từ chối hồ sơ';
+    case 'documentrejectedbycustomer': return 'Khách từ chối hồ sơ';
+    case 'documentconfirmedbymanager': return 'Quản lý xác nhận hồ sơ';
+    case 'documentconfirmedbycustomer': return 'Khách xác nhận hồ sơ';
+    case 'attachmentrejected': return 'Từ chối biên bản';
+    case 'attachmentconfirmed': return 'Xác nhận biên bản';
+    case 'verifyingotpattachment': return 'Đang xác minh OTP biên bản';
+    case 'verifiedotpattachment': return 'Đã xác minh OTP biên bản';
+    case 'secondpaymentpending': return 'Chờ thanh toán lần 2';
+    case 'secondpaymentpendingconfirm': return 'Chờ xác nhận thanh toán lần 2';
+    case 'completed': return 'Hoàn thành';
+    case 'pendingconfirm': return 'Chờ xác nhận';
+    default: return status; // Return original if no mapping found
+  }
+};
+
 // Create a separate BookingItem component before the main YourBooking component
 const BookingItem = React.memo(({ 
   item, 
@@ -108,7 +142,7 @@ const BookingItem = React.memo(({
             styles.statusText,
             { color: getStatusColor(item.status) }
           ]}>
-            {item.status}
+            {getStatusDisplayText(item.status)}
           </Text>
         </View>
       </View>
@@ -245,7 +279,7 @@ const OnlineBookingDetailModal = ({ booking, getStatusColor, formatDate }) => (
             styles.statusTextSmall,
             { color: getStatusColor(booking?.status) }
           ]}>
-            {booking?.status}
+            {getStatusDisplayText(booking?.status)}
           </Text>
         </View>
       </View>
@@ -368,7 +402,7 @@ const OfflineBookingDetailModal = ({ booking, getStatusColor, formatDate }) => (
             styles.statusTextSmall,
             { color: getStatusColor(booking?.status) }
           ]}>
-            {booking?.status}
+            {getStatusDisplayText(booking?.status)}
           </Text>
         </View>
       </View>
