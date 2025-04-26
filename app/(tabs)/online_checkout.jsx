@@ -183,18 +183,15 @@ export default function OnlineCheckoutScreen() {
     }, [])
   );
   
-  const handleBackNavigation = () => {
-    // Get the referrer information from params
-    const fromBookingsList = params.source === 'your_booking' || 
-                            params.bookingOnlineId || 
-                            params.serviceId;
-                            
-    if (fromBookingsList) {
-      console.log('Navigating back to your_booking');
-      router.push('/(tabs)/your_booking');
+  const handleBack = () => {
+    if (params.returnTo === 'your_booking') {
+      router.replace({
+        pathname: '/(tabs)/your_booking'
+      });
     } else {
-      console.log('Navigating back to online_schedule');
-      router.push('/(tabs)/online_schedule');
+      router.replace({
+        pathname: '/(tabs)/online_booking'
+      });
     }
   };
   
@@ -280,7 +277,7 @@ export default function OnlineCheckoutScreen() {
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={handleBackNavigation}
+            onPress={handleBack}
             hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
           >
             <Ionicons name="arrow-back" size={scale(24)} color="#8B0000" />
