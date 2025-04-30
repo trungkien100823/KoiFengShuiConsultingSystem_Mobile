@@ -105,6 +105,7 @@ export default function PaymentWebView() {
       'api.payos.vn',
       'koifengshui.com',
       '192.168.1.8:5261',
+      'https://koifengshui-001-site1.ltempurl.com',
       'sandbox.payos.vn'
     ];
 

@@ -83,7 +83,7 @@ export default function CalculationResult() {
               name: params.koiName || 'Unknown',
               description: params.description || 'Chưa có mô tả.',
               introduction: params.introduction || '',
-              imageName: params.imageName || 'buddha.png',
+              imageName: params.imageName,
               liked: params.liked || 'false',
               size: params.size || '2',
               timestamp: Date.now()

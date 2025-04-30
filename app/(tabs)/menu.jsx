@@ -16,10 +16,11 @@ import {
   KeyboardAvoidingView,
   StatusBar,
   TouchableWithoutFeedback,
-  RefreshControl
+  RefreshControl,
+  BackHandler
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SortPopup from '../../components/SortPopup';
@@ -32,6 +33,7 @@ import { API_CONFIG } from '../../constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScreenWrapper from '../../components/ScreenWrapper';
 
 const { width, height } = Dimensions.get('window');
 
@@ -1203,7 +1205,7 @@ export default function MenuScreen() {
             name: item.name || 'Unknown',
             description: item.description || '',
             imageUrl: item.imageUrl || null,
-            imageName: item.imageUrl || 'buddha.png',
+            imageName: item.imageUrl,
           }));
           
           return { isSuccess: true, data: mappedData };
@@ -1263,6 +1265,19 @@ export default function MenuScreen() {
       console.error('Error refreshing data:', error);
       setRefreshing(false);
     });
+  }, []);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        // When on the menu screen, prevent going back further
+        return true; // Return true to prevent default behavior
+      }
+    );
+
+    // Clean up event listener when component unmounts
+    return () => backHandler.remove();
   }, []);
 
   return (
@@ -1472,12 +1487,8 @@ export default function MenuScreen() {
                               key={`${item.koiPondId || item.koiVarietyId}-${retryCount[item.koiPondId || item.koiVarietyId] || 0}`}
                               source={
                                 selectedTab === 'Pond' 
-                                  ? (item.imageUrl 
-                                      ? { uri: item.imageUrl }
-                                      : require('../../assets/images/buddha.png'))
-                                  : (item.imageUrl 
-                                      ? { uri: item.imageUrl }
-                                      : require('../../assets/images/buddha.png'))
+                                  ? (item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/natural_pond.jpg'))
+                                  : (item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/koi_image.jpg'))
                               } 
                               style={styles.image}
                               resizeMode="cover"

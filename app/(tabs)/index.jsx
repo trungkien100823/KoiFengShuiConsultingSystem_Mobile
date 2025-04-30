@@ -48,19 +48,6 @@ export default function AuthScreen() {
           >
             <Text style={styles.buttonTextSecondary}>Đăng ký</Text>
           </TouchableOpacity>
-
-          <View style={styles.separatorContainer}>
-            <View style={styles.separatorLine} />
-            <Text style={styles.separatorText}>Hoặc</Text>
-            <View style={styles.separatorLine} />
-          </View>
-
-          <View style={styles.googleContainer}>
-            <TouchableOpacity style={styles.googleButton}>
-              <FontAwesome name="google" size={24} color="white" />
-              <Text style={styles.googleText}>Đăng nhập bằng Google</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </LinearGradient>
     </SafeAreaView>

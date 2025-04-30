@@ -37,7 +37,7 @@ export default function MoreButton({ item, type }) {
             name: response.data?.varietyName || item.name || 'Unknown',
             description: response.data?.description || item.description || 'Chưa có mô tả.',
             introduction: response.data?.introduction || '',
-            imageName: response.data?.imageUrl || item.imageName || 'buddha.png',
+            imageName: response.data?.imageUrl || item.imageName,
             liked: (item.liked || false).toString(),
             size: response.data?.size || item.size || '2'
           }
@@ -72,7 +72,7 @@ export default function MoreButton({ item, type }) {
               name: pondDetails?.pondName || item.name || 'Chưa có tên',
               shape: pondDetails?.shapeName || item.shape || 'Chưa có hình dạng',
               description: pondDetails?.description || item.description || 'Chưa có mô tả',
-              imageName: pondDetails?.imageUrl || item.imageName || 'buddha.png',
+              imageName: pondDetails?.imageUrl || item.imageName,
               shapeId: pondDetails?.shapeId || item.shapeId,
               direction: pondDetails?.direction || 'Chưa xác định'
             }

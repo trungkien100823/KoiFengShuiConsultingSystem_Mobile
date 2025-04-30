@@ -262,7 +262,7 @@ export default function ConsultingScreen() {
                           style={styles.searchCardGradient}
                         >
                           <Image 
-                            source={consultant.imageUrl ? { uri: consultant.imageUrl } : require('../../assets/images/buddha.png')} 
+                            source={consultant.imageUrl ? { uri: consultant.imageUrl } : require('../../assets/images/koi_image.jpg')}
                             style={styles.searchConsultantImage}
                             resizeMode="cover" 
                           />
@@ -335,7 +335,7 @@ export default function ConsultingScreen() {
                         >
                           <View style={styles.imageWrapper}>
                             <Image 
-                              source={consultant.imageUrl ? { uri: consultant.imageUrl } : require('../../assets/images/buddha.png')} 
+                              source={consultant.imageUrl ? { uri: consultant.imageUrl } : require('../../assets/images/koi_image.jpg')}
                               style={styles.consultantImage}
                               resizeMode="cover"
                             />

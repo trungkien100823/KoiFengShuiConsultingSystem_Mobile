@@ -38,7 +38,7 @@ export const koiAPI = {
               name: item.name,
               variant: item.name,
               description: item.description,
-              imageName: item.imageUrl || 'buddha.png',
+              imageName: item.imageUrl ,
               likes: Math.floor(Math.random() * 20) + 5,
               liked: false,
             };
@@ -87,7 +87,7 @@ export const koiAPI = {
         name: item.name,
         variant: item.name,
         description: item.description,
-        imageName: item.imageUrl || 'buddha.png',
+        imageName: item.imageUrl ,
         size: item.size || 2,
         liked: false,
         characteristics: item.characteristics,
@@ -120,7 +120,7 @@ export const koiAPI = {
           variant: item.name || 'Unknown',
           description: item.description || '',
           imageUrl: item.imageUrl || null,
-          imageName: item.imageUrl || 'buddha.png',
+          imageName: item.imageUrl ,
         }));
 
         // Thêm message vào item đầu tiên nếu có
@@ -163,7 +163,7 @@ export const koiAPI = {
             variant: item.name || 'Unknown',
             description: item.description || '',
             imageUrl: item.imageUrl || null,
-            imageName: item.imageUrl || 'buddha.png',
+            imageName: item.imageUrl ,
           })),
           message: response.data.message
         };
@@ -241,7 +241,7 @@ export const koiAPI = {
               variant: item.name || 'Unknown',
               description: item.description || '',
               imageUrl: item.imageUrl || null,
-              imageName: item.imageUrl || 'buddha.png',
+              imageName: item.imageUrl,
             })),
             message: responseData.message
           };
@@ -326,7 +326,7 @@ export const koiAPI = {
           varietyName: item.varietyName || 'Unknown',
           introduction: item.introduction || '',
           description: item.description || 'Không có mô tả.',
-          imageUrl: item.imageUrl || 'buddha.png',
+          imageUrl: item.imageUrl,
           colors: item.colors?.map(color => ({
             colorName: color.colorName,
             colorCode: color.colorCode,
