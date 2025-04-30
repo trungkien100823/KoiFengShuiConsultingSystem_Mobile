@@ -6,12 +6,25 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "types": [
+      "node",
+      "react",
+      "react-native"
+    ]
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "**/*.jsx",
+    "**/*.js",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "app/(tabs)/index.jsx"  ]
+    "expo-env.d.ts",
+    "app/(tabs)/index.jsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

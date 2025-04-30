@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "KoiFengShuiMobile",
+    "name": "BitKoi",
     "slug": "KoiFengShuiMobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/LOGO.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -23,12 +23,20 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "package": "KoiFengShuiMobile.SEP490",
+      "permissions": ["INTERNET"],
+      "config": {
+        "cleartext": {
+          "permitCleartextTraffic": true
+        }
       }
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "allowedOrigins": ["https://koifengshui-001-site1.ltempurl.com", "https://pay.payos.vn", "https://sandbox.payos.vn", "https://api.payos.vn"]
     },
     "plugins": [
       "expo-router",
@@ -44,11 +52,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "5bd33ab2-89b7-4992-8415-6e4dffa50ab7"
+      }
     }
-  },
-  "dependencies": {
-    "expo-linear-gradient": "~12.3.0",
-    "expo-blur": "~12.3.0",
-    "moti": "^0.25.3"
   }
 }

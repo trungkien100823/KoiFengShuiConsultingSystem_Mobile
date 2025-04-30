@@ -349,7 +349,7 @@ export default function YourCertificateScreen() {
                 <View style={styles.certificateCardInner}>
                   <View style={styles.certificateImageContainer}>
                     <Image 
-                      source={cert.courseImageUrl ? { uri: cert.courseImageUrl } : images['buddha.png']}
+                      source={cert.courseImageUrl}
                       style={styles.certificateImage}
                       resizeMode="cover"
                     />

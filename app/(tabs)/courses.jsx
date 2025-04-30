@@ -185,7 +185,7 @@ export default function CoursesScreen() {
     >
       <View style={styles.cardInner}>
         <Image 
-          source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/buddha.png')}
+          source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/koi_image.jpg')}
           style={styles.featuredImage} 
         />
         <LinearGradient
@@ -283,7 +283,7 @@ export default function CoursesScreen() {
     >
       <View style={styles.cardInner}>
         <Image 
-          source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/buddha.png')}
+          source={item.imageUrl ? { uri: item.imageUrl } : require('../../assets/images/koi_image.jpg')}
           style={styles.topCourseImage} 
         />
         <LinearGradient

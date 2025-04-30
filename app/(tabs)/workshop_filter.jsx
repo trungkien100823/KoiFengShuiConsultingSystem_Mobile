@@ -8,38 +8,6 @@ const WorkshopFilter = () => {
   const navigation = useNavigation();
   
   // Dữ liệu mẫu cho các workshop
-  const workshopData = [
-    {
-      id: 1,
-      title: 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học',
-      date: '1/5/2021',
-      location: 'Đại học FPT',
-      image: require('../../assets/images/buddha.png'),
-    },
-    {
-      id: 2,
-      title: 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học',
-      date: '1/5/2021',
-      location: 'Đại học FPT',
-      image: require('../../assets/images/buddha.png'),
-    },
-    {
-      id: 3,
-      title: 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học',
-      date: '1/5/2021',
-      location: 'Đại học FPT',
-      image: require('../../assets/images/buddha.png'),
-    },
-    {
-      id: 4,
-      title: 'Đại Đạo Chỉ Giản - Phong Thủy Cổ Học',
-      date: '1/5/2021',
-      location: 'Đại học FPT',
-      image: require('../../assets/images/buddha.png'),
-    },
-    // Thêm nhiều workshop khác để kiểm tra tính năng cuộn
-  ];
-
   // Hàm chia mảng workshop thành các cặp (cho layout 2 cột)
   const chunkArray = (array, size) => {
     return Array.from({ length: Math.ceil(array.length / size) }, (v, i) =>

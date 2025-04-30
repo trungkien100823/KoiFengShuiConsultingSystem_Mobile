@@ -201,7 +201,7 @@ export default function CertificateDetailsScreen() {
             </View>
           )}
           <Image
-            source={certificate.certificateImageUrl ? { uri: certificate.certificateImageUrl } : images['buddha.png']}
+            source={certificate.certificateImageUrl}
             style={[styles.certificateImage, imageError && styles.errorImage]}
             resizeMode="contain"
             onLoad={handleImageLoad}
@@ -293,7 +293,7 @@ export default function CertificateDetailsScreen() {
           >
             <Animated.View style={[styles.modalImageContainer, rStyle]}>
               <Image
-                source={certificate.certificateImageUrl ? { uri: certificate.certificateImageUrl } : images['buddha.png']}
+                source={certificate.certificateImageUrl}
                 style={styles.modalImage}
                 resizeMode="contain"
               />

@@ -14,5 +14,4 @@ export const images = {
     'raised_pond.jpg': require('../assets/images/raised_pond.jpg'),
 
     // Workshop Images
-    'buddha.png': require('../assets/images/buddha.png'),
   };

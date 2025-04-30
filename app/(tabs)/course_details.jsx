@@ -82,9 +82,8 @@ export default function CourseDetailsScreen() {
         const processedCourse = {
           id: courseData.courseId,
           title: courseData.courseName,
-          image: courseData.imageUrl 
-            ? { uri: courseData.imageUrl }
-            : require('../../assets/images/buddha.png'),
+          image: courseData.imageUrl ? { uri: courseData.imageUrl } : require('../../assets/images/koi_image.jpg'),
+
           price: courseData.price,
           rating: courseData.rating,
           enrolledStudents: courseData.enrolledStudents,
@@ -119,9 +118,7 @@ export default function CourseDetailsScreen() {
                 bio: masterData.biography ?? 'Chưa có thông tin',
                 experience: masterData.experience ?? 'Chưa cập nhật',
                 expertise: masterData.expertise ?? 'Chưa cập nhật',
-                image: masterData.imageUrl 
-                  ? { uri: masterData.imageUrl }
-                  : require('../../assets/images/buddha.png'),
+                image: masterData.imageUrl ? { uri: masterData.imageUrl } : require('../../assets/images/koi_image.jpg'),
                 achievements: [
                   masterData.experience ? `${masterData.experience} kinh nghiệm` : 'Chưa cập nhật kinh nghiệm',
                   masterData.expertise ?? 'Chưa cập nhật chuyên môn'

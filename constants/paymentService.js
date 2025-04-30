@@ -135,54 +135,6 @@ export const paymentService = {
   },
 
   /**
-   * Kiểm tra và lấy payment URL cho một orderId
-   * @param {string} orderId - ID của đơn hàng
-   * @returns {Promise<{success: boolean, paymentUrl: string, orderId: string}>} - Kết quả kiểm tra
-   */
-  checkAndGetPaymentUrl: async (orderId) => {
-    try {
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        throw new Error('Không tìm thấy token đăng nhập');
-      }
-
-      // Gọi API để lấy thông tin đơn hàng
-      const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/Order/get-pending-order`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      if (response.data && response.data.isSuccess) {
-        // Tìm order tương ứng trong response
-        const order = response.data.data.find(o => o.orderId.trim() === orderId);
-        
-        if (order && order.paymentReference) {
-          return {
-            success: true,
-            paymentUrl: order.paymentReference,
-            orderId: order.orderId
-          };
-        }
-      }
-
-      return {
-        success: false,
-        message: 'Không tìm thấy thông tin thanh toán'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Đã xảy ra lỗi khi kiểm tra thanh toán'
-      };
-    }
-  },
-
-  /**
    * Định nghĩa các loại dịch vụ thanh toán
    */
   SERVICE_TYPES: {

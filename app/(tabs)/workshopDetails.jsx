@@ -95,12 +95,6 @@ const WorkshopDetailsScreen = () => {
     }, [workshopId, imageId])
   );
   
-  const getImageForId = (id) => {
-    if (id === '1' || id === '2' || id === '3') {
-      return require('../../assets/images/buddha.png');
-    }
-    return require('../../assets/images/buddha.png');
-  };
   
   const formatDate = (dateString) => {
     if (!dateString) return null;

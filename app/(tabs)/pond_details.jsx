@@ -72,8 +72,17 @@ export default function PondDetails() {
   const getPondImageSource = (imageName) => {
     try {
       if (imageName && typeof imageName === 'string') {
-        return { uri: imageName };
+        // If imageName is a full URL
+        if (imageName.startsWith('http://') || imageName.startsWith('https://')) {
+          return { uri: imageName };
+        }
+        // If imageName is just a filename or partial path
+        else if (imageName.length > 0) {
+          // You might need to prepend the API base URL if this is just a relative path
+          return { uri: imageName };
+        }
       }
+      // Default image if no valid imageName
       return require('../../assets/images/natural_pond.jpg');
     } catch (error) {
       console.error('Error loading pond image:', error);
@@ -111,7 +120,7 @@ export default function PondDetails() {
   return (
     <View style={styles.container}>
       <ImageBackground 
-        source={getPondImageSource(pondDetails.imageName)}
+        source={getPondImageSource(pondDetails.imageUrl || pondDetails.imageName)}
         style={styles.backgroundImage}
         resizeMode="cover"
       >

@@ -483,8 +483,12 @@ export default function FishDetails() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
+    <SafeAreaView style={[styles.safeArea, { paddingTop: 0 }]}>
+      <StatusBar 
+        barStyle="light-content" 
+        backgroundColor={COLORS.primaryDark} 
+        translucent={true}
+      />
       
       {/* Header with cleaner gradient and better shadow */}
       <LinearGradient
@@ -743,35 +747,50 @@ export default function FishDetails() {
                       onPress={() => handlePondSelect(pond)}
                       activeOpacity={0.8}
                     >
-                      <LinearGradient
-                        colors={[COLORS.primary, COLORS.primaryDark]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.pondCardGradient}
-                        opacity={selectedPond === pond.koiPondId ? 1 : 0.8}
+                      {/* Background image */}
+                      <ImageBackground
+                        source={
+                          pond.imageUrl 
+                            ? { uri: pond.imageUrl } 
+                            : require('../../assets/images/natural_pond.jpg') // Add a default image
+                        }
+                        style={styles.pondImageBackground}
+                        resizeMode="cover"
                       >
-                        <Text style={styles.pondName} numberOfLines={1} ellipsizeMode="tail">
-                          {pond.pondName}
-                        </Text>
-                        <View style={styles.pondDetails}>
-                          <View style={styles.pondDetail}>
-                            <MaterialCommunityIcons name="shape-outline" size={14} color={COLORS.white} />
-                            <Text style={styles.pondDetailText}>{pond.shapeName}</Text>
-                          </View>
-                          {pond.element && (
+                        {/* Semi-transparent gradient overlay */}
+                        <LinearGradient
+                          colors={[
+                            'rgba(139, 0, 0, 0.7)', // More transparent primary
+                            'rgba(90, 0, 0, 0.85)'  // Less transparent primaryDark
+                          ]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.pondCardGradient}
+                          opacity={selectedPond === pond.koiPondId ? 1 : 0.9}
+                        >
+                          <Text style={styles.pondName} numberOfLines={1} ellipsizeMode="tail">
+                            {pond.pondName}
+                          </Text>
+                          <View style={styles.pondDetails}>
                             <View style={styles.pondDetail}>
-                              <MaterialCommunityIcons name="water" size={14} color={COLORS.white} />
-                              <Text style={styles.pondDetailText}>{pond.element}</Text>
+                              <MaterialCommunityIcons name="shape-outline" size={14} color={COLORS.white} />
+                              <Text style={styles.pondDetailText}>{pond.shapeName}</Text>
+                            </View>
+                            {pond.element && (
+                              <View style={styles.pondDetail}>
+                                <MaterialCommunityIcons name="water" size={14} color={COLORS.white} />
+                                <Text style={styles.pondDetailText}>{pond.element}</Text>
+                              </View>
+                            )}
+                          </View>
+                          
+                          {selectedPond === pond.koiPondId && (
+                            <View style={styles.selectedIndicator}>
+                              <MaterialCommunityIcons name="check-circle" size={24} color={COLORS.white} />
                             </View>
                           )}
-                        </View>
-                        
-                        {selectedPond === pond.koiPondId && (
-                          <View style={styles.selectedIndicator}>
-                            <MaterialCommunityIcons name="check-circle" size={24} color={COLORS.white} />
-                          </View>
-                        )}
-                      </LinearGradient>
+                        </LinearGradient>
+                      </ImageBackground>
                     </TouchableOpacity>
                   ))
                 ) : (
@@ -888,13 +907,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 16,
     paddingBottom: 16,
     elevation: 4,
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    zIndex: 10,
   },
   headerTitle: {
     fontSize: 20,
@@ -1181,10 +1201,17 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.gold,
   },
+  pondImageBackground: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   pondCardGradient: {
     flex: 1,
     padding: 12,
     justifyContent: 'space-between',
+    borderRadius: 12,
   },
   pondName: {
     fontSize: 16,

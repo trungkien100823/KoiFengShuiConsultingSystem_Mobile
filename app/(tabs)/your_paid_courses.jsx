@@ -296,9 +296,8 @@ export default function YourPaidCoursesScreen() {
             <View style={styles.courseImageBox}>
               <Image 
                 source={
-                  course.imageUrl 
-                    ? { uri: course.imageUrl } 
-                    : require('../../assets/images/buddha.png')
+                  course.imageUrl ? { uri: course.imageUrl } : require('../../assets/images/koi_image.jpg')
+                    
                 } 
                 style={styles.courseImage}
                 resizeMode="cover"
