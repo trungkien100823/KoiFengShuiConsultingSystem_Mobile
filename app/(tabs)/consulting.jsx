@@ -227,6 +227,10 @@ export default function ConsultingScreen() {
             </View>
           </View>
 
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Danh sách chuyên gia</Text>
+          </View>
+
           <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false} refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -269,10 +273,6 @@ export default function ConsultingScreen() {
                           <View style={styles.searchCardContent}>
                             <Text style={styles.searchConsultantTitle}>{consultant.title || 'Master'}</Text>
                             <Text style={styles.searchConsultantName}>{consultant.masterName || 'Chưa có tên'}</Text>
-                            <View style={styles.searchRatingContainer}>
-                              {renderStars(consultant.rating || 0)}
-                              <Text style={styles.searchRatingText}>{(consultant.rating || 0).toFixed(1)}</Text>
-                            </View>
                           </View>
                         </LinearGradient>
                       </TouchableOpacity>
@@ -347,12 +347,7 @@ export default function ConsultingScreen() {
                           
                           <View style={styles.cardContent}>
                             <Text style={styles.consultantName}>{consultant.masterName || 'Chưa có tên'}</Text>
-                            <View style={styles.ratingContainer}>
-                              <View style={styles.starsContainer}>
-                                {renderStars(consultant.rating || 0)}
-                              </View>
-                              <Text style={styles.ratingText}>{(consultant.rating || 0).toFixed(1)}/5.0</Text>
-                            </View>
+                            <Text style={styles.consultantTitle}>{consultant.title || 'Feng Shui Consultant'}</Text>
                           </View>
                         </TouchableOpacity>
                       </View>
@@ -567,10 +562,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   consultantName: {
-    fontSize: width * 0.045,
+    fontSize: width * 0.05,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
+    textAlign: 'center',
+  },
+  consultantTitle: {
+    fontSize: width * 0.04,
+    color: '#666',
+    marginBottom: 5,
     textAlign: 'center',
   },
   ratingContainer: {
@@ -696,5 +697,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
+  },
+  sectionHeader: {
+    paddingHorizontal: scale(16),
+    marginBottom: scale(12),
+    marginTop: scale(4),
+  },
+  sectionTitle: {
+    fontSize: scale(20),
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });

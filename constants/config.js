@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-//const DEV_API_URL = 'http://192.168.0.44:5261';
+//const DEV_API_URL = 'http://192.168.31.148:5261';
 const DEV_API_URL = 'https://koifengshui-001-site1.ltempurl.com';
 
 export const API_CONFIG = {
@@ -132,3 +132,5 @@ export const API_CONFIG = {
   },
   timeoutDuration: 30000 // 30 seconds
 };
+
+console.log("API URL BEING USED:", API_CONFIG.baseURL);
