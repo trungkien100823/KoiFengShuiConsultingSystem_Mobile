@@ -29,6 +29,20 @@ const scale = size => Math.round(width * size / 375);
 const IS_IPHONE_X = Platform.OS === 'ios' && (height >= 812 || width >= 812);
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? (IS_IPHONE_X ? 44 : 20) : StatusBar.currentHeight || 0;
 
+const getStatusDisplayText = (status) => {
+  if (!status) return 'Chờ thanh toán';
+  
+  switch (status.toLowerCase()) {
+    case 'paid': return 'Đã thanh toán';
+    case 'confirmed': return 'Đã xác nhận';
+    case 'pending': return 'Chờ thanh toán';
+    case 'pendingconfirm': return 'Chờ xác nhận';
+    case 'canceled': return 'Đã hủy';
+    case 'workshopcanceled': return 'Hội thảo đã hủy';
+    default: return status;
+  }
+};
+
 const YourRegisterAttend = () => {
   const router = useRouter();
   const [tickets, setTickets] = useState([]);
@@ -110,7 +124,7 @@ const YourRegisterAttend = () => {
       if (Array.isArray(response.data)) {
         const types = response.data.map(status => ({
           id: status.toLowerCase(),
-          label: status
+          label: getStatusDisplayText(status)
         }));
         setStatusTypes([{ id: 'all', label: 'Tất cả' }, ...types]);
       } else {
@@ -455,16 +469,7 @@ const YourRegisterAttend = () => {
   };
 
   const getStatusDisplay = (status) => {
-    if (!status) return 'Chờ thanh toán';
-    
-    switch (status.toLowerCase()) {
-      case 'paid': return 'Đã thanh toán';
-      case 'confirmed': return 'Đã xác nhận';
-      case 'pending': return 'Chờ thanh toán';
-      case 'pendingconfirm': return 'Chờ xác nhận';
-      case 'canceled': return 'Đã hủy';
-      default: return status;
-    }
+    return getStatusDisplayText(status);
   };
 
   const handleRefresh = useCallback(async () => {

@@ -15,7 +15,8 @@ import {
   BackHandler,
   Animated,
   ActivityIndicator,
-  TextInput
+  TextInput,
+  PanResponder
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, AntDesign, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -87,6 +88,8 @@ export default function FishDetails() {
   const [expandedSection, setExpandedSection] = useState(null);
   const [fadeAnim, setFadeAnim] = useState(new Animated.Value(1));
   const [slideAnim, setSlideAnim] = useState(new Animated.Value(0));
+  const [showFullImage, setShowFullImage] = useState(false);
+  const imageAnimatedValue = new Animated.Value(220);
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -482,6 +485,30 @@ export default function FishDetails() {
     }
   };
 
+  const toggleImageView = () => {
+    const newState = !showFullImage;
+    setShowFullImage(newState);
+    
+    if (newState) {
+      // Expanding to full screen - use nearly the entire screen height, leaving room for the header
+      const headerHeight = Platform.OS === 'ios' ? 90 : StatusBar.currentHeight + 56;
+      Animated.spring(imageAnimatedValue, {
+        toValue: height - headerHeight,
+        useNativeDriver: false,
+        friction: 7,
+        tension: 40
+      }).start();
+    } else {
+      // Collapsing back to normal size
+      Animated.spring(imageAnimatedValue, {
+        toValue: 220,
+        useNativeDriver: false,
+        friction: 7,
+        tension: 40
+      }).start();
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { paddingTop: 0 }]}>
       <StatusBar 
@@ -514,37 +541,70 @@ export default function FishDetails() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Enhanced Hero Section with better overlay gradient */}
-        <View style={styles.heroSection}>
-          <Image
-            source={
-              koiDetails?.imageUrl
-                ? { uri: koiDetails.imageUrl }
-                : require('../../assets/images/koi_image.jpg')
-            }
-            style={styles.fishImage}
-            resizeMode="cover"
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)']}
-            locations={[0, 0.6, 1]}
-            style={styles.heroOverlay}
-          >
-            <View style={styles.heroContent}>
-              <Text style={styles.fishName}>{params.name || 'Koi Fish'}</Text>
-              <View style={styles.tagContainer}>
-                <View style={styles.tag}>
-                  <FontAwesome5 name="ruler" size={12} color={COLORS.gold} />
-                  <Text style={styles.tagText}>{params.size || 'Medium'}</Text>
-                </View>
-                {koiDetails?.element && (
-                  <View style={styles.tag}>
-                    <MaterialCommunityIcons name="water" size={12} color={COLORS.gold} />
-                    <Text style={styles.tagText}>{koiDetails.element}</Text>
+        <View style={styles.heroSectionContainer}>
+          <Animated.View style={[styles.heroSection, { 
+            height: imageAnimatedValue,
+            zIndex: showFullImage ? 20 : 5,
+          }]}>
+            <TouchableOpacity 
+              activeOpacity={0.9}
+              onPress={toggleImageView}
+              style={{ flex: 1 }}
+            >
+              <Image
+                source={
+                  koiDetails?.imageUrl
+                    ? { uri: koiDetails.imageUrl }
+                    : require('../../assets/images/koi_image.jpg')
+                }
+                style={styles.fishImage}
+                resizeMode={showFullImage ? "contain" : "cover"}
+              />
+              {!showFullImage && (
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)']}
+                  locations={[0, 0.6, 1]}
+                  style={styles.heroOverlay}
+                >
+                  <View style={styles.heroContent}>
+                    <Text style={styles.fishName}>{params.name || 'Koi Fish'}</Text>
+                    <View style={styles.tagContainer}>
+                      <View style={styles.tag}>
+                        <FontAwesome5 name="ruler" size={12} color={COLORS.gold} />
+                        <Text style={styles.tagText}>{params.size || 'Medium'}</Text>
+                      </View>
+                      {koiDetails?.element && (
+                        <View style={styles.tag}>
+                          <MaterialCommunityIcons name="water" size={12} color={COLORS.gold} />
+                          <Text style={styles.tagText}>{koiDetails.element}</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                )}
-              </View>
-            </View>
-          </LinearGradient>
+                </LinearGradient>
+              )}
+              
+              <TouchableOpacity
+                style={[
+                  styles.expandButton,
+                  showFullImage && styles.expandButtonFullscreen
+                ]}
+                onPress={toggleImageView}
+                activeOpacity={0.8}
+              >
+                <View style={styles.expandButtonInner}>
+                  <MaterialCommunityIcons 
+                    name={showFullImage ? "chevron-up" : "chevron-down"} 
+                    size={24} 
+                    color="#FFFFFF" 
+                  />
+                  <Text style={styles.expandButtonText}>
+                    {showFullImage ? "Thu gọn" : "Xem đầy đủ"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
 
         {/* Main Content with Improved Cards */}
@@ -937,13 +997,19 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 90, // Ensure enough space for the button at bottom
   },
+  heroSectionContainer: {
+    position: 'relative',
+    zIndex: 5,
+  },
   heroSection: {
     height: 220,
     position: 'relative',
+    backgroundColor: '#000', // Add black background for a better fullscreen experience
   },
   fishImage: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#000', // Ensure black background behind the image
   },
   heroOverlay: {
     position: 'absolute',
@@ -1352,5 +1418,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: COLORS.white,
+  },
+  expandButton: {
+    position: 'absolute',
+    bottom: 15,
+    right: 15,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 20,
+    padding: 10,
+    paddingHorizontal: 16,
+    zIndex: 10,
+  },
+  expandButtonFullscreen: {
+    bottom: 'auto',
+    top: 15,
+    right: 15,
+  },
+  expandButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expandButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 5,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 }); 

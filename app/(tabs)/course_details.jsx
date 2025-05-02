@@ -417,7 +417,7 @@ export default function CourseDetailsScreen() {
                 <TouchableOpacity 
                   style={styles.buyButton}
                   onPress={() => router.push({
-                    pathname: '/(tabs)/course_payment',
+                    pathname: '../(tabs)/course_payment',
                     params: {
                       courseId: courseDetails.id,
                       courseTitle: courseDetails.title,
@@ -755,6 +755,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
+  instructorExpertise: {
+    fontSize: Math.round(width * 0.038),
+    color: '#ffffff',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
   instructorImageContainer: {
     position: 'relative',
   },
@@ -862,6 +868,13 @@ const styles = StyleSheet.create({
     color: '#FFD700',
     marginBottom: 8,
     letterSpacing: 0.5,
+  },
+  instructorContainer: {
+    flexDirection: 'row',
+    marginBottom: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    padding: 20,
+    borderRadius: 20,
   },
   achievementsContainer: {
     marginTop: 15,

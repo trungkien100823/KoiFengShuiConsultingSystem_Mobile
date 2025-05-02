@@ -109,19 +109,23 @@ export default function TicketDetails() {
   };
 
   const translateStatus = (status) => {
-    if (!status) return 'N/A';
+    if (!status) return 'Không xác định';
     
     const statusLower = status.toLowerCase();
     
     switch (statusLower) {
       case 'pending':
-        return 'Đang chờ xử lý thanh toán';
+        return 'Chờ thanh toán';
+      case 'pendingconfirm':
+        return 'Chờ xác nhận';
       case 'confirmed':
-        return 'Đã check-in';
+        return 'Đã xác nhận';
       case 'paid':
         return 'Đã thanh toán';
       case 'canceled':
         return 'Đã hủy';
+      case 'workshopcanceled':
+        return 'Hội thảo đã hủy';
       default:
         return status;
     }
