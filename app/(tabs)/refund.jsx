@@ -53,7 +53,7 @@ export default function RefundScreen() {
       }
 
       const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/Payment/get-manager-refunded`,
+        `${API_CONFIG.baseURL}/api/Payment/get-manager-refunded-for-mobile`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -63,11 +63,29 @@ export default function RefundScreen() {
       );
 
       console.log('Refunds API response:', response.data);
-
-      if (response.data && response.data.isSuccess) {
-        setRefunds(response.data.data || []);
+      
+      // Add detailed logging for the first item to see field names
+      if (response.data?.isSuccess && response.data.data && response.data.data.length > 0) {
+        console.log('First refund item structure:', JSON.stringify(response.data.data[0], null, 2));
+        
+        // Map data to ensure consistent field names
+        const processedData = response.data.data.map(item => {
+          // Check all possible field names for these properties
+          const transactionId = item.transactionId || item.id || item.paymentId || item.refundId || item.orderId || '';
+          const requestDate = item.requestDate || item.createdDate || item.createDate || item.date || item.orderDate || null;
+          const refundDate = item.refundDate || item.completedDate || item.processedDate || null;
+          
+          return {
+            ...item,
+            transactionId,
+            requestDate,
+            refundDate
+          };
+        });
+        
+        setRefunds(processedData);
       } else {
-        throw new Error(response.data?.message || 'Không thể tải danh sách hoàn tiền');
+        setRefunds(response.data.data || []);
       }
     } catch (error) {
       console.error('Error fetching refunds:', error);
@@ -87,12 +105,57 @@ export default function RefundScreen() {
     if (!dateString) return 'N/A';
     
     try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'N/A';
+      // Convert string to date object
+      let date;
       
-      return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+      if (typeof dateString === 'string') {
+        // Try parsing different formats
+        if (dateString.includes('T')) {
+          // ISO format (e.g. "2023-08-15T14:30:00")
+          date = new Date(dateString);
+        } else if (dateString.includes('/')) {
+          // DD/MM/YYYY format
+          const parts = dateString.split('/');
+          if (parts.length === 3) {
+            // Month is 0-indexed in JavaScript Date
+            date = new Date(parts[2], parts[1] - 1, parts[0]);
+          } else {
+            date = new Date(dateString);
+          }
+        } else {
+          // Try Unix timestamp
+          const timestamp = parseInt(dateString);
+          if (!isNaN(timestamp)) {
+            date = new Date(timestamp);
+          } else {
+            date = new Date(dateString);
+          }
+        }
+      } else if (dateString instanceof Date) {
+        date = dateString;
+      } else {
+        console.log('Unknown date format:', typeof dateString);
+        return 'N/A';
+      }
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', dateString);
+        return 'N/A';
+      }
+      
+      // Format date as DD/MM/YYYY
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      
+      // Also add time if available
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
     } catch (error) {
-      console.error('Error formatting date:', error);
+      console.error('Error formatting date:', error, dateString);
       return 'N/A';
     }
   };
@@ -105,94 +168,147 @@ export default function RefundScreen() {
   const getStatusLabel = (status) => {
     if (!status) return 'Không xác định';
     
-    const statusLower = status.toLowerCase();
+    const statusLower = typeof status === 'string' ? status.toLowerCase() : '';
+    
     switch (statusLower) {
-      case 'pending': return 'Đang chờ';
-      case 'approved': return 'Đã duyệt';
+      case 'pending': return 'Đang xử lý';
+      case 'processing': return 'Đang xử lý';
+      case 'approved': return 'Đã phê duyệt';
+      case 'accepted': return 'Đã chấp nhận';
       case 'rejected': return 'Đã từ chối';
+      case 'denied': return 'Đã từ chối';
+      case 'cancelled': return 'Đã hủy';
+      case 'canceled': return 'Đã hủy';
       case 'completed': return 'Đã hoàn tiền';
-      default: return status;
+      case 'refunded': return 'Đã hoàn tiền';
+      case 'expired': return 'Đã hết hạn';
+      case 'failed': return 'Thất bại';
+      default: return status ? `${status}` : 'Không xác định';
     }
   };
 
   const getStatusColor = (status) => {
     if (!status) return '#999';
     
-    const statusLower = status.toLowerCase();
+    const statusLower = typeof status === 'string' ? status.toLowerCase() : '';
+    
     switch (statusLower) {
-      case 'pending': return '#FFA500';
-      case 'approved': return '#4CAF50';
-      case 'rejected': return '#F44336';
-      case 'completed': return '#2196F3';
-      default: return '#999';
+      case 'pending': return '#FF9800'; // Orange
+      case 'processing': return '#2196F3'; // Blue
+      case 'approved': return '#4CAF50'; // Green
+      case 'accepted': return '#4CAF50'; // Green
+      case 'rejected': return '#F44336'; // Red
+      case 'denied': return '#F44336'; // Red
+      case 'cancelled': return '#9E9E9E'; // Gray
+      case 'canceled': return '#9E9E9E'; // Gray
+      case 'completed': return '#8BC34A'; // Light Green
+      case 'refunded': return '#8BC34A'; // Light Green
+      case 'expired': return '#795548'; // Brown
+      case 'failed': return '#E91E63'; // Pink
+      default: return '#9C27B0'; // Purple for unknown
     }
   };
 
-  const renderRefundItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.refundCard}
-      onPress={() => {
-        Alert.alert('Thông tin chi tiết', 
-          `Mã giao dịch: ${item.transactionId || 'N/A'}\n` +
-          `Số tiền: ${formatCurrency(item.amount)}\n` +
-          `Ngày hoàn tiền: ${formatDate(item.refundDate)}\n` +
-          `Trạng thái: ${getStatusLabel(item.status)}\n` +
-          `Lý do: ${item.reason || 'Không có'}`
-        );
-      }}
-    >
-      <View style={styles.refundHeader}>
-        <View style={styles.refundIdContainer}>
-          <Ionicons name="refresh-circle" size={20} color="#8B0000" />
-          <Text style={styles.refundId} numberOfLines={1}>
-            {item.transactionId || 'Không có mã'}
-          </Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
-        </View>
-      </View>
+  const renderRefundItem = ({ item }) => {
+    // Try multiple possible field names for each property
+    const transactionId = item.transactionId || item.id || item.paymentId || item.refundId || item.orderId || 'N/A';
+    const customerName = item.customerName || item.userName || item.fullName || item.name || 'N/A';
+    const serviceType = item.serviceType || item.type || item.orderType || item.paymentType || 'N/A';
+    const amount = item.amount || item.money || item.price || item.refundAmount || item.totalAmount || 0;
+    const requestDate = item.requestDate || item.createdDate || item.createDate || item.date || item.orderDate;
+    const refundDate = item.refundDate || item.completedDate || item.processedDate;
+    const status = item.status || item.state || 'pending';
+    const reason = item.reason || item.message || item.description || item.note || '';
+    
+    console.log('Rendering item with dates:', { 
+      requestDate, 
+      refundDate,
+      originalRequestDate: item.requestDate,
+      originalRefundDate: item.refundDate
+    });
 
-      <View style={styles.refundContent}>
-        <View style={styles.refundRow}>
-          <Text style={styles.refundLabel}>Khách hàng:</Text>
-          <Text style={styles.refundValue} numberOfLines={1}>
-            {item.customerName || 'N/A'}
-          </Text>
-        </View>
-
-        <View style={styles.refundRow}>
-          <Text style={styles.refundLabel}>Số tiền:</Text>
-          <Text style={styles.refundAmount}>
-            {formatCurrency(item.amount)}
-          </Text>
-        </View>
-
-        <View style={styles.refundRow}>
-          <Text style={styles.refundLabel}>Ngày yêu cầu:</Text>
-          <Text style={styles.refundValue}>
-            {formatDate(item.requestDate)}
-          </Text>
-        </View>
-
-        <View style={styles.refundRow}>
-          <Text style={styles.refundLabel}>Ngày hoàn tiền:</Text>
-          <Text style={styles.refundValue}>
-            {formatDate(item.refundDate)}
-          </Text>
-        </View>
-
-        {item.reason && (
-          <View style={styles.reasonContainer}>
-            <Text style={styles.reasonLabel}>Lý do:</Text>
-            <Text style={styles.reasonText} numberOfLines={2}>
-              {item.reason}
+    return (
+      <TouchableOpacity
+        style={styles.refundCard}
+        onPress={() => {
+          Alert.alert('Thông tin chi tiết', 
+            `Mã giao dịch: ${transactionId}\n` +
+            `Loại giao dịch: ${serviceType}\n` +
+            `Khách hàng: ${customerName}\n` +
+            `Số tiền: ${formatCurrency(amount)}\n` +
+            `Ngày yêu cầu: ${formatDate(requestDate)}\n` +
+            `Ngày hoàn tiền: ${formatDate(refundDate)}\n` +
+            `Trạng thái: ${getStatusLabel(status)}\n` +
+            `Lý do: ${reason || 'Không có'}`
+          );
+        }}
+      >
+        <View style={styles.refundHeader}>
+          <View style={styles.refundIdContainer}>
+            <Ionicons name="refresh-circle" size={20} color="#8B0000" />
+            <Text style={styles.refundId} numberOfLines={1}>
+              {transactionId !== 'N/A' ? transactionId : 'Không có mã'}
             </Text>
           </View>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
+            <Text style={styles.statusText}>{getStatusLabel(status)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.refundContent}>
+          <View style={styles.refundRow}>
+            <Text style={styles.refundLabel}>Khách hàng:</Text>
+            <Text style={styles.refundValue} numberOfLines={1}>{customerName}</Text>
+          </View>
+
+          <View style={styles.refundRow}>
+            <Text style={styles.refundLabel}>Loại dịch vụ:</Text>
+            <Text style={styles.refundValue} numberOfLines={1}>{serviceType}</Text>
+          </View>
+
+          <View style={styles.refundRow}>
+            <Text style={styles.refundLabel}>Số tiền:</Text>
+            <Text style={styles.refundAmount}>{formatCurrency(amount)}</Text>
+          </View>
+
+          <View style={styles.refundRow}>
+            <Text style={styles.refundLabel}>Ngày yêu cầu:</Text>
+            <Text style={styles.refundValue}>{formatDate(requestDate)}</Text>
+          </View>
+
+          {refundDate && (
+            <View style={styles.refundRow}>
+              <Text style={styles.refundLabel}>Ngày hoàn tiền:</Text>
+              <Text style={styles.refundValue}>{formatDate(refundDate)}</Text>
+            </View>
+          )}
+
+          {reason && (
+            <View style={styles.reasonContainer}>
+              <Text style={styles.reasonLabel}>Lý do:</Text>
+              <Text style={styles.reasonText} numberOfLines={2}>{reason}</Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Status timeline indicator */}
+        <View style={[styles.statusTimeline, { backgroundColor: getStatusColor(status) + '20' }]}>
+          <View style={styles.statusTimelineItem}>
+            <Ionicons 
+              name={status.toLowerCase() === 'rejected' || status.toLowerCase() === 'denied' ? 
+                "close-circle" : status.toLowerCase() === 'completed' || status.toLowerCase() === 'refunded' ? 
+                "checkmark-circle" : "time"} 
+              size={18} 
+              color={getStatusColor(status)} 
+            />
+            <Text style={[styles.statusTimelineText, { color: getStatusColor(status) }]}>
+              {getStatusLabel(status)}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
@@ -203,10 +319,10 @@ export default function RefundScreen() {
 
   const handleBack = () => {
     AsyncStorage.setItem('shouldRefreshProfile', 'true')
-      .then(() => router.back())
+      .then(() => router.replace('/(tabs)/profile'))
       .catch(error => {
         console.error("Error setting refresh flag:", error);
-        router.back();
+        router.replace('/(tabs)/profile');
       });
   };
 
@@ -434,13 +550,16 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 80,
+    alignItems: 'center',
   },
   statusText: {
     fontSize: 12,
     color: '#FFF',
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   refundContent: {
     padding: 15,
@@ -503,5 +622,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  statusTimeline: {
+    padding: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  statusTimelineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  statusTimelineText: {
+    marginLeft: 5,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
