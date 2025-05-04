@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-const DEV_API_URL = 'http://192.168.1.194:5261';
-//const DEV_API_URL = 'https://koifengshui-001-site1.ltempurl.com';
+//const DEV_API_URL = 'http://192.168.31.148:5261';
+const DEV_API_URL = 'https://koifengshui-001-site1.ltempurl.com';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
