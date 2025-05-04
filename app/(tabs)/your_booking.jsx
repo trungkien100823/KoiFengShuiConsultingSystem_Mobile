@@ -32,31 +32,48 @@ const getStatusDisplayText = (status) => {
   if (!status) return 'Không xác định';
   
   switch (status.toLowerCase()) {
+    // Online booking statuses
     case 'paid': return 'Đã thanh toán';
     case 'confirmed': return 'Đã xác nhận';
     case 'pending': return 'Chờ xác nhận';
+    case 'pendingconfirm': return 'Chờ xác nhận';
     case 'canceled': return 'Đã hủy';
+    
+    // Offline booking - Contract statuses
     case 'contractrejectedbymaster': return 'Hợp đồng bị từ chối';
     case 'contractrejectedbycustomer': return 'Khách từ chối hợp đồng';
-    case 'contractconfirmedbymaster': return 'Master đã xác nhận hợp đồng';
-    case 'contractconfirmedbycustomer': return 'Khách đã xác nhận hợp đồng';
+    case 'contractconfirmedbymaster': return 'Đã xác nhận hợp đồng';
+    case 'contractconfirmedbycustomer': return 'Đã xác nhận hợp đồng';
+    
+    // OTP verification statuses
     case 'verifyingotp': return 'Đang xác minh OTP';
     case 'verifiedotp': return 'Đã xác minh OTP';
+    
+    // First payment statuses
     case 'firstpaymentpending': return 'Chờ thanh toán lần 1';
     case 'firstpaymentpendingconfirm': return 'Chờ xác nhận thanh toán lần 1';
     case 'firstpaymentsuccess': return 'Thanh toán lần 1 thành công';
-    case 'documentrejectedbymanager': return 'Quản lý từ chối hồ sơ';
+    
+    // Document statuses
+    case 'documentrejectedbymanager': return 'Hồ sơ bị từ chối';
     case 'documentrejectedbycustomer': return 'Khách từ chối hồ sơ';
-    case 'documentconfirmedbymanager': return 'Quản lý xác nhận hồ sơ';
-    case 'documentconfirmedbycustomer': return 'Khách xác nhận hồ sơ';
-    case 'attachmentrejected': return 'Từ chối biên bản';
-    case 'attachmentconfirmed': return 'Xác nhận biên bản';
+    case 'documentconfirmedbymanager': return 'Hồ sơ đã được xác nhận';
+    case 'documentconfirmedbycustomer': return 'Hồ sơ đã được xác nhận';
+    
+    // Attachment statuses
+    case 'attachmentrejected': return 'Biên bản bị từ chối';
+    case 'attachmentconfirmed': return 'Biên bản đã xác nhận';
     case 'verifyingotpattachment': return 'Đang xác minh OTP biên bản';
     case 'verifiedotpattachment': return 'Đã xác minh OTP biên bản';
+    
+    // Second payment statuses
     case 'secondpaymentpending': return 'Chờ thanh toán lần 2';
     case 'secondpaymentpendingconfirm': return 'Chờ xác nhận thanh toán lần 2';
+    
+    // Final statuses
     case 'completed': return 'Hoàn thành';
-    case 'pendingconfirm': return 'Chờ xác nhận';
+    case 'rejected': return 'Đã từ chối';
+    
     default: return status; // Return original if no mapping found
   }
 };

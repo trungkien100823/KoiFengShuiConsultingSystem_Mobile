@@ -1363,12 +1363,6 @@ export default function MenuScreen() {
                         </Text>
                       </TouchableOpacity>
                       
-                      <TouchableOpacity 
-                        style={styles.applyFilterButton}
-                        onPress={fetchFilteredKoi}
-                      >
-                        <Ionicons name="filter" size={16} color="#FFF" />
-                      </TouchableOpacity>
                     </View>
                   )}
                   
@@ -1396,12 +1390,7 @@ export default function MenuScreen() {
                         </Text>
                       </TouchableOpacity>
                       
-                      <TouchableOpacity 
-                        style={styles.applyFilterButton}
-                        onPress={() => fetchUserPonds('shape', filterOptions.shape)}
-                      >
-                        <Ionicons name="filter" size={16} color="#FFF" />
-                      </TouchableOpacity>
+                      
                     </View>
                   )}
                 </View>
@@ -1702,16 +1691,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     textAlign: 'center',
-  },
-  applyFilterButton: {
-    backgroundColor: 'rgba(139, 0, 0, 0.9)',
-    borderRadius: 6,
-    padding: 8,
-    justifyContent: 'center', 
-    alignItems: 'center',
-    marginLeft: 5,
-    width: 32,
-    height: 32,
   },
   modalOverlay: {
     position: 'absolute',

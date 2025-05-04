@@ -93,11 +93,9 @@ export default function PackageDetailsScreen() {
   };
 
   const handleBooking = () => {
-    if (!selectedPrice) {
-      Alert.alert('Thông báo', 'Vui lòng chọn mức giá');
-      return;
-    }
-
+    // Automatically use the basic price
+    const priceToUse = packageDetails.price;
+    
     Alert.alert(
       'Xác nhận',
       'Bạn có chắc chắn muốn đặt gói tư vấn này?',
@@ -113,7 +111,7 @@ export default function PackageDetailsScreen() {
               pathname: '/(tabs)/offline_booking',
               params: { 
                 packageId: params.packageId,
-                selectedPrice: selectedPrice,
+                selectedPrice: priceToUse,
                 shouldCompleteBooking: true
               }
             });
@@ -218,50 +216,19 @@ export default function PackageDetailsScreen() {
 
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardHeaderText}>Lựa chọn chi phí</Text>
+                  <Text style={styles.cardHeaderText}>Chi phí tư vấn</Text>
                 </View>
                 
-                <TouchableOpacity 
-                  style={[
-                    styles.priceOption,
-                    selectedPrice === packageDetails.price && styles.priceOptionSelected
-                  ]}
-                  onPress={() => setSelectedPrice(packageDetails.price)}
-                >
-                  <View style={styles.radioContainer}>
-                    <View style={styles.radioButton}>
-                      {selectedPrice === packageDetails.price && 
-                        <View style={styles.radioButtonSelected} />
-                      }
-                    </View>
+                <View style={styles.singlePriceContainer}>
+                  <View style={styles.priceIconContainer}>
+                    <Ionicons name="cash-outline" size={24} color="#FFFFFF" />
                   </View>
-                  <View style={styles.priceOptionContent}>
-                    <Text style={styles.priceOptionValue}>{packageDetails.price?.toLocaleString()} VNĐ</Text>
-                    <Text style={styles.priceOptionLabel}>Mức cơ bản</Text>
+                  <View style={styles.singlePriceContent}>
+                    <Text style={styles.singlePriceValue}>
+                      {packageDetails.price?.toLocaleString()} VNĐ
+                    </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={[
-                    styles.priceOption,
-                    selectedPrice === packageDetails.maxPrice && styles.priceOptionSelected
-                  ]}
-                  onPress={() => setSelectedPrice(packageDetails.maxPrice)}
-                >
-                  <View style={styles.radioContainer}>
-                    <View style={styles.radioButton}>
-                      {selectedPrice === packageDetails.maxPrice && 
-                        <View style={styles.radioButtonSelected} />
-                      }
-                    </View>
-                  </View>
-                  <View style={styles.priceOptionContent}>
-                    <Text style={styles.priceOptionValue}>{packageDetails.maxPrice?.toLocaleString()} VNĐ</Text>
-                    <Text style={styles.priceOptionLabel}>Mức cao cấp</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
+                </View>
               </View>
             </ScrollView>
           ) : (
@@ -440,47 +407,38 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginHorizontal: width * 0.05,
   },
-  priceOption: {
+  singlePriceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: width * 0.05,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(139, 0, 0, 0.15)',
+    borderRadius: 15,
+    margin: width * 0.05,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 0, 0, 0.3)',
   },
-  priceOptionSelected: {
-    backgroundColor: 'rgba(139, 0, 0, 0.2)',
-  },
-  radioContainer: {
-    marginRight: width * 0.04,
-  },
-  radioButton: {
-    width: width * 0.06,
-    height: width * 0.06,
-    borderRadius: width * 0.03,
-    borderWidth: 2,
-    borderColor: '#8B0000',
+  priceIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(139, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: width * 0.04,
   },
-  radioButtonSelected: {
-    width: width * 0.04,
-    height: width * 0.04,
-    borderRadius: width * 0.02,
-    backgroundColor: '#8B0000',
-  },
-  priceOptionContent: {
+  singlePriceContent: {
     flex: 1,
   },
-  priceOptionValue: {
-    fontSize: width * 0.05,
+  singlePriceValue: {
+    fontSize: width * 0.055,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 4,
   },
-  priceOptionLabel: {
-    fontSize: width * 0.035,
-    color: 'rgba(255, 255, 255, 0.6)',
+  singlePriceLabel: {
+    fontSize: width * 0.038,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
   },
   buttonContainer: {
     position: 'absolute',

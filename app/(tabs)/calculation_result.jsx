@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -19,6 +19,23 @@ const { width } = Dimensions.get('window');
 export default function CalculationResult() {
   const params = useLocalSearchParams();
   const router = useRouter();
+  
+  useEffect(() => {
+    console.log('Calculation Result Params:', JSON.stringify(params, null, 2));
+    console.log('Score:', params.result);
+    console.log('Message:', params.message);
+    console.log('Fish Details:', {
+      koiVarietyId: params.koiVarietyId,
+      koiName: params.koiName,
+      fishCount: params.fishCount,
+      pondName: params.name,
+      shapeName: params.shapeName,
+      direction: params.direction
+    });
+    
+    const parsedMsg = parseMessage(params.message);
+    console.log('Parsed Message Structure:', JSON.stringify(parsedMsg, null, 2));
+  }, [params]);
   
   const getScoreColor = (score) => {
     if (score >= 80) return '#4CAF50';
@@ -135,14 +152,63 @@ export default function CalculationResult() {
           </View>
         )}
 
-        {/* Suggestions */}
+        {/* Suggestions - Updated display */}
         {parsedMessage.suggestions && (
           <View style={styles.infoCard}>
             <View style={styles.cardHeader}>
               <MaterialCommunityIcons name="lightbulb" size={24} color={scoreColor} />
               <Text style={styles.cardTitle}>Gợi Ý Điều Chỉnh</Text>
             </View>
-            <Text style={styles.suggestionText}>{parsedMessage.suggestions}</Text>
+            
+            {/* Parse and display the suggestions in formatted sections */}
+            {parsedMessage.suggestions.split('\n\n').map((section, sectionIndex) => {
+              // Get the title from the first line
+              const lines = section.split('\n');
+              const title = lines[0];
+              const details = lines.slice(1);
+              
+              return (
+                <View key={sectionIndex} style={styles.suggestionSection}>
+                  {/* Section title */}
+                  <Text style={styles.suggestionTitle}>{title}</Text>
+                  
+                  {/* Bulleted content */}
+                  {details.map((detail, detailIndex) => {
+                    // Check if it's a bullet point
+                    if (detail.startsWith('-')) {
+                      const bulletContent = detail.substring(2); // Remove "- " prefix
+                      return (
+                        <View key={detailIndex} style={styles.bulletPoint}>
+                          <View style={[styles.bullet, {backgroundColor: scoreColor}]} />
+                          <Text style={styles.bulletText}>{bulletContent}</Text>
+                        </View>
+                      );
+                    } else if (detail.startsWith('  -')) {
+                      // Sub-bullet points (indented)
+                      const subBulletContent = detail.substring(4); // Remove "  - " prefix
+                      return (
+                        <View key={detailIndex} style={styles.subBulletPoint}>
+                          <View style={[styles.subBullet, {borderColor: scoreColor}]} />
+                          <Text style={styles.subBulletText}>{subBulletContent}</Text>
+                        </View>
+                      );
+                    } else {
+                      // Regular paragraph
+                      return (
+                        <Text key={detailIndex} style={styles.suggestionParagraph}>
+                          {detail}
+                        </Text>
+                      );
+                    }
+                  })}
+                  
+                  {/* Add divider between sections except for the last one */}
+                  {sectionIndex < parsedMessage.suggestions.split('\n\n').length - 1 && (
+                    <View style={styles.sectionDivider} />
+                  )}
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -290,10 +356,66 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     lineHeight: 20,
   },
-  suggestionText: {
+  suggestionSection: {
+    marginBottom: 16,
+  },
+  suggestionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  suggestionParagraph: {
+    fontSize: 15,
+    color: '#444',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  bulletPoint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  bullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 8,
+    marginRight: 8,
+  },
+  bulletText: {
+    flex: 1,
     fontSize: 15,
     color: '#444',
     lineHeight: 22,
+  },
+  subBulletPoint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    paddingLeft: 24, // More indentation
+  },
+  subBullet: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+    marginTop: 8,
+    marginRight: 8,
+  },
+  subBulletText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#EEEEEE',
+    marginVertical: 12,
   },
   tipItem: {
     flexDirection: 'row',

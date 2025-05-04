@@ -157,7 +157,7 @@ export default function YourCertificateScreen() {
   }, []);
 
   const filteredCertificates = certificates.filter(cert =>
-    cert.courseName.toLowerCase().includes(searchQuery.toLowerCase())
+    cert.courseName && cert.courseName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const formatDate = (dateString) => {
@@ -168,6 +168,25 @@ export default function YourCertificateScreen() {
       return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
     } catch (error) {
       return 'N/A';
+    }
+  };
+
+  const getStatusDisplayText = (status) => {
+    if (!status) return 'Không xác định';
+    
+    try {
+      const statusLower = status.toLowerCase();
+      
+      switch (statusLower) {
+        case 'completed': return 'Hoàn thành';
+        case 'pending': return 'Chờ xác nhận';
+        case 'verified': return 'Đã xác minh';
+        case 'issued': return 'Đã cấp';
+        default: return status;
+      }
+    } catch (error) {
+      console.error('Error processing status:', error);
+      return 'Không xác định';
     }
   };
 
@@ -349,7 +368,7 @@ export default function YourCertificateScreen() {
                 <View style={styles.certificateCardInner}>
                   <View style={styles.certificateImageContainer}>
                     <Image 
-                      source={cert.courseImageUrl}
+                      source={cert.courseImageUrl ? { uri: cert.courseImageUrl } : require('../../assets/images/certificate.png')}
                       style={styles.certificateImage}
                       resizeMode="cover"
                     />

@@ -40,6 +40,19 @@ export default function TicketDetails() {
     }, [groupId])
   );
 
+  const logObjectData = (obj, label) => {
+    console.log(`====== ${label} ======`);
+    if (!obj) {
+      console.log('Object is null or undefined');
+      return;
+    }
+    console.log('Object keys:', Object.keys(obj));
+    Object.keys(obj).forEach(key => {
+      console.log(`${key}:`, obj[key], typeof obj[key]);
+    });
+    console.log('=================');
+  };
+
   const fetchTicketsGroup = async (id) => {
     try {
       setIsLoading(true);
@@ -62,9 +75,14 @@ export default function TicketDetails() {
       );
 
       console.log('Kết quả API:', response.data);
-
+      
       if (response.data && response.data.isSuccess) {
-        setTicketsList(response.data.data || []);
+        const tickets = response.data.data || [];
+        setTicketsList(tickets);
+        
+        if (tickets.length > 0) {
+          logObjectData(tickets[0], 'First Ticket Data');
+        }
       } else {
         throw new Error(response.data?.message || 'Không thể tải thông tin vé');
       }
@@ -78,12 +96,50 @@ export default function TicketDetails() {
 
   const formatDate = (dateString) => {
     try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'N/A';
+      if (!dateString) return 'N/A';
+      
+      let date;
+      
+      // Handle string date input
+      if (typeof dateString === 'string') {
+        // Try different date formats
+        if (dateString.includes('T')) {
+          // ISO format
+          date = new Date(dateString);
+        } else if (dateString.includes('/')) {
+          // DD/MM/YYYY format
+          const parts = dateString.split('/');
+          if (parts.length === 3) {
+            date = new Date(parts[2], parts[1] - 1, parts[0]);
+          } else {
+            date = new Date(dateString);
+          }
+        } else {
+          // Try as timestamp
+          const timestamp = parseInt(dateString);
+          if (!isNaN(timestamp)) {
+            date = new Date(timestamp);
+          } else {
+            date = new Date(dateString);
+          }
+        }
+      } else if (dateString instanceof Date) {
+        // Already a Date object
+        date = dateString;
+      } else {
+        console.log('Unknown date format type:', typeof dateString);
+        return 'N/A';
+      }
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.log('Invalid date after parsing:', dateString);
+        return 'N/A';
+      }
       
       return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
     } catch (error) {
-      console.error('Lỗi định dạng ngày:', error);
+      console.error('Lỗi định dạng ngày:', error, dateString);
       return 'N/A';
     }
   };
@@ -307,7 +363,59 @@ export default function TicketDetails() {
                     <Text style={styles.label}>Đơn giá:</Text>
                   </View>
                   <Text style={styles.value}>
-                    {workshopInfo.price ? `${workshopInfo.price.toLocaleString('vi-VN')}đ` : 'N/A'}
+                    {(() => {
+                      // Detailed logging to understand the object structure
+                      console.log('FULL WORKSHOP INFO:', workshopInfo);
+                      
+                      // Check if totalPrice is available and we can calculate
+                      if (totalPrice && ticketsList.length > 0) {
+                        const calculatedPrice = Math.floor(parseInt(totalPrice) / ticketsList.length);
+                        console.log('Calculated price from total:', calculatedPrice);
+                        return `${calculatedPrice.toLocaleString('vi-VN')}đ`;
+                      }
+                      
+                      // Direct check for common fields with explicit type conversion
+                      if (workshopInfo) {
+                        // Check nested workshop object
+                        if (workshopInfo.workshop && typeof workshopInfo.workshop === 'object') {
+                          if (workshopInfo.workshop.price) {
+                            return `${parseInt(workshopInfo.workshop.price).toLocaleString('vi-VN')}đ`;
+                          }
+                        }
+                        
+                        // Try all possible price fields with Number conversion
+                        const priceFields = [
+                          'price', 'workshopPrice', 'ticketPrice', 'fee', 'ticketFee', 
+                          'workshopFee', 'amount', 'cost', 'unitPrice'
+                        ];
+                        
+                        for (const field of priceFields) {
+                          const value = workshopInfo[field];
+                          if (value !== undefined && value !== null) {
+                            // Try to convert to number safely
+                            const numValue = Number(value);
+                            if (!isNaN(numValue) && numValue > 0) {
+                              console.log(`Found valid price in field: ${field} = ${numValue}`);
+                              return `${numValue.toLocaleString('vi-VN')}đ`;
+                            }
+                          }
+                        }
+                        
+                        // If no value found and total price available, use it
+                        if (totalPrice) {
+                          return `${parseInt(totalPrice).toLocaleString('vi-VN')}đ`;
+                        }
+                      }
+                      
+                      // Manual fallback
+                      console.log('No price found, using fallback');
+                      if (workshopInfo && workshopInfo.status === 'Free') {
+                        return 'Miễn phí';
+                      }
+                      
+                      // Use a placeholder with error message
+                      return 'Xem tổng tiền';
+                    })()}
                   </Text>
                 </View>
 
@@ -360,7 +468,34 @@ export default function TicketDetails() {
                       
                       <View style={styles.ticketInfoRow}>
                         <Text style={styles.ticketInfoLabel}>Ngày đăng ký:</Text>
-                        <Text style={styles.ticketInfoValue}>{formatDate(item.createdDate) || 'N/A'}</Text>
+                        <Text style={styles.ticketInfoValue}>
+                          {(() => {
+                            // Additional common date properties
+                            console.log('Full ticket item data for dates:', item);
+                            
+                            // Try date from related objects first
+                            if (item.register && item.register.createdDate) return formatDate(item.register.createdDate);
+                            if (item.registerAttend && item.registerAttend.createdDate) return formatDate(item.registerAttend.createdDate);
+                            
+                            // Try direct properties
+                            if (item.createdDate) return formatDate(item.createdDate);
+                            if (item.registerDate) return formatDate(item.registerDate);
+                            if (item.createDate) return formatDate(item.createDate);
+                            if (item.registrationDate) return formatDate(item.registrationDate);
+                            if (item.date) return formatDate(item.date);
+                            
+                            // Try properties from workshop
+                            if (item.workshop && item.workshop.createdDate) return formatDate(item.workshop.createdDate);
+                            
+                            // Use workshop start date as fallback
+                            if (workshopInfo && workshopInfo.startDate) return formatDate(workshopInfo.startDate);
+                            
+                            // Last resort: use current date with a note
+                            return formatDate(new Date()) + ' (hiện tại)';
+                          })()}
+                        </Text>
+                      </View>
+                      <View style={styles.ticketInfoRow}>
                       </View>
                     </View>
                   </LinearGradient>
@@ -611,6 +746,12 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
     flex: 1,
+  },
+  ticketInfoNote: {
+    fontSize: scale(11),
+    color: '#999',
+    fontStyle: 'italic',
+    marginTop: scale(4),
   },
   
   // Loading styles

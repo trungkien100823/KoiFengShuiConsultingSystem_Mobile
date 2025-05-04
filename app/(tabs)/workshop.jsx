@@ -426,7 +426,6 @@ export default function Workshop() {
               {/* Featured Workshop */}
               {!loading && featuredWorkshop && (
                 <View style={styles.featuredSection}>
-                  <Text style={styles.featuredHeading}>Featured Workshop</Text>
                   <FeaturedWorkshopCard workshop={featuredWorkshop} />
                 </View>
               )}
