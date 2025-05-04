@@ -49,6 +49,14 @@ export default function ProfileScreen() {
       const fetchUserData = async () => {
         try {
           setLoading(true);
+          
+          // Check if we should refresh
+          const shouldRefresh = await AsyncStorage.getItem('shouldRefreshProfile');
+          if (shouldRefresh === 'true') {
+            // Clear the flag
+            await AsyncStorage.removeItem('shouldRefreshProfile');
+          }
+          
           const token = await getAuthToken();
           
           if (!token) {
@@ -286,6 +294,17 @@ export default function ProfileScreen() {
                   <Ionicons name="cart" size={20} color={COLORS.white} />
                 </View>
                 <Text style={styles.menuItemText}>Dịch vụ chưa thanh toán</Text>
+                <Ionicons name="chevron-forward" size={20} color={COLORS.mediumGray} />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => router.push('/(tabs)/refund')}
+              >
+                <View style={[styles.menuIconContainer, { backgroundColor: '#E91E63' }]}>
+                  <Ionicons name="cash-outline" size={20} color={COLORS.white} />
+                </View>
+                <Text style={styles.menuItemText}>Quản lý hoàn tiền</Text>
                 <Ionicons name="chevron-forward" size={20} color={COLORS.mediumGray} />
               </TouchableOpacity>
 

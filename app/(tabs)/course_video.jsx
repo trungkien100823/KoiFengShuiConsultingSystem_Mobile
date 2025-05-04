@@ -172,28 +172,11 @@ const VideoPlayer = ({ videoUrl, onComplete, videoRef }) => {
   const handlePlaybackStatusUpdate = (status) => {
     setVideoStatus(status);
     
-    // Log detailed status for debugging
-    if (!status.isLoaded && !loading) {
-      console.log('Video failed to load:', status);
-    }
-    
-    if (status.isLoaded) {
-      if (loading) {
-        console.log('Video loaded successfully');
-        setLoading(false);
-        setError(false);
-      }
-      
-      // Handle video completion
-      if (status.didJustFinish && !hasShownCompletionAlert.current) {
-        hasShownCompletionAlert.current = true;
-        onComplete && onComplete();
-      }
-    } else if (status.error) {
-      console.error('Video playback error:', status.error);
-      setError(true);
-      setLoading(false);
-      setErrorMessage(`Error: ${status.error}`);
+    // Only mark as complete when video is actually finished
+    if (status.isLoaded && status.didJustFinish && !hasShownCompletionAlert.current) {
+      console.log('Video playback completed, updating completion status');
+      hasShownCompletionAlert.current = true;
+      onComplete && onComplete();
     }
   };
 
@@ -863,7 +846,7 @@ export default function CourseVideoScreen() {
 
   // Handle video progress update
   const updateProgress = async () => {
-    // Only show alert if not already completed
+    // Only update if video was actually watched
     if (params.status === "Done" || isCompleted) {
       console.log('Chapter already completed, no need to update progress');
       return;
@@ -872,9 +855,12 @@ export default function CourseVideoScreen() {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
-        Alert.alert("Error", "Please login again");
+        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
         return;
       }
+
+      // Show loading indicator
+      setLoading(true);
 
       console.log('Sending progress update request...');
       const response = await axios.put(
@@ -891,11 +877,29 @@ export default function CourseVideoScreen() {
       console.log('API response:', response.data);
 
       if (response.data?.isSuccess) {
+        // Update local state to reflect completion
         setChapterStatus("Done");
+        
+        // Also update the completedLessons state
+        setCompletedLessons(prev => ({
+          ...prev,
+          [chapterId]: true
+        }));
+        
+        // Save to localStorage for persistence
+        try {
+          const savedLessons = await AsyncStorage.getItem('completedLessons');
+          const lessonsObj = savedLessons ? JSON.parse(savedLessons) : {};
+          lessonsObj[chapterId] = true;
+          await AsyncStorage.setItem('completedLessons', JSON.stringify(lessonsObj));
+        } catch (err) {
+          console.error('Error saving completion status:', err);
+        }
+        
         // Show success message and navigate
         Alert.alert(
-          "Success",
-          "Your progress has been updated",
+          "Thành công",
+          "Tiến độ của bạn đã được cập nhật",
           [
             {
               text: "OK",
@@ -915,18 +919,20 @@ export default function CourseVideoScreen() {
         );
       } else {
         Alert.alert(
-          "Error",
-          response.data?.message || "Unable to update progress",
+          "Lỗi",
+          response.data?.message || "Không thể cập nhật tiến độ",
           [{ text: "OK" }]
         );
       }
     } catch (error) {
       console.error('Error updating progress:', error);
       Alert.alert(
-        "Error",
-        "Unable to update progress. Please try again later.",
+        "Lỗi",
+        "Không thể cập nhật tiến độ. Vui lòng thử lại sau.",
         [{ text: "OK" }]
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -999,49 +1005,40 @@ export default function CourseVideoScreen() {
   const renderChapterItem = ({ item, index }) => {
     const isCurrentChapter = item.chapterId === chapterId;
     
-    // Kiểm tra xem chương đã hoàn thành chưa từ state completedLessons
-    // Đảm bảo rằng việc hiển thị dấu tích xanh luôn phản ánh đúng trạng thái
-    const isChapterCompleted = completedLessons[item.chapterId] === true;
+    // Only consider a chapter completed if it's explicitly marked as "Done" or in completedLessons
+    const isChapterCompleted = item.status === "Done" || completedLessons[item.chapterId] === true;
     
     return (
       <TouchableOpacity 
         style={[
-          styles.chapterButton,
-          isCurrentChapter && styles.currentChapterButton,
-          isChapterCompleted && styles.completedChapterButton
+          styles.chapterItem,
+          isCurrentChapter && styles.currentChapterItem,
+          isChapterCompleted && styles.completedChapterItem
         ]}
         onPress={() => navigateToChapter(item)}
+        disabled={isCurrentChapter}
       >
-        <View style={styles.chapterButtonContent}>
-          <View style={styles.chapterInfo}>
-            <Text style={[
-              styles.chapterNumber, 
-              isCurrentChapter && styles.currentChapterText
-            ]}>
-              Chapter {index + 1}
-            </Text>
-            <Text style={[
-              styles.chapterTitle, 
-              isCurrentChapter && styles.currentChapterText
-            ]} numberOfLines={2}>
-              {item.title}
-            </Text>
-          </View>
-          <View style={styles.chapterStatus}>
-            {isCurrentChapter ? (
-              <View style={styles.currentIndicator}>
-                <Ionicons name="play" size={16} color="#fff" />
-              </View>
-            ) : isChapterCompleted ? (
-              <View style={styles.completedIndicator}>
-                <Ionicons name="checkmark" size={18} color="#fff" />
-              </View>
-            ) : (
-              <View style={styles.incompleteIndicator}>
-                <Ionicons name="lock-open" size={14} color="#999" />
-              </View>
-            )}
-          </View>
+        <View style={styles.chapterItemContent}>
+          <Text style={styles.chapterNumber}>
+            Chương {index + 1}
+          </Text>
+          <Text style={styles.chapterItemTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+        </View>
+        
+        <View style={[
+          styles.chapterIndicator,
+          isCurrentChapter && styles.currentIndicator,
+          isChapterCompleted && styles.completedIndicator
+        ]}>
+          {isCurrentChapter ? (
+            <Ionicons name="play" size={16} color="#FFF" />
+          ) : isChapterCompleted ? (
+            <Ionicons name="checkmark" size={16} color="#FFF" />
+          ) : (
+            <Ionicons name="lock-open" size={16} color="#666" />
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -1240,9 +1237,40 @@ export default function CourseVideoScreen() {
   };
 
   const navigateToChapter = (chapter) => {
+    // Check if the chapter is already completed
+    const isAlreadyCompleted = chapter.status === "Done" || completedLessons[chapter.chapterId] === true;
+    
+    if (isAlreadyCompleted) {
+      // Show alert to user
+      Alert.alert(
+        "Bài học đã hoàn thành",
+        "Bạn đã hoàn thành bài học này. Bạn có muốn học bài học khác không?",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              // Navigate back to course chapters screen when OK is pressed
+              router.replace({
+                pathname: '/(tabs)/course_chapter',
+                params: { 
+                  courseId: courseId,
+                  shouldRefresh: Date.now()
+                }
+              });
+            }
+          }
+        ]
+      );
+      return;
+    }
+    
+    // Continue with normal navigation for non-completed chapters
     if (videoRef.current) {
       videoRef.current.stopAsync().catch(e => console.log('Error stopping video:', e));
     }
+    
+    // Reset completion alert flag when navigating
+    hasShownCompletionAlert.current = false;
     
     router.replace({
       pathname: '/(tabs)/course_video',
@@ -1250,10 +1278,25 @@ export default function CourseVideoScreen() {
         courseId,
         chapterId: chapter.chapterId,
         enrollCourseId,
+        status: chapter.status,
         shouldRefresh: Date.now()
       }
     });
   };
+
+  // Add this to the useEffect that runs when chapterData changes (around line 1180)
+  useEffect(() => {
+    // ... existing code
+    
+    // Show alert when loading an already completed chapter
+    if (chapterData && (isCompleted || params.status === "Done")) {
+      Alert.alert(
+        "Bài học đã hoàn thành",
+        "Bạn đã hoàn thành bài học này. Nếu muốn học nội dung mới, vui lòng chọn bài học khác.",
+        [{ text: "OK" }]
+      );
+    }
+  }, [chapterData, isCompleted, params.status]);
 
   return (
     <View style={styles.container}>
@@ -1360,6 +1403,7 @@ export default function CourseVideoScreen() {
                   
                   {courseContent.map((item, index) => {
                     const isCurrentChapter = item.chapterId === chapterId;
+                    // Only consider a chapter completed if it's explicitly marked as "Done" or in completedLessons
                     const isChapterCompleted = item.status === "Done" || completedLessons[item.chapterId] === true;
                     
                     return (
