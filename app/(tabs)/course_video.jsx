@@ -1171,8 +1171,13 @@ export default function CourseVideoScreen() {
 
   // Thêm useEffect để reset hasShownCompletionAlert khi chuyển chapter
   useEffect(() => {
-    // Reset biến khi chapterId thay đổi
+    // Reset when chapter changes
     hasShownCompletionAlert.current = false;
+    
+    // Check if chapter is already completed from previous data
+    if (chapterId) {
+      loadCompletedLessons();
+    }
   }, [chapterId]);
 
   const handleVideoComplete = async () => {
@@ -1278,7 +1283,7 @@ export default function CourseVideoScreen() {
         courseId,
         chapterId: chapter.chapterId,
         enrollCourseId,
-        status: chapter.status,
+        status: chapter.status, // Pass the current status without modifying it
         shouldRefresh: Date.now()
       }
     });
@@ -1301,7 +1306,7 @@ export default function CourseVideoScreen() {
   return (
     <View style={styles.container}>
       <StatusBar 
-        barStyle={isIOS ? "light-content" : "dark-content"} 
+        barStyle="light-content" 
         backgroundColor="#8B0000" 
         translucent={true}
       />
@@ -1315,7 +1320,7 @@ export default function CourseVideoScreen() {
           <TouchableOpacity 
             onPress={handleBack} 
             style={styles.backButton}
-            hitSlop={{ top: 10, left: 10, bottom: 10, right: 10 }}
+            hitSlop={{ top: 15, left: 15, bottom: 15, right: 15 }}
           >
             <Ionicons name="chevron-back" size={24} color="#FFF" />
           </TouchableOpacity>
@@ -1325,18 +1330,12 @@ export default function CourseVideoScreen() {
               {chapterData?.title || 'Đang tải bài học...'}
             </Text>
             
-            {chapterStatus === "Done" && (
-              <View style={styles.completedBadge}>
-                <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                <Text style={styles.completedText}>Đã hoàn thành</Text>
-              </View>
-            )}
           </View>
         </View>
       </SafeAreaView>
       
-      {/* Rest of your UI */}
-      <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+      {/* Main Content */}
+      <View style={styles.mainContent}>
         {/* Video Player Container */}
         <View style={styles.videoContainer}>
           {chapterData?.video ? (
@@ -1344,7 +1343,7 @@ export default function CourseVideoScreen() {
           ) : (
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.loadingText}>Loading video information...</Text>
+              <Text style={styles.loadingText}>Đang tải video...</Text>
             </View>
           )}
         </View>
@@ -1366,21 +1365,7 @@ export default function CourseVideoScreen() {
                   </Text>
                 </View>
                 
-                {chapterStatus && (
-                  <View style={[
-                    styles.statusIndicator, 
-                    chapterStatus === "Done" ? styles.completedStatus : styles.inProgressStatus
-                  ]}>
-                    {chapterStatus === "Done" ? (
-                      <Ionicons name="checkmark-circle" size={16} color="#FFF" />
-                    ) : (
-                      <Ionicons name="time" size={16} color="#FFF" />
-                    )}
-                    <Text style={styles.statusText}>
-                      {chapterStatus === "Done" ? "Đã hoàn thành" : "Đang học"}
-                    </Text>
-                  </View>
-                )}
+                
                 
                 {/* Chapter Description */}
                 {chapterData.description && (
@@ -1401,47 +1386,55 @@ export default function CourseVideoScreen() {
                     <Text style={styles.navigationTitle}>Nội dung khóa học</Text>
                   </View>
                   
-                  {courseContent.map((item, index) => {
-                    const isCurrentChapter = item.chapterId === chapterId;
-                    // Only consider a chapter completed if it's explicitly marked as "Done" or in completedLessons
-                    const isChapterCompleted = item.status === "Done" || completedLessons[item.chapterId] === true;
-                    
-                    return (
-                      <TouchableOpacity 
-                        key={item.chapterId}
-                        style={[
-                          styles.chapterItem,
-                          isCurrentChapter && styles.currentChapterItem,
-                          isChapterCompleted && styles.completedChapterItem
-                        ]}
-                        onPress={() => navigateToChapter(item)}
-                        disabled={isCurrentChapter}
-                      >
-                        <View style={styles.chapterItemContent}>
-                          <Text style={styles.chapterNumber}>
-                            Chương {index + 1}
-                          </Text>
-                          <Text style={styles.chapterItemTitle} numberOfLines={2}>
-                            {item.title}
-                          </Text>
-                        </View>
-                        
-                        <View style={[
-                          styles.chapterIndicator,
-                          isCurrentChapter && styles.currentIndicator,
-                          isChapterCompleted && styles.completedIndicator
-                        ]}>
-                          {isCurrentChapter ? (
-                            <Ionicons name="play" size={16} color="#FFF" />
-                          ) : isChapterCompleted ? (
-                            <Ionicons name="checkmark" size={16} color="#FFF" />
-                          ) : (
-                            <Ionicons name="lock-open" size={16} color="#666" />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  <View style={styles.chaptersContainer}>
+                    {courseContent.map((item, index) => {
+                      const isCurrentChapter = item.chapterId === chapterId;
+                      const isChapterCompleted = item.status === "Done" || completedLessons[item.chapterId] === true;
+                      
+                      return (
+                        <TouchableOpacity 
+                          key={item.chapterId}
+                          style={[
+                            styles.chapterItem,
+                            isCurrentChapter && styles.currentChapterItem,
+                            isChapterCompleted && styles.completedChapterItem
+                          ]}
+                          onPress={() => navigateToChapter(item)}
+                          disabled={isCurrentChapter}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.chapterItemLeft}>
+                            <View style={[
+                              styles.chapterIndicator,
+                              isCurrentChapter && styles.currentIndicator,
+                              isChapterCompleted && styles.completedIndicator
+                            ]}>
+                              {isCurrentChapter ? (
+                                <Ionicons name="play" size={16} color="#FFF" />
+                              ) : isChapterCompleted ? (
+                                <Ionicons name="checkmark" size={16} color="#FFF" />
+                              ) : (
+                                <Ionicons name="lock-open" size={16} color="#666" />
+                              )}
+                            </View>
+                          </View>
+                          
+                          <View style={styles.chapterItemContent}>
+                            <Text style={styles.chapterNumber}>
+                              Chương {index + 1}
+                            </Text>
+                            <Text style={[
+                              styles.chapterItemTitle,
+                              isCurrentChapter && styles.currentChapterTitle,
+                              isChapterCompleted && styles.completedChapterTitle
+                            ]} numberOfLines={2}>
+                              {item.title}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
               )}
             </>
@@ -1472,14 +1465,13 @@ export default function CourseVideoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: scale(16),
-    paddingTop: isIOS ? scale(8) : scale(12),
-    paddingBottom: scale(12),
+    paddingHorizontal: width * 0.04,
+    paddingVertical: height * 0.015,
     backgroundColor: '#8B0000',
   },
   backButton: {
@@ -1495,7 +1487,7 @@ const styles = StyleSheet.create({
     marginLeft: scale(12),
   },
   headerTitle: {
-    fontSize: scale(16),
+    fontSize: Math.min(scale(18), 22),
     fontWeight: 'bold',
     color: '#FFF',
     letterSpacing: 0.2,
@@ -1504,29 +1496,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: scale(4),
+    backgroundColor: 'rgba(76, 175, 80, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
   },
   completedText: {
     fontSize: scale(12),
-    color: '#4CAF50',
+    color: '#FFF',
     marginLeft: scale(4),
     fontWeight: '500',
+  },
+  mainContent: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
   },
   videoContainer: {
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: '#000',
     overflow: 'hidden',
-  },
-  playerWrapper: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#000',
-    position: 'relative',
-  },
-  videoPlayer: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#000',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1534,21 +1526,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
-  loaderCard: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    borderRadius: scale(12),
-    padding: scale(20),
-    alignItems: 'center',
-  },
-  loadingOverlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  },
-  errorOverlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  },
   loadingText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: scale(14),
     marginTop: 10,
     textAlign: 'center',
   },
@@ -1556,6 +1536,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: scale(14),
     textAlign: 'center',
+    marginHorizontal: scale(20),
     marginVertical: scale(12),
     lineHeight: scale(20),
   },
@@ -1564,7 +1545,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(24),
     paddingVertical: scale(10),
     borderRadius: scale(20),
-    marginTop: scale(8),
+    marginTop: scale(12),
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
   },
   retryText: {
     color: '#FFF',
@@ -1573,15 +1559,15 @@ const styles = StyleSheet.create({
   },
   contentScroll: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
   },
   contentContainer: {
-    padding: scale(16),
-    paddingBottom: scale(32),
+    padding: width * 0.04,
+    paddingBottom: height * 0.08,
   },
   chapterInfoCard: {
     backgroundColor: '#FFF',
-    borderRadius: scale(12),
+    borderRadius: scale(16),
     padding: scale(16),
     marginBottom: scale(16),
     ...Platform.select({
@@ -1589,10 +1575,10 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
@@ -1602,7 +1588,7 @@ const styles = StyleSheet.create({
     marginBottom: scale(12),
   },
   chapterTitle: {
-    fontSize: scale(16),
+    fontSize: Math.min(scale(17), 22),
     fontWeight: 'bold',
     color: '#222',
     marginLeft: scale(8),
@@ -1611,11 +1597,11 @@ const styles = StyleSheet.create({
   statusIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: scale(10),
-    paddingVertical: scale(4),
-    borderRadius: scale(12),
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(6),
+    borderRadius: scale(16),
     alignSelf: 'flex-start',
-    marginBottom: scale(12),
+    marginBottom: scale(16),
   },
   completedStatus: {
     backgroundColor: '#4CAF50',
@@ -1626,36 +1612,42 @@ const styles = StyleSheet.create({
   statusText: {
     color: '#FFF',
     fontSize: scale(12),
-    fontWeight: '500',
+    fontWeight: '600',
     marginLeft: scale(4),
   },
   descriptionContainer: {
     marginTop: scale(8),
+    backgroundColor: '#F9F9FA',
+    padding: scale(12),
+    borderRadius: scale(10),
+    borderLeftWidth: 3,
+    borderLeftColor: '#8B0000',
   },
   descriptionTitle: {
     fontSize: scale(14),
-    fontWeight: '600',
-    color: '#444',
-    marginBottom: scale(6),
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: scale(8),
   },
   descriptionText: {
     fontSize: scale(14),
-    color: '#666',
-    lineHeight: scale(20),
+    color: '#555',
+    lineHeight: scale(22),
   },
   navigationCard: {
     backgroundColor: '#FFF',
-    borderRadius: scale(12),
+    borderRadius: scale(16),
     padding: scale(16),
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
@@ -1663,54 +1655,81 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: scale(16),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    paddingBottom: scale(12),
   },
   navigationTitle: {
-    fontSize: scale(16),
+    fontSize: Math.min(scale(16), 20),
     fontWeight: 'bold',
     color: '#222',
     marginLeft: scale(8),
   },
+  chaptersContainer: {
+    marginTop: scale(8),
+  },
   chapterItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: scale(12),
-    paddingHorizontal: scale(12),
+    marginBottom: scale(12),
     backgroundColor: '#F9F9F9',
-    borderRadius: scale(8),
-    marginBottom: scale(8),
+    borderRadius: scale(12),
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  chapterItemLeft: {
+    padding: scale(10),
   },
   currentChapterItem: {
-    backgroundColor: 'rgba(139, 0, 0, 0.1)',
-    borderLeftWidth: 3,
+    backgroundColor: 'rgba(139, 0, 0, 0.08)',
+    borderLeftWidth: 4,
     borderLeftColor: '#8B0000',
   },
   completedChapterItem: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    borderLeftWidth: 3,
+    backgroundColor: 'rgba(76, 175, 80, 0.08)',
+    borderLeftWidth: 4,
     borderLeftColor: '#4CAF50',
   },
   chapterItemContent: {
     flex: 1,
+    padding: scale(10),
+    paddingLeft: 0,
   },
   chapterNumber: {
     fontSize: scale(12),
     color: '#666',
     marginBottom: scale(4),
+    fontWeight: '500',
   },
   chapterItemTitle: {
     fontSize: scale(14),
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#333',
+    lineHeight: scale(20),
+  },
+  currentChapterTitle: {
+    color: '#8B0000',
+  },
+  completedChapterTitle: {
+    color: '#4CAF50',
   },
   chapterIndicator: {
-    width: scale(28),
-    height: scale(28),
-    borderRadius: scale(14),
-    backgroundColor: '#DDD',
+    width: scale(32),
+    height: scale(32),
+    borderRadius: scale(16),
+    backgroundColor: '#DEDEDE',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: scale(12),
   },
   currentIndicator: {
     backgroundColor: '#8B0000',
@@ -1718,26 +1737,58 @@ const styles = StyleSheet.create({
   completedIndicator: {
     backgroundColor: '#4CAF50',
   },
-  completedChapterButton: {
-    backgroundColor: '#e0e0e0',
+  actionBar: {
+    padding: scale(16),
+    backgroundColor: '#FFF',
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
-  currentChapterText: {
+  completeButton: {
+    backgroundColor: '#8B0000',
+    borderRadius: scale(30),
+    paddingVertical: scale(14),
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#8B0000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  completeButtonText: {
+    color: '#FFF',
+    fontSize: Math.min(scale(16), 18),
     fontWeight: 'bold',
-  },
-  mainContainer: {
-    flex: 1,
-  },
-  videoWrapper: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: '#000',
-    position: 'relative',
-    overflow: 'hidden',
+    marginLeft: scale(8),
   },
   video: {
     flex: 1,
     backgroundColor: '#000',
     width: '100%',
     height: '100%',
+  },
+  loadingOverlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  errorOverlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
   },
 });

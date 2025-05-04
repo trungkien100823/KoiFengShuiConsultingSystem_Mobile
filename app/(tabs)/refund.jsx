@@ -11,7 +11,9 @@ import {
   Alert,
   StatusBar,
   Dimensions,
-  Platform
+  Platform,
+  Modal,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,8 +35,10 @@ export default function RefundScreen() {
   const [error, setError] = useState(null);
   const router = useRouter();
   const [refresh, setRefresh] = useState(0);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedRefund, setSelectedRefund] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
-  // Fetch refunds when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       fetchRefunds();
@@ -64,13 +68,10 @@ export default function RefundScreen() {
 
       console.log('Refunds API response:', response.data);
       
-      // Add detailed logging for the first item to see field names
       if (response.data?.isSuccess && response.data.data && response.data.data.length > 0) {
         console.log('First refund item structure:', JSON.stringify(response.data.data[0], null, 2));
         
-        // Map data to ensure consistent field names
         const processedData = response.data.data.map(item => {
-          // Check all possible field names for these properties
           const transactionId = item.transactionId || item.id || item.paymentId || item.refundId || item.orderId || '';
           const requestDate = item.requestDate || item.createdDate || item.createDate || item.date || item.orderDate || null;
           const refundDate = item.refundDate || item.completedDate || item.processedDate || null;
@@ -105,25 +106,19 @@ export default function RefundScreen() {
     if (!dateString) return 'N/A';
     
     try {
-      // Convert string to date object
       let date;
       
       if (typeof dateString === 'string') {
-        // Try parsing different formats
         if (dateString.includes('T')) {
-          // ISO format (e.g. "2023-08-15T14:30:00")
           date = new Date(dateString);
         } else if (dateString.includes('/')) {
-          // DD/MM/YYYY format
           const parts = dateString.split('/');
           if (parts.length === 3) {
-            // Month is 0-indexed in JavaScript Date
             date = new Date(parts[2], parts[1] - 1, parts[0]);
           } else {
             date = new Date(dateString);
           }
         } else {
-          // Try Unix timestamp
           const timestamp = parseInt(dateString);
           if (!isNaN(timestamp)) {
             date = new Date(timestamp);
@@ -138,18 +133,15 @@ export default function RefundScreen() {
         return 'N/A';
       }
       
-      // Check if date is valid
       if (isNaN(date.getTime())) {
         console.error('Invalid date:', dateString);
         return 'N/A';
       }
       
-      // Format date as DD/MM/YYYY
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const year = date.getFullYear();
       
-      // Also add time if available
       const hours = date.getHours().toString().padStart(2, '0');
       const minutes = date.getMinutes().toString().padStart(2, '0');
       
@@ -170,19 +162,48 @@ export default function RefundScreen() {
     
     const statusLower = typeof status === 'string' ? status.toLowerCase() : '';
     
+    // UI-only translations
     switch (statusLower) {
+      // Payment related statuses
       case 'pending': return 'Đang xử lý';
       case 'processing': return 'Đang xử lý';
       case 'approved': return 'Đã phê duyệt';
       case 'accepted': return 'Đã chấp nhận';
+      case 'completed': return 'Đã hoàn tất';
+      case 'paid': return 'Đã thanh toán';
+      case 'unpaid': return 'Chưa thanh toán';
+      
+      // Refund specific statuses
+      case 'refunded': return 'Đã hoàn tiền';
+      case 'refundpending': return 'Đang xử lý hoàn tiền';
+      case 'refundprocessing': return 'Đang xử lý hoàn tiền';
+      case 'refundapproved': return 'Đã duyệt hoàn tiền';
+      case 'refundcompleted': return 'Đã hoàn tiền';
+      case 'refundrejected': return 'Từ chối hoàn tiền';
+      case 'managerrefunded': return 'Chờ xác nhận nhận tiền';
+      case 'receivedrefund': return 'Đã nhận tiền hoàn';
+      
+      // Rejection statuses
       case 'rejected': return 'Đã từ chối';
       case 'denied': return 'Đã từ chối';
+      
+      // Cancellation statuses
       case 'cancelled': return 'Đã hủy';
       case 'canceled': return 'Đã hủy';
-      case 'completed': return 'Đã hoàn tiền';
-      case 'refunded': return 'Đã hoàn tiền';
+      
+      // Other statuses
       case 'expired': return 'Đã hết hạn';
       case 'failed': return 'Thất bại';
+      case 'success': return 'Thành công';
+      case 'new': return 'Mới';
+      case 'inprogress': return 'Đang tiến hành';
+      case 'waiting': return 'Đang chờ';
+      case 'confirming': return 'Đang xác nhận';
+      case 'confirmed': return 'Đã xác nhận';
+      case 'verifying': return 'Đang xác minh';
+      case 'verified': return 'Đã xác minh';
+      
+      // Fallback
       default: return status ? `${status}` : 'Không xác định';
     }
   };
@@ -193,24 +214,109 @@ export default function RefundScreen() {
     const statusLower = typeof status === 'string' ? status.toLowerCase() : '';
     
     switch (statusLower) {
-      case 'pending': return '#FF9800'; // Orange
-      case 'processing': return '#2196F3'; // Blue
-      case 'approved': return '#4CAF50'; // Green
-      case 'accepted': return '#4CAF50'; // Green
-      case 'rejected': return '#F44336'; // Red
-      case 'denied': return '#F44336'; // Red
-      case 'cancelled': return '#9E9E9E'; // Gray
-      case 'canceled': return '#9E9E9E'; // Gray
-      case 'completed': return '#8BC34A'; // Light Green
-      case 'refunded': return '#8BC34A'; // Light Green
+      // Processing statuses - blue/orange variants
+      case 'pending': 
+      case 'processing':
+      case 'refundpending':
+      case 'refundprocessing':
+      case 'confirming':
+      case 'verifying':
+      case 'waiting':
+      case 'inprogress':
+        return '#2196F3'; // Blue
+      
+      // Approved/Success statuses - green variants
+      case 'approved':
+      case 'accepted':
+      case 'completed':
+      case 'paid':
+      case 'success':
+      case 'refundapproved':
+      case 'refundcompleted':
+      case 'refunded':
+      case 'receivedrefund':
+      case 'confirmed':
+      case 'verified':
+        return '#4CAF50'; // Green
+      
+      // Rejected/Denied statuses - red variants
+      case 'rejected':
+      case 'denied':
+      case 'refundrejected':
+      case 'failed':
+        return '#F44336'; // Red
+      
+      // Cancelled statuses - grey variants
+      case 'cancelled':
+      case 'canceled':
+        return '#9E9E9E'; // Grey
+      
+      // Special statuses
+      case 'managerrefunded': return '#9C27B0'; // Purple
       case 'expired': return '#795548'; // Brown
-      case 'failed': return '#E91E63'; // Pink
-      default: return '#9C27B0'; // Purple for unknown
+      case 'unpaid': return '#FF9800'; // Orange
+      case 'new': return '#00BCD4'; // Cyan
+      
+      // Default color for unknown statuses
+      default: return '#9C27B0'; // Purple
+    }
+  };
+
+  const confirmRefundReceived = async (orderId) => {
+    if (!orderId) {
+      Alert.alert("Lỗi", "Không tìm thấy mã giao dịch");
+      return;
+    }
+    
+    try {
+      setConfirmLoading(true);
+      
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
+        router.replace('/(tabs)/Login');
+        return;
+      }
+      
+      console.log('Sending confirmation for transaction:', orderId);
+      
+      const response = await axios.put(
+        `${API_CONFIG.baseURL}/api/Payment/customer-confirm-received?id=${orderId}`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Confirmation response:', response.data);
+      
+      if (response.data && response.data.isSuccess) {
+        Alert.alert(
+          "Thành công",
+          "Bạn đã xác nhận nhận được tiền hoàn",
+          [{ text: "OK", onPress: () => {
+            setModalVisible(false);
+            fetchRefunds();
+          }}]
+        );
+      } else {
+        throw new Error(response.data?.message || "Không thể xác nhận");
+      }
+    } catch (error) {
+      console.error('Error confirming refund received:', error);
+      Alert.alert(
+        "Lỗi",
+        error.message || "Đã xảy ra lỗi khi xác nhận. Vui lòng thử lại sau."
+      );
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
   const renderRefundItem = ({ item }) => {
-    // Try multiple possible field names for each property
     const transactionId = item.transactionId || item.id || item.paymentId || item.refundId || item.orderId || 'N/A';
     const customerName = item.customerName || item.userName || item.fullName || item.name || 'N/A';
     const serviceType = item.serviceType || item.type || item.orderType || item.paymentType || 'N/A';
@@ -220,27 +326,29 @@ export default function RefundScreen() {
     const status = item.status || item.state || 'pending';
     const reason = item.reason || item.message || item.description || item.note || '';
     
-    console.log('Rendering item with dates:', { 
-      requestDate, 
-      refundDate,
-      originalRequestDate: item.requestDate,
-      originalRefundDate: item.refundDate
-    });
-
+    // Normalize status for consistent checking
+    const statusLower = status ? status.toLowerCase() : '';
+    
+    // Define which statuses can be confirmed (keep this logic for backend communication)
+    const canConfirm = statusLower === 'managerrefunded';
+    
     return (
       <TouchableOpacity
         style={styles.refundCard}
         onPress={() => {
-          Alert.alert('Thông tin chi tiết', 
-            `Mã giao dịch: ${transactionId}\n` +
-            `Loại giao dịch: ${serviceType}\n` +
-            `Khách hàng: ${customerName}\n` +
-            `Số tiền: ${formatCurrency(amount)}\n` +
-            `Ngày yêu cầu: ${formatDate(requestDate)}\n` +
-            `Ngày hoàn tiền: ${formatDate(refundDate)}\n` +
-            `Trạng thái: ${getStatusLabel(status)}\n` +
-            `Lý do: ${reason || 'Không có'}`
-          );
+          setSelectedRefund({
+            transactionId,
+            serviceType,
+            customerName,
+            amount,
+            requestDate,
+            refundDate,
+            status,
+            reason,
+            orderId: item.orderId || item.id || transactionId,
+            canConfirm
+          });
+          setModalVisible(true);
         }}
       >
         <View style={styles.refundHeader}>
@@ -291,7 +399,6 @@ export default function RefundScreen() {
           )}
         </View>
         
-        {/* Status timeline indicator */}
         <View style={[styles.statusTimeline, { backgroundColor: getStatusColor(status) + '20' }]}>
           <View style={styles.statusTimelineItem}>
             <Ionicons 
@@ -330,10 +437,8 @@ export default function RefundScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#8B0000" translucent={true} />
       
-      {/* Status bar spacer */}
       <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: '#8B0000' }} />
       
-      {/* Header */}
       <LinearGradient
         colors={['#8B0000', '#600000']}
         start={{ x: 0, y: 0 }}
@@ -406,6 +511,107 @@ export default function RefundScreen() {
           }
         />
       )}
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chi tiết hoàn tiền</Text>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="close" size={22} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+            
+            {selectedRefund && (
+              <View style={styles.modalContent}>
+                <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Mã giao dịch:</Text>
+                    <Text style={styles.detailValue}>{selectedRefund.transactionId}</Text>
+                  </View>
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Khách hàng:</Text>
+                    <Text style={styles.detailValue}>{selectedRefund.customerName}</Text>
+                  </View>
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Loại dịch vụ:</Text>
+                    <Text style={styles.detailValue}>{selectedRefund.serviceType}</Text>
+                  </View>
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Số tiền:</Text>
+                    <Text style={[styles.detailValue, styles.amountText]}>
+                      {formatCurrency(selectedRefund.amount)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Ngày yêu cầu:</Text>
+                    <Text style={styles.detailValue}>{formatDate(selectedRefund.requestDate)}</Text>
+                  </View>
+                  
+                  {selectedRefund.refundDate && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Ngày hoàn tiền:</Text>
+                      <Text style={styles.detailValue}>{formatDate(selectedRefund.refundDate)}</Text>
+                    </View>
+                  )}
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Trạng thái:</Text>
+                    <View style={[styles.statusBadgeMini, { backgroundColor: getStatusColor(selectedRefund.status) }]}>
+                      <Text style={styles.statusTextMini}>{getStatusLabel(selectedRefund.status)}</Text>
+                    </View>
+                  </View>
+                  
+                  {selectedRefund.reason && (
+                    <View style={styles.reasonContainerModal}>
+                      <Text style={styles.reasonLabelModal}>Lý do:</Text>
+                      <Text style={styles.reasonTextModal}>{selectedRefund.reason}</Text>
+                    </View>
+                  )}
+                </ScrollView>
+                
+                {selectedRefund.status && selectedRefund.status.toLowerCase() === 'managerrefunded' && (
+                  <View style={styles.modalFooter}>
+                    <TouchableOpacity
+                      style={styles.confirmButton}
+                      onPress={() => confirmRefundReceived(selectedRefund.orderId)}
+                      disabled={confirmLoading}
+                    >
+                      <LinearGradient
+                        colors={['#4CAF50', '#388E3C']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.confirmButtonGradient}
+                      >
+                        {confirmLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                            <Text style={styles.confirmButtonText}>Xác nhận đã nhận tiền hoàn</Text>
+                          </>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -639,5 +845,139 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     fontSize: 13,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: width * 0.9,
+    maxHeight: height * 0.7,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  modalHeader: {
+    backgroundColor: '#8B0000',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 15,
+    top: 12,
+  },
+  modalContent: {
+    maxHeight: height * 0.55,
+  },
+  modalScrollView: {
+    padding: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  detailLabel: {
+    fontSize: 15,
+    color: '#666',
+    fontWeight: '500',
+    flex: 1,
+  },
+  detailValue: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '600',
+    flex: 1.5,
+    textAlign: 'right',
+  },
+  amountText: {
+    color: '#8B0000',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  statusBadgeMini: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 15,
+    alignSelf: 'flex-end',
+  },
+  statusTextMini: {
+    fontSize: 13,
+    color: '#FFF',
+    fontWeight: 'bold',
+  },
+  reasonContainerModal: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#8B0000',
+  },
+  reasonLabelModal: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8,
+  },
+  reasonTextModal: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+  },
+  confirmButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    marginTop: 5,
+  },
+  confirmButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  confirmButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    textAlign: 'center',
   },
 });
