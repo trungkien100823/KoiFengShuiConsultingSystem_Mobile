@@ -55,6 +55,7 @@ export default function CertificateDetailsScreen() {
       setLoading(true);
       const response = await certificateService.getEnrollCertificateByEnrollCourseId(id);
       if (response.isSuccess) {
+        console.log('Certificate image URL:', response.data.certificateImageUrl);
         setCertificate(response.data);
         if (response.data.introduction) {
           const items = response.data.introduction.split(',').map(item => item.trim());
@@ -72,13 +73,23 @@ export default function CertificateDetailsScreen() {
   };
 
   const handleImageLoad = () => {
+    console.log('Certificate image loaded successfully');
     setImageLoading(false);
     setImageError(false);
   };
 
   const handleImageError = () => {
+    console.error('Failed to load certificate image:', certificate.certificateImageUrl);
     setImageLoading(false);
     setImageError(true);
+  };
+
+  const retryImageLoad = () => {
+    console.log('Retrying image load');
+    setImageLoading(true);
+    setImageError(false);
+    // Force a remount of the Image component by toggling a key
+    setCertificate({...certificate, _imageKey: Date.now()});
   };
 
   const toggleZoom = (event) => {
@@ -201,14 +212,20 @@ export default function CertificateDetailsScreen() {
             </View>
           )}
           <Image
-            source={certificate.certificateImageUrl}
+            source={{ uri: certificate.certificateImageUrl }}
             style={[styles.certificateImage, imageError && styles.errorImage]}
             resizeMode="contain"
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
           {imageError ? (
-            <Text style={styles.errorText}>Không thể tải hình ảnh chứng chỉ</Text>
+            <View style={styles.imageErrorContainer}>
+              <Ionicons name="image-outline" size={scale(40)} color="#8B0000" />
+              <Text style={styles.errorText}>Không thể tải hình ảnh chứng chỉ</Text>
+              <TouchableOpacity onPress={retryImageLoad} style={styles.retryImageButton}>
+                <Text style={styles.retryImageText}>Thử lại</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <Text style={styles.zoomHint}>Nhấn vào ảnh để xem</Text>
           )}
@@ -293,7 +310,7 @@ export default function CertificateDetailsScreen() {
           >
             <Animated.View style={[styles.modalImageContainer, rStyle]}>
               <Image
-                source={certificate.certificateImageUrl}
+                source={{ uri: certificate.certificateImageUrl }}
                 style={styles.modalImage}
                 resizeMode="contain"
               />
@@ -535,5 +552,22 @@ const styles = StyleSheet.create({
   modalImage: {
     width: '90%',
     height: '90%',
+  },
+  imageErrorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: scale(16),
+  },
+  retryImageButton: {
+    backgroundColor: '#8B0000',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(8),
+    borderRadius: scale(8),
+    marginTop: scale(8),
+  },
+  retryImageText: {
+    color: '#FFF',
+    fontWeight: '600',
+    fontSize: scale(14),
   },
 }); 
