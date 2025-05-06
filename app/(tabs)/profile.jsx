@@ -203,7 +203,7 @@ export default function ProfileScreen() {
             {user ? (
               <View style={styles.userInfoContainer}>
                 <Image 
-                  source={user.imageUrl ? { uri: user.imageUrl } : require('../../assets/images/default-avatar.png')} 
+                  source={user.imageUrl ? { uri: user.imageUrl } : require('../../assets/images/AVATAR.png')} 
                   style={styles.avatar} 
                 />
                 <View style={styles.userInfoTextContainer}>

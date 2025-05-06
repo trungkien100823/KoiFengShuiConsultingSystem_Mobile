@@ -253,12 +253,6 @@ export default function YourCertificateScreen() {
         
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Chứng chỉ của bạn</Text>
-          <Text style={styles.headerSubtitle}>
-            {certificates.length > 0 
-              ? `${certificates.length} chứng chỉ đã nhận` 
-              : 'Hoàn thành khóa học để nhận chứng chỉ'
-            }
-          </Text>
         </View>
       </LinearGradient>
 

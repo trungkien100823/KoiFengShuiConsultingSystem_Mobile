@@ -56,41 +56,54 @@ export default function RefundScreen() {
         return;
       }
 
-      const response = await axios.get(
-        `${API_CONFIG.baseURL}/api/Payment/get-manager-refunded-for-mobile`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      try {
+        const response = await axios.get(
+          `${API_CONFIG.baseURL}/api/Payment/get-manager-refunded-for-mobile`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
           }
-        }
-      );
+        );
 
-      console.log('Refunds API response:', response.data);
-      
-      if (response.data?.isSuccess && response.data.data && response.data.data.length > 0) {
-        console.log('First refund item structure:', JSON.stringify(response.data.data[0], null, 2));
+        console.log('Refunds API response:', response.data);
         
-        const processedData = response.data.data.map(item => {
-          const transactionId = item.transactionId || item.id || item.paymentId || item.refundId || item.orderId || '';
-          const requestDate = item.requestDate || item.createdDate || item.createDate || item.date || item.orderDate || null;
-          const refundDate = item.refundDate || item.completedDate || item.processedDate || null;
+        if (response.data?.isSuccess && response.data.data && response.data.data.length > 0) {
+          console.log('First refund item structure:', JSON.stringify(response.data.data[0], null, 2));
           
-          return {
-            ...item,
-            transactionId,
-            requestDate,
-            refundDate
-          };
-        });
+          const processedData = response.data.data.map(item => {
+            const transactionId = item.transactionId || item.id || item.paymentId || item.refundId || item.orderId || '';
+            const requestDate = item.requestDate || item.createdDate || item.createDate || item.date || item.orderDate || null;
+            const refundDate = item.refundDate || item.completedDate || item.processedDate || null;
+            
+            return {
+              ...item,
+              transactionId,
+              requestDate,
+              refundDate
+            };
+          });
+          
+          setRefunds(processedData);
+        } else {
+          setRefunds(response.data.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching refunds:', error);
         
-        setRefunds(processedData);
-      } else {
-        setRefunds(response.data.data || []);
+        // Check if it's a 404 error (no refunds)
+        if (error.response && error.response.status === 404) {
+          // Set empty refunds array, no error
+          setRefunds([]);
+        } else {
+          // For other errors, show the actual error
+          setError(error.message || 'Đã có lỗi xảy ra khi tải danh sách hoàn tiền');
+        }
       }
     } catch (error) {
-      console.error('Error fetching refunds:', error);
-      setError(error.message || 'Đã có lỗi xảy ra khi tải danh sách hoàn tiền');
+      console.error('Error in fetch refunds function:', error);
+      setError('Đã có lỗi xảy ra. Vui lòng thử lại sau.');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -419,8 +432,13 @@ export default function RefundScreen() {
 
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="cash-outline" size={60} color="#8B0000" style={styles.emptyIcon} />
-      <Text style={styles.emptyText}>Không có yêu cầu hoàn tiền nào</Text>
+      <View style={styles.emptyIconContainer}>
+        <Ionicons name="cash-outline" size={60} color="#FFF" />
+      </View>
+      <Text style={styles.emptyText}>Chưa có yêu cầu hoàn tiền</Text>
+      <Text style={styles.emptySubText}>
+        Khi bạn có yêu cầu hoàn tiền, chúng sẽ được hiển thị tại đây
+      </Text>
     </View>
   );
 
@@ -819,15 +837,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 50,
+    paddingHorizontal: 20,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#8B0000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#8B0000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   emptyIcon: {
-    marginBottom: 15,
-    opacity: 0.6,
+    opacity: 0.8,
   },
   emptyText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  emptySubText: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 20,
   },
   statusTimeline: {
     padding: 10,

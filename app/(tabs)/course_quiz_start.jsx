@@ -63,19 +63,28 @@ export default function CourseQuizStartScreen() {
         throw new Error('Vui lòng đăng nhập để xem bài kiểm tra');
       }
 
-      // Tạo key duy nhất cho mỗi user và quiz
-      const userQuizKey = `${token}_${courseId}_completed`;
+      // Create a more specific key for the quiz completion status
+      const quizCompletionKey = `quiz_${courseId}_attempted`;
       
-      // Kiểm tra trạng thái hoàn thành từ AsyncStorage với key của user
-      const completedQuizzes = await AsyncStorage.getItem(userQuizKey);
-      if (completedQuizzes) {
-        const quizzes = JSON.parse(completedQuizzes);
-        setHasCompletedQuiz(!!quizzes);
-      } else {
+      // Check the saved quiz completion status
+      try {
+        const completionStatus = await AsyncStorage.getItem(quizCompletionKey);
+        console.log('Saved quiz completion status:', completionStatus);
+        
+        // If there's any saved status, consider the quiz as attempted
+        if (completionStatus) {
+          console.log('Quiz was previously attempted, setting hasCompletedQuiz to true');
+          setHasCompletedQuiz(true);
+        } else {
+          console.log('No previous attempts found for this quiz');
+          setHasCompletedQuiz(false);
+        }
+      } catch (error) {
+        console.error('Error checking quiz completion status:', error);
         setHasCompletedQuiz(false);
       }
       
-      // Xóa cache cũ
+      // Clear old cache data, but keep the completion status
       await AsyncStorage.removeItem(`quiz_${courseId}_data`);
       
       console.log(`Fetching quiz data for course: ${courseId}`);
@@ -99,8 +108,6 @@ export default function CourseQuizStartScreen() {
       
       if (result.isSuccess && result.data) {
         console.log('Quiz Data:', result.data);
-        console.log('Question Count Type:', typeof result.data.questionCount);
-        console.log('Question Count Value:', result.data.questionCount);
         
         const quizData = {
           ...result.data,
@@ -109,9 +116,9 @@ export default function CourseQuizStartScreen() {
         
         setQuizData(quizData);
         
-        // Lưu vào cache
+        // Save quiz data to cache
         await AsyncStorage.setItem(`quiz_${courseId}_data`, JSON.stringify(quizData));
-        console.log('Saved to cache:', quizData);
+        console.log('Saved quiz data to cache');
         
         if (quizData.quizId) {
           setQuizId(quizData.quizId);
@@ -121,10 +128,9 @@ export default function CourseQuizStartScreen() {
           setQuizTitle(quizData.title);
         }
 
-        // Lưu questionCount vào AsyncStorage để sử dụng sau này
+        // Save questionCount for later use
         if (quizData.questionCount) {
           await AsyncStorage.setItem(`quiz_${quizData.quizId}_questionCount`, quizData.questionCount.toString());
-          console.log('Saved question count:', quizData.questionCount);
         }
       } else {
         setError(result.message || 'Không thể tải thông tin bài kiểm tra');
@@ -160,6 +166,25 @@ export default function CourseQuizStartScreen() {
       return;
     }
     
+    // Mark the quiz as attempted
+    const markQuizAsAttempted = async () => {
+      try {
+        // Store the quiz attempt status with timestamp
+        const quizCompletionKey = `quiz_${courseId}_attempted`;
+        await AsyncStorage.setItem(quizCompletionKey, Date.now().toString());
+        console.log('Marked quiz as attempted:', quizCompletionKey);
+        
+        // Also update local state
+        setHasCompletedQuiz(true);
+      } catch (error) {
+        console.error('Error marking quiz as attempted:', error);
+      }
+    };
+    
+    // Mark the quiz as attempted
+    markQuizAsAttempted();
+    
+    // Navigate to the quiz
     router.push({
       pathname: '/(tabs)/course_quiz',
       params: { 
