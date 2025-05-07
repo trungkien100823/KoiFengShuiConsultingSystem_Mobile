@@ -209,32 +209,7 @@ export default function CourseQuizScreen() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Cập nhật hàm startTimer để đảm bảo timer hoạt động đúng
-  const startTimer = () => {
-    // Clear any existing timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    
-    // Chỉ start timer khi timeRemaining > 0
-    if (timeRemaining > 0) {
-      // Start new timer that counts down every second
-      timerRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          const newTime = prev - 1;
-          if (newTime <= 0) {
-            // When time runs out, clear timer and submit the quiz
-            clearInterval(timerRef.current);
-            handleQuizSubmission();
-            return 0;
-          }
-          return newTime;
-        });
-      }, 1000);
-    }
-  };
-
-  // Fetch questions
+  // Cập nhật hàm fetchQuestions để đảm bảo timer được khởi tạo đúng
   const fetchQuestions = async () => {
     try {
       setLoading(true);
@@ -280,6 +255,11 @@ export default function CourseQuizScreen() {
         if (timeLimit > 0) {
           setTimeRemaining(timeLimitInSeconds);
           setInitialTimeInSeconds(timeLimitInSeconds);
+          
+          // Khởi động timer ngay sau khi set state
+          setTimeout(() => {
+            startTimer();
+          }, 100);
         } else {
           setTimeRemaining(0);
           setInitialTimeInSeconds(0);
@@ -295,6 +275,11 @@ export default function CourseQuizScreen() {
         if (timeLimit > 0) {
           setTimeRemaining(timeLimitInSeconds);
           setInitialTimeInSeconds(timeLimitInSeconds);
+          
+          // Khởi động timer ngay sau khi set state
+          setTimeout(() => {
+            startTimer();
+          }, 100);
         } else {
           setTimeRemaining(0);
           setInitialTimeInSeconds(0);
@@ -325,6 +310,42 @@ export default function CourseQuizScreen() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Cải thiện hàm startTimer để hoạt động đúng
+  const startTimer = () => {
+    console.log('Starting timer with time remaining:', timeRemaining);
+    
+    // Clear any existing timer
+    if (timerRef.current) {
+      console.log('Clearing existing timer');
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // Chỉ start timer khi timeRemaining > 0
+    if (timeRemaining > 0) {
+      console.log('Creating new timer interval');
+      // Start new timer that counts down every second
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          const newTime = prev - 1;
+          if (newTime <= 0) {
+            // When time runs out, clear timer and submit the quiz
+            console.log('Time expired, submitting quiz');
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+            handleQuizSubmission();
+            return 0;
+          }
+          return newTime;
+        });
+      }, 1000);
+      
+      console.log('Timer started with interval ID:', timerRef.current);
+    } else {
+      console.log('Not starting timer because timeRemaining <= 0');
     }
   };
 
@@ -368,14 +389,18 @@ export default function CourseQuizScreen() {
     scrollRef.current?.scrollTo({ x: 0, y: 0, animated: true });
   };
 
-  // Update the handleQuizSubmission function to use raw correct/total counts
+  // Sửa lại hàm handleQuizSubmission để đảm bảo thời gian được tính đúng
   const handleQuizSubmission = async () => {
     try {
       // Stop timer
-      clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       
       // Tính thời gian hoàn thành (giây)
-      const timeSpentInSeconds = initialTimeInSeconds - timeRemaining;
+      const timeSpentInSeconds = Math.max(initialTimeInSeconds - timeRemaining, 1);
+      console.log('Quiz submitted. Time spent:', timeSpentInSeconds, 'seconds');
       
       // Format answers for API submission
       const answerIds = Object.entries(selectedAnswers).map(([index, answerId]) => {
@@ -423,6 +448,7 @@ export default function CourseQuizScreen() {
             correctAnswers: apiResult.correctAnswers,
             totalQuestions: apiResult.totalQuestions,
             percentage: percentage,
+            timeSpent: timeSpentInSeconds,
             date: new Date().toISOString()
           };
           await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));
@@ -469,6 +495,7 @@ export default function CourseQuizScreen() {
             correctAnswers: correctAnswers,
             totalQuestions: totalQuestions,
             percentage: percentage,
+            timeSpent: timeSpentInSeconds,
             date: new Date().toISOString()
           };
           await AsyncStorage.setItem('completedQuizzes', JSON.stringify(completedQuizzes));

@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '../../constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
+import { paymentService } from '../../constants/paymentService';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +34,7 @@ export default function CourseDetailsScreen() {
   const [courseDetails, setCourseDetails] = useState(null);
   const [masterInfo, setMasterInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   
   // Thêm hàm handleBack
   const handleBack = () => {
@@ -151,6 +153,59 @@ export default function CourseDetailsScreen() {
       }
     }
     return true;
+  };
+
+  // Hàm xử lý thanh toán trực tiếp
+  const handleDirectPayment = async () => {
+    try {
+      setIsPaymentLoading(true);
+      
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục');
+        router.push('login');
+        return;
+      }
+
+      // Gọi API tạo URL thanh toán
+      const result = await paymentService.createPaymentUrl(
+        courseDetails.id, 
+        paymentService.SERVICE_TYPES.COURSE
+      );
+
+      setIsPaymentLoading(false);
+
+      if (result.success && result.paymentUrl) {
+        // Chuyển sang màn hình thanh toán
+        router.push({
+          pathname: '/(tabs)/payment_webview',
+          params: {
+            paymentUrl: result.paymentUrl,
+            serviceId: courseDetails.id,
+            serviceType: paymentService.SERVICE_TYPES.COURSE,
+            serviceInfo: {
+              courseId: courseDetails.id,
+              courseTitle: courseDetails.title,
+              coursePrice: courseDetails.price
+            },
+            orderId: result.orderId,
+            returnScreen: 'course_chapter'
+          }
+        });
+      } else {
+        throw new Error(result.message || 'Không thể tạo liên kết thanh toán');
+      }
+    } catch (error) {
+      console.error('Lỗi xử lý thanh toán:', error);
+      setIsPaymentLoading(false);
+      
+      // Hiển thị thông báo lỗi từ backend thay vì thông báo cố định
+      Alert.alert(
+        'Thông báo',
+        error.message || 'Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   // Render loading state
@@ -415,18 +470,18 @@ export default function CourseDetailsScreen() {
             {shouldShowBuyButton() && (
               <View style={styles.buttonsContainer}>
                 <TouchableOpacity 
-                  style={styles.buyButton}
-                  onPress={() => router.push({
-                    pathname: '../(tabs)/course_payment',
-                    params: {
-                      courseId: courseDetails.id,
-                      courseTitle: courseDetails.title,
-                      coursePrice: courseDetails.price,
-                      courseImage: courseDetails.image.uri
-                    }
-                  })}
+                  style={[styles.buyButton, isPaymentLoading && styles.buyButtonDisabled]}
+                  onPress={handleDirectPayment}
+                  disabled={isPaymentLoading}
                 >
-                  <Text style={styles.buyButtonText}>Mua</Text>
+                  {isPaymentLoading ? (
+                    <View style={styles.loadingButtonContent}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <Text style={[styles.buyButtonText, {marginLeft: 8}]}>Đang xử lý...</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.buyButtonText}>Mua</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
@@ -1020,5 +1075,13 @@ const styles = StyleSheet.create({
     fontSize: Math.round(width * 0.04),
     textAlign: 'center',
     letterSpacing: 0.5,
+  },
+  buyButtonDisabled: {
+    opacity: 0.7,
+  },
+  loadingButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

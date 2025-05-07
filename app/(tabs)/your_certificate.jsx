@@ -352,7 +352,6 @@ export default function YourCertificateScreen() {
                     courseName: cert.courseName,
                     masterName: cert.masterName,
                     createDate: cert.createDate,
-                    point: cert.point,
                     description: cert.description,
                     introduction: cert.introduction
                   }
@@ -367,9 +366,13 @@ export default function YourCertificateScreen() {
                       resizeMode="cover"
                     />
                     <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.3)']}
+                      colors={['transparent', 'rgba(0,0,0,0.7)']}
                       style={styles.imageGradient}
                     />
+                    <View style={styles.certificateBadge}>
+                      <Ionicons name="ribbon-outline" size={scale(16)} color="#FFF" />
+                      <Text style={styles.certificateBadgeText}>Chứng chỉ</Text>
+                    </View>
                   </View>
                   
                   <View style={styles.certificateContent}>
@@ -381,7 +384,7 @@ export default function YourCertificateScreen() {
                       <View style={styles.certificateMetaRow}>
                         <View style={styles.metaItem}>
                           <Ionicons name="person" size={scale(14)} color="#666" />
-                          <Text style={styles.instructorName}>
+                          <Text style={styles.instructorName} numberOfLines={1}>
                             {cert.masterName || 'Chưa có thông tin'}
                           </Text>
                         </View>
@@ -396,15 +399,9 @@ export default function YourCertificateScreen() {
                     </View>
                     
                     <View style={styles.certificateFooter}>
-                      {cert.point && (
-                        <View style={styles.pointBadge}>
-                          <Text style={styles.pointText}>{cert.point} điểm</Text>
-                        </View>
-                      )}
-                      
                       <View style={styles.viewDetailsButton}>
-                        <Text style={styles.viewDetailsText}>Chi tiết</Text>
-                        <Ionicons name="chevron-forward" size={scale(14)} color="#8B0000" />
+                        <Text style={styles.viewDetailsText}>Xem chi tiết</Text>
+                        <Ionicons name="chevron-forward" size={scale(14)} color="#FFF" />
                       </View>
                     </View>
                   </View>
@@ -512,15 +509,17 @@ const styles = StyleSheet.create({
     borderRadius: scale(12),
     overflow: 'hidden',
     backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
@@ -529,8 +528,8 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   certificateImageContainer: {
-    width: scale(100),
-    height: scale(100),
+    width: scale(120),
+    height: scale(120),
     position: 'relative',
   },
   certificateImage: {
@@ -544,6 +543,23 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  certificateBadge: {
+    position: 'absolute',
+    top: scale(8),
+    left: scale(8),
+    backgroundColor: 'rgba(139, 0, 0, 0.8)',
+    borderRadius: scale(12),
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  certificateBadgeText: {
+    color: '#FFF',
+    fontSize: scale(10),
+    fontWeight: 'bold',
+    marginLeft: scale(4),
+  },
   certificateContent: {
     flex: 1,
     padding: scale(12),
@@ -556,20 +572,22 @@ const styles = StyleSheet.create({
     fontSize: scale(16),
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: scale(6),
+    marginBottom: scale(8),
+    lineHeight: scale(22),
   },
   certificateMetaRow: {
-    marginTop: scale(2),
+    marginTop: scale(4),
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: scale(4),
+    marginBottom: scale(6),
   },
   instructorName: {
     fontSize: scale(13),
     color: '#666',
     marginLeft: scale(6),
+    flex: 1,
   },
   certificateDate: {
     fontSize: scale(13),
@@ -578,31 +596,26 @@ const styles = StyleSheet.create({
   },
   certificateFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: scale(4),
-  },
-  pointBadge: {
-    backgroundColor: 'rgba(139, 0, 0, 0.1)',
-    paddingHorizontal: scale(8),
-    paddingVertical: scale(4),
-    borderRadius: scale(12),
-  },
-  pointText: {
-    fontSize: scale(12),
-    color: '#8B0000',
-    fontWeight: '600',
+    marginTop: scale(8),
+    paddingTop: scale(8),
+    borderTopWidth: 1,
+    borderTopColor: '#f5f5f5',
   },
   viewDetailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: scale(6),
+    backgroundColor: '#8B0000',
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(6),
+    borderRadius: scale(20),
   },
   viewDetailsText: {
     fontSize: scale(13),
-    color: '#8B0000',
+    color: '#FFF',
     fontWeight: '600',
-    marginRight: scale(2),
+    marginRight: scale(4),
   },
   
   loadingContainer: {

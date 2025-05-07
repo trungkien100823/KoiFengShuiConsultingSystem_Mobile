@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-const DEV_API_URL = 'http://192.168.1.194:5261';
-//const DEV_API_URL = 'https://koifengshui-001-site1.ltempurl.com';
+//const DEV_API_URL = 'http://192.168.1.194:5261';
+const DEV_API_URL = 'https://koifengshui-001-site1.ltempurl.com';
 
 export const API_CONFIG = {
   baseURL: DEV_API_URL,
@@ -95,7 +95,7 @@ export const API_CONFIG = {
     getAllCategory: '/api/Category/get-all',
 
     // consulting package endpoints
-    getAllConsultationPackages: '/api/ConsultationPackage/get-all',
+    getAllConsultationPackages: '/api/ConsultationPackage/get-all-for-mobile',
     getConsultingPackageDetails: '/api/ConsultationPackage/get-by/{id}',
 
     // contract endpoints

@@ -16,6 +16,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 
+  (Platform.isPad ? 20 : 44) : 
+  StatusBar.currentHeight || 0;
+
 export default function CalculationResult() {
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -89,26 +93,9 @@ export default function CalculationResult() {
       <StatusBar barStyle="light-content" backgroundColor={scoreColor} />
       
       {/* Header */}
+      <View style={{ height: STATUS_BAR_HEIGHT, backgroundColor: scoreColor }} />
       <View style={[styles.header, { backgroundColor: scoreColor }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push({
-            pathname: '/(tabs)/fish_details',
-            params: {
-              id: params.koiVarietyId,
-              koiVarietyId: params.koiVarietyId,
-              name: params.koiName || 'Unknown',
-              description: params.description || 'Chưa có mô tả.',
-              introduction: params.introduction || '',
-              imageName: params.imageName,
-              liked: params.liked || 'false',
-              size: params.size || '2',
-              timestamp: Date.now()
-            }
-          })}
-        >
-          <Ionicons name="chevron-back" size={28} color="#FFF" />
-        </TouchableOpacity>
+        <View style={styles.headerLeftSpace} />
         <Text style={styles.headerTitle}>Kết Quả Phong Thủy</Text>
         <View style={styles.headerRight} />
       </View>
@@ -273,8 +260,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 8 : 16,
-    paddingBottom: 16,
+    paddingVertical: 16,
+    backgroundColor: '#8B0000',
+    zIndex: 1,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -285,13 +273,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFF',
+    textAlign: 'center',
+    flex: 1,
+  },
+  headerLeftSpace: {
+    width: 28,
   },
   headerRight: {
     width: 28,
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
   },
   scrollView: {
     flex: 1,
