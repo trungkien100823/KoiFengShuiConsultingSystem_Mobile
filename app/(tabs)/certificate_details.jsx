@@ -251,13 +251,6 @@ export default function CertificateDetailsScreen() {
                 Ngày hoàn thành: {new Date(certificate.createDate).toLocaleDateString()}
               </Text>
             </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="trophy" size={scale(20)} color="#8B0000" />
-              </View>
-              <Text style={styles.infoText}>Điểm số: {formatPoint(certificate.point)}</Text>
-            </View>
           </View>
 
           {/* Description Section */}

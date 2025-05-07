@@ -517,12 +517,18 @@ export default function FishDetails() {
         translucent={true}
       />
       
-      {/* Header with cleaner gradient and better shadow */}
+      <View 
+        style={{ 
+          height: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight,
+          backgroundColor: COLORS.primary 
+        }} 
+      />
+
       <LinearGradient
         colors={[COLORS.primary, COLORS.primaryDark]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 10 : 16 }]}
       >
         <TouchableOpacity
           style={styles.backButton}
@@ -967,7 +973,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 16,
     paddingBottom: 16,
     elevation: 4,
     shadowColor: COLORS.black,

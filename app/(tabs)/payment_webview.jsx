@@ -60,11 +60,15 @@ export default function PaymentWebView() {
           }
         );
 
-        
-
         if (response.data && response.data.isSuccess) {
           
-          // Đợi 5 giây rồi chuyển màn hình
+          // Hiển thị thông báo thành công
+          Alert.alert(
+            'Thanh toán thành công',
+            'Đơn hàng của bạn đang được xử lý. Bạn sẽ được chuyển về trang chủ sau 5 giây.'
+          );
+          
+          // Tự động chuyển về menu sau 5 giây
           setTimeout(() => {
             navigation.navigate('menu');
           }, 5000);
@@ -91,7 +95,14 @@ export default function PaymentWebView() {
 
     // Xử lý khi hủy thanh toán
     if (currentUrl.includes('cancel')) {
-      navigation.navigate('menu');
+      if (serviceType === 'Course' && serviceInfo?.courseId) {
+        navigation.navigate('/(tabs)/course_details', {
+          courseId: serviceInfo.courseId,
+          source: 'payment_cancel'
+        });
+      } else {
+        navigation.navigate('menu');
+      }
       return;
     }
   };
